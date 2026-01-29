@@ -1,268 +1,1 @@
-17:28:26.424025 exec-cmd.c:145          trace: resolved executable path from Darwin stack: /Applications/Xcode.app/Contents/Developer/usr/bin/git
-17:28:26.424352 exec-cmd.c:267          trace: resolved executable dir: /Applications/Xcode.app/Contents/Developer/usr/bin
-17:28:26.424567 trace.c:416             performance: 0.000018000 s: git command: /Applications/Xcode.app/Contents/Developer/usr/bin/git
-17:31:03.529405 exec-cmd.c:145          trace: resolved executable path from Darwin stack: /Applications/Xcode.app/Contents/Developer/usr/bin/git
-17:31:03.529662 exec-cmd.c:267          trace: resolved executable dir: /Applications/Xcode.app/Contents/Developer/usr/bin
-/Users/mz/ghq/github.com/mizchi/git/tools/git-shim/bin/git: fork: Resource temporarily unavailable
-fatal: expected object ID, got garbage:
- garbage
-
-fatal: expected object ID, got garbage:
- 
-
-fatal: disallowed abbreviated or ambiguous option 'stdin'
-fatal: could not find pack '139b20d8e6c5b496de61f033f642d0e3dbff528d'
-Enumerating objects: 8, done.
-Counting objects:  12% (1/8)Counting objects:  25% (2/8)Counting objects:  37% (3/8)Counting objects:  50% (4/8)Counting objects:  62% (5/8)Counting objects:  75% (6/8)Counting objects:  87% (7/8)Counting objects: 100% (8/8)Counting objects: 100% (8/8), done.
-Writing objects:  12% (1/8)Writing objects:  25% (2/8)Writing objects:  37% (3/8)Writing objects:  50% (4/8)Writing objects:  62% (5/8)Writing objects:  75% (6/8)Writing objects:  87% (7/8)Writing objects: 100% (8/8)Writing objects: 100% (8/8), done.
-Total 8 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)
-Enumerating objects: 8, done.
-Counting objects:  12% (1/8)Counting objects:  25% (2/8)Counting objects:  37% (3/8)Counting objects:  50% (4/8)Counting objects:  62% (5/8)Counting objects:  75% (6/8)Counting objects:  87% (7/8)Counting objects: 100% (8/8)Counting objects: 100% (8/8), done.
-Writing objects:  12% (1/8)Writing objects:  25% (2/8)Writing objects:  37% (3/8)Writing objects:  50% (4/8)Writing objects:  62% (5/8)Writing objects:  75% (6/8)Writing objects:  87% (7/8)Writing objects: 100% (8/8)Writing objects: 100% (8/8), done.
-Total 8 (delta 0), reused 0 (delta 0), pack-reused 0 (from 0)
-usage: git pack-objects --stdout [<options>] [< <ref-list> | < <object-list>]
-   or: git pack-objects [<options>] <base-name> [< <ref-list> | < <object-list>]
-
-    -q, --[no-]quiet      do not show progress meter
-    --[no-]progress       show progress meter
-    --[no-]all-progress   show progress meter during object writing phase
-    --[no-]all-progress-implied
-                          similar to --all-progress when progress meter is shown
-    --index-version <version>[,<offset>]
-                          write the pack index file in the specified idx format version
-    --max-pack-size <n>   maximum size of each output pack file
-    --[no-]local          ignore borrowed objects from alternate object store
-    --[no-]incremental    ignore packed objects
-    --[no-]window <n>     limit pack window by objects
-    --window-memory <n>   limit pack window by memory in addition to object limit
-    --[no-]depth <n>      maximum length of delta chain allowed in the resulting pack
-    --[no-]reuse-delta    reuse existing deltas
-    --[no-]reuse-object   reuse existing objects
-    --[no-]delta-base-offset
-                          use OFS_DELTA objects
-    --[no-]threads <n>    use threads when searching for best delta matches
-    --[no-]non-empty      do not create an empty pack output
-    --[no-]revs           read revision arguments from standard input
-    --unpacked            limit the objects to those that are not yet packed
-    --all                 include objects reachable from any reference
-    --reflog              include objects referred by reflog entries
-    --indexed-objects     include objects referred to by the index
-    --[no-]stdin-packs    read packs from stdin
-    --[no-]stdout         output pack to stdout
-    --[no-]include-tag    include tag objects that refer to objects to be packed
-    --[no-]keep-unreachable
-                          keep unreachable objects
-    --[no-]pack-loose-unreachable
-                          pack loose unreachable objects
-    --[no-]unpack-unreachable[=<time>]
-                          unpack unreachable objects newer than <time>
-    --[no-]cruft          create a cruft pack
-    --[no-]cruft-expiration[=<time>]
-                          expire cruft objects older than <time>
-    --[no-]sparse         use the sparse reachability algorithm
-    --[no-]thin           create thin packs
-    --[no-]shallow        create packs suitable for shallow fetches
-    --[no-]honor-pack-keep
-                          ignore packs that have companion .keep file
-    --[no-]keep-pack <name>
-                          ignore this pack
-    --[no-]compression <n>
-                          pack compression level
-    --[no-]keep-true-parents
-                          do not hide commits by grafts
-    --[no-]use-bitmap-index
-                          use a bitmap index if available to speed up counting objects
-    --[no-]write-bitmap-index
-                          write a bitmap index together with the pack index
-    --[no-]filter <args>  object filtering
-    --missing <action>    handling for missing objects
-    --[no-]exclude-promisor-objects
-                          do not pack objects in promisor packfiles
-    --[no-]exclude-promisor-objects-best-effort
-                          implies --missing=allow-any
-    --[no-]delta-islands  respect islands during delta compression
-    --[no-]uri-protocol <protocol>
-                          exclude any configured uploadpack.blobpackfileuri with this protocol
-    --[no-]name-hash-version <n>
-                          use the specified name-hash function to group similar objects
-
-Enumerating objects: 8, done.
-Counting objects:  12% (1/8)Counting objects:  25% (2/8)Counting objects:  37% (3/8)Counting objects:  50% (4/8)Counting objects:  62% (5/8)Counting objects:  75% (6/8)Counting objects:  87% (7/8)Counting objects: 100% (8/8)Counting objects: 100% (8/8), done.
-Delta compression using up to 10 threads
-Compressing objects:  12% (1/8)Compressing objects:  25% (2/8)Compressing objects:  37% (3/8)Compressing objects:  50% (4/8)Compressing objects:  62% (5/8)Compressing objects:  75% (6/8)Compressing objects:  87% (7/8)Compressing objects: 100% (8/8)Compressing objects: 100% (8/8), done.
-Writing objects:  12% (1/8)Writing objects:  25% (2/8)Writing objects:  37% (3/8)Writing objects:  50% (4/8)Writing objects:  62% (5/8)Writing objects:  75% (6/8)Writing objects: 100% (8/8)Writing objects: 100% (8/8), done.
-Total 8 (delta 1), reused 0 (delta 0), pack-reused 0 (from 0)
-Enumerating objects: 8, done.
-Counting objects:  12% (1/8)Counting objects:  25% (2/8)Counting objects:  37% (3/8)Counting objects:  50% (4/8)Counting objects:  62% (5/8)Counting objects:  75% (6/8)Counting objects:  87% (7/8)Counting objects: 100% (8/8)Counting objects: 100% (8/8), done.
-Delta compression using up to 10 threads
-Compressing objects:  12% (1/8)Compressing objects:  25% (2/8)Compressing objects:  37% (3/8)Compressing objects:  50% (4/8)Compressing objects:  62% (5/8)Compressing objects:  75% (6/8)Compressing objects:  87% (7/8)Compressing objects: 100% (8/8)Compressing objects: 100% (8/8), done.
-Writing objects:  12% (1/8)Writing objects:  25% (2/8)Writing objects:  37% (3/8)Writing objects:  50% (4/8)Writing objects:  62% (5/8)Writing objects:  75% (6/8)Writing objects: 100% (8/8)Writing objects: 100% (8/8), done.
-Total 8 (delta 1), reused 0 (delta 0), pack-reused 0 (from 0)
-fatal: sha1 file 'test-3.idx' validation error
-fatal: pack signature mismatch
-fatal: pack version 10 unsupported
-fatal: pack has bad object at offset 12: unknown object type 0
-fatal: sha1 file 'test-3.idx' validation error
-fatal: object of unexpected type
-fatal: did not receive expected object 0042f6c56d8fc1896f3efc2cdc5060e5b5e44e02
-error: object 754157ff66855f3f8d7afaa92a2c052776b99a16: missingEmail: invalid author/committer line - missing email
-fatal: fsck error in packed object
-error: object 754157ff66855f3f8d7afaa92a2c052776b99a16: missingEmail: invalid author/committer line - missing email
-fatal: fsck error in packed object
-warning: minimum pack size limit is 1 MiB
-fatal: --stdin requires a git repository
-warning: minimum pack size limit is 1 MiB
-notice: HEAD points to an unborn branch (master)
-notice: No default references
-fatal: SHA1 COLLISION FOUND WITH c82de19312b6c3695c0c18f70709a6c535682a67 !
-fatal: SHA1 COLLISION FOUND WITH c82de19312b6c3695c0c18f70709a6c535682a67 !
-Cloning into 'client'...
-From file:///Users/mz/ghq/github.com/mizchi/git/third_party/git/t/trash directory.t5300-pack-object/server
- * branch            a9c9a2938d723a122aa8e03710f837cd647b4f30 -> FETCH_HEAD
-To file:///Users/mz/ghq/github.com/mizchi/git/third_party/git/t/trash directory.t5300-pack-object/server
- * [new branch]      a9c9a2938d723a122aa8e03710f837cd647b4f30 -> two_branch
-error: wrong index v2 file size in /Users/mz/ghq/github.com/mizchi/git/third_party/git/t/trash directory.t5300-pack-object/repo/.git/objects/pack/pack-1b1240ab533163a4b525e5814f51ec3256428f79647ff13f19dfc1f2fe16cc2a.idx
-fatal: Cannot open existing pack idx file for '/Users/mz/ghq/github.com/mizchi/git/third_party/git/t/trash directory.t5300-pack-object/repo/.git/objects/pack/pack-1b1240ab533163a4b525e5814f51ec3256428f79647ff13f19dfc1f2fe16cc2a.idx'
-error: wrong index v2 file size in /Users/mz/ghq/github.com/mizchi/git/third_party/git/t/trash directory.t5300-pack-object/repo/.git/objects/pack/pack-62c17f34b94c733eb858b057e720f742b795510d9fb40dc62609ec7e1d5527ae.idx
-fatal: Cannot open existing pack idx file for '/Users/mz/ghq/github.com/mizchi/git/third_party/git/t/trash directory.t5300-pack-object/repo/.git/objects/pack/pack-62c17f34b94c733eb858b057e720f742b795510d9fb40dc62609ec7e1d5527ae.idx'
-warning: minimum pack size limit is 1 MiB
-warning: minimum pack size limit is 1 MiB
-warning: minimum pack size limit is 1 MiB
-warning: minimum pack size limit is 1 MiB
-fatal: invalid --name-hash-version option: 0
-warning: minimum pack size limit is 1 MiB
-warning: currently, --write-bitmap-index requires --name-hash-version=1
-error: unknown option `path-walk'
-usage: git pack-objects --stdout [<options>] [< <ref-list> | < <object-list>]
-   or: git pack-objects [<options>] <base-name> [< <ref-list> | < <object-list>]
-
-    -q, --[no-]quiet      do not show progress meter
-    --[no-]progress       show progress meter
-    --[no-]all-progress   show progress meter during object writing phase
-    --[no-]all-progress-implied
-                          similar to --all-progress when progress meter is shown
-    --index-version <version>[,<offset>]
-                          write the pack index file in the specified idx format version
-    --max-pack-size <n>   maximum size of each output pack file
-    --[no-]local          ignore borrowed objects from alternate object store
-    --[no-]incremental    ignore packed objects
-    --[no-]window <n>     limit pack window by objects
-    --window-memory <n>   limit pack window by memory in addition to object limit
-    --[no-]depth <n>      maximum length of delta chain allowed in the resulting pack
-    --[no-]reuse-delta    reuse existing deltas
-    --[no-]reuse-object   reuse existing objects
-    --[no-]delta-base-offset
-                          use OFS_DELTA objects
-    --[no-]threads <n>    use threads when searching for best delta matches
-    --[no-]non-empty      do not create an empty pack output
-    --[no-]revs           read revision arguments from standard input
-    --unpacked            limit the objects to those that are not yet packed
-    --all                 include objects reachable from any reference
-    --reflog              include objects referred by reflog entries
-    --indexed-objects     include objects referred to by the index
-    --[no-]stdin-packs    read packs from stdin
-    --[no-]stdout         output pack to stdout
-    --[no-]include-tag    include tag objects that refer to objects to be packed
-    --[no-]keep-unreachable
-                          keep unreachable objects
-    --[no-]pack-loose-unreachable
-                          pack loose unreachable objects
-    --[no-]unpack-unreachable[=<time>]
-                          unpack unreachable objects newer than <time>
-    --[no-]cruft          create a cruft pack
-    --[no-]cruft-expiration[=<time>]
-                          expire cruft objects older than <time>
-    --[no-]sparse         use the sparse reachability algorithm
-    --[no-]thin           create thin packs
-    --[no-]shallow        create packs suitable for shallow fetches
-    --[no-]honor-pack-keep
-                          ignore packs that have companion .keep file
-    --[no-]keep-pack <name>
-                          ignore this pack
-    --[no-]compression <n>
-                          pack compression level
-    --[no-]keep-true-parents
-                          do not hide commits by grafts
-    --[no-]use-bitmap-index
-                          use a bitmap index if available to speed up counting objects
-    --[no-]write-bitmap-index
-                          write a bitmap index together with the pack index
-    --[no-]filter <args>  object filtering
-    --missing <action>    handling for missing objects
-    --[no-]exclude-promisor-objects
-                          do not pack objects in promisor packfiles
-    --[no-]exclude-promisor-objects-best-effort
-                          implies --missing=allow-any
-    --[no-]delta-islands  respect islands during delta compression
-    --[no-]uri-protocol <protocol>
-                          exclude any configured uploadpack.blobpackfileuri with this protocol
-    --[no-]name-hash-version <n>
-                          use the specified name-hash function to group similar objects
-
-error: unknown option `path-walk'
-usage: git pack-objects --stdout [<options>] [< <ref-list> | < <object-list>]
-   or: git pack-objects [<options>] <base-name> [< <ref-list> | < <object-list>]
-
-    -q, --[no-]quiet      do not show progress meter
-    --[no-]progress       show progress meter
-    --[no-]all-progress   show progress meter during object writing phase
-    --[no-]all-progress-implied
-                          similar to --all-progress when progress meter is shown
-    --index-version <version>[,<offset>]
-                          write the pack index file in the specified idx format version
-    --max-pack-size <n>   maximum size of each output pack file
-    --[no-]local          ignore borrowed objects from alternate object store
-    --[no-]incremental    ignore packed objects
-    --[no-]window <n>     limit pack window by objects
-    --window-memory <n>   limit pack window by memory in addition to object limit
-    --[no-]depth <n>      maximum length of delta chain allowed in the resulting pack
-    --[no-]reuse-delta    reuse existing deltas
-    --[no-]reuse-object   reuse existing objects
-    --[no-]delta-base-offset
-                          use OFS_DELTA objects
-    --[no-]threads <n>    use threads when searching for best delta matches
-    --[no-]non-empty      do not create an empty pack output
-    --[no-]revs           read revision arguments from standard input
-    --unpacked            limit the objects to those that are not yet packed
-    --all                 include objects reachable from any reference
-    --reflog              include objects referred by reflog entries
-    --indexed-objects     include objects referred to by the index
-    --[no-]stdin-packs    read packs from stdin
-    --[no-]stdout         output pack to stdout
-    --[no-]include-tag    include tag objects that refer to objects to be packed
-    --[no-]keep-unreachable
-                          keep unreachable objects
-    --[no-]pack-loose-unreachable
-                          pack loose unreachable objects
-    --[no-]unpack-unreachable[=<time>]
-                          unpack unreachable objects newer than <time>
-    --[no-]cruft          create a cruft pack
-    --[no-]cruft-expiration[=<time>]
-                          expire cruft objects older than <time>
-    --[no-]sparse         use the sparse reachability algorithm
-    --[no-]thin           create thin packs
-    --[no-]shallow        create packs suitable for shallow fetches
-    --[no-]honor-pack-keep
-                          ignore packs that have companion .keep file
-    --[no-]keep-pack <name>
-                          ignore this pack
-    --[no-]compression <n>
-                          pack compression level
-    --[no-]keep-true-parents
-                          do not hide commits by grafts
-    --[no-]use-bitmap-index
-                          use a bitmap index if available to speed up counting objects
-    --[no-]write-bitmap-index
-                          write a bitmap index together with the pack index
-    --[no-]filter <args>  object filtering
-    --missing <action>    handling for missing objects
-    --[no-]exclude-promisor-objects
-                          do not pack objects in promisor packfiles
-    --[no-]exclude-promisor-objects-best-effort
-                          implies --missing=allow-any
-    --[no-]delta-islands  respect islands during delta compression
-    --[no-]uri-protocol <protocol>
-                          exclude any configured uploadpack.blobpackfileuri with this protocol
-    --[no-]name-hash-version <n>
-                          use the specified name-hash function to group similar objects
 

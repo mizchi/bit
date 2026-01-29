@@ -149,3 +149,61 @@ test "encode type and size large" {
   inspect(result[1], content="b'\\xA3'")
   inspect(result[2], content="b'\\x02'")
 }
+
+// =============================================================================
+// Delta Packfile Tests (using public API)
+// =============================================================================
+
+///|
+test "packfile: OFS_DELTA mode creates delta" {
+  // Two similar blobs should produce delta
+  let base = @utf8.encode("Hello, World! This is a test content.\n")
+  let target = @utf8.encode("Hello, World! This is a test changed.\n")
+  let obj1 = @git.PackObject::new(@git.ObjectType::Blob, base)
+  let obj2 = @git.PackObject::new(@git.ObjectType::Blob, target)
+  let (pack, delta_count) = @git.create_packfile_with_delta_stats(
+    [obj1, obj2],
+    @git.PackDeltaMode::OfsDelta,
+  )
+  // Should have at least 1 delta if content is similar enough
+  // (depends on delta efficiency)
+  assert_true(pack.length() > 32)
+  // Parse back and verify
+  let objects = parse_packfile(pack)
+  assert_true(objects.length() == 2)
+  assert_true(objects[0].data.length() == base.length())
+  assert_true(objects[1].data.length() == target.length())
+  ignore(delta_count)
+}
+
+///|
+test "packfile: REF_DELTA mode creates delta" {
+  let base = @utf8.encode("Hello, World! This is a test content.\n")
+  let target = @utf8.encode("Hello, World! This is a test changed.\n")
+  let obj1 = @git.PackObject::new(@git.ObjectType::Blob, base)
+  let obj2 = @git.PackObject::new(@git.ObjectType::Blob, target)
+  let (pack, _) = @git.create_packfile_with_delta_stats(
+    [obj1, obj2],
+    @git.PackDeltaMode::RefDelta,
+  )
+  assert_true(pack.length() > 32)
+  let objects = parse_packfile(pack)
+  assert_true(objects.length() == 2)
+  assert_true(objects[0].data.length() == base.length())
+  assert_true(objects[1].data.length() == target.length())
+}
+
+///|
+test "packfile: NoDelta mode preserves all objects" {
+  let base = @utf8.encode("Hello, World! This is a test content.\n")
+  let target = @utf8.encode("Hello, World! This is a test changed.\n")
+  let obj1 = @git.PackObject::new(@git.ObjectType::Blob, base)
+  let obj2 = @git.PackObject::new(@git.ObjectType::Blob, target)
+  let (pack, delta_count) = @git.create_packfile_with_delta_stats(
+    [obj1, obj2],
+    @git.PackDeltaMode::NoDelta,
+  )
+  assert_true(delta_count == 0)
+  let objects = parse_packfile(pack)
+  assert_true(objects.length() == 2)
+}

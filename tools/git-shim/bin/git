@@ -183,7 +183,14 @@ if [ "$intercept" -eq 1 ]; then
   args="$*"
   log "intercept $subcmd $args"
   moon="${GIT_SHIM_MOON:-${SHIM_MOON:-}}"
+  if [ -z "$moon" ]; then
+    candidate="$script_dir/../moon"
+    if [ -x "$candidate" ]; then
+      moon="$candidate"
+    fi
+  fi
   if [ -n "$moon" ]; then
+    export GIT_SHIM_PWD="${GIT_SHIM_PWD:-$(pwd)}"
     exec "$moon" "$@"
   fi
   if [ "${GIT_SHIM_STRICT:-${SHIM_STRICT:-}}" = "1" ]; then

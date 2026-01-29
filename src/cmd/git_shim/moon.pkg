@@ -4,6 +4,8 @@ import {
   "moonbitlang/async" as @async,
   "moonbitlang/async/process" as @process,
   "moonbitlang/async/stdio" as @stdio,
+  "moonbitlang/core/strconv" as @strconv,
+  "moonbitlang/x/encoding" as @encoding,
   "moonbitlang/x/fs" as @fs,
   "moonbitlang/x/path" as @path,
   "moonbitlang/x/sys" as @sys,

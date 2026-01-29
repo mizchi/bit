@@ -4,4 +4,28 @@ set -eu
 script_dir=$(cd "$(dirname "$0")" && pwd)
 repo_root=$(cd "$script_dir/../.." && pwd)
 
-exec moon -C "$repo_root" run cmd/git_shim --target native -- "$@"
+export GIT_SHIM_PWD="${GIT_SHIM_PWD:-$(pwd)}"
+
+if [ -z "${MOON_HOME:-}" ]; then
+  if [ -n "${USER_HOME:-}" ]; then
+    export MOON_HOME="$USER_HOME/.moon"
+  fi
+fi
+
+bin_path="$repo_root/_build/native/release/build/cmd/git_shim/git_shim.exe"
+need_build=0
+if [ ! -x "$bin_path" ]; then
+  need_build=1
+else
+  for src in "$repo_root"/src/cmd/git_shim/*.mbt; do
+    if [ "$src" -nt "$bin_path" ]; then
+      need_build=1
+      break
+    fi
+  done
+fi
+if [ "$need_build" -eq 1 ]; then
+  moon -C "$repo_root" build src/cmd/git_shim --target native --quiet
+fi
+
+exec "$bin_path" "$@"

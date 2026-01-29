@@ -14,6 +14,14 @@ pub struct PackObject {
 }
 
 ///|
+/// Delta encoding mode for packfile generation
+pub(all) enum PackDeltaMode {
+  NoDelta
+  RefDelta
+  OfsDelta
+}
+
+///|
 pub fn PackObject::new(obj_type : ObjectType, data : Bytes) -> PackObject {
   { obj_type, data }
 }
@@ -348,41 +356,73 @@ fn pack_object_with_delta(
   base : (Int, PackObject)?,
   obj_offset : Int,
   result : Array[Byte],
-) -> Int {
+  delta_mode : PackDeltaMode,
+) -> (Int, Bool) {
   let obj_type = obj.obj_type.to_packfile_type()
   let data = obj.data
   let compressed = @zlib.zlib_compress(data)
   let normal_len = type_and_size_len(data.length()) + compressed.length()
+  match delta_mode {
+    PackDeltaMode::NoDelta => {
+      encode_type_and_size(obj_type, data.length(), result)
+      for b in compressed {
+        result.push(b)
+      }
+      return (normal_len, false)
+    }
+    _ => ()
+  }
   match base {
     None => {
       encode_type_and_size(obj_type, data.length(), result)
       for b in compressed {
         result.push(b)
       }
-      normal_len
+      (normal_len, false)
     }
     Some((base_offset, base_obj)) => {
       if base_offset < obj_offset && base_obj.obj_type == obj.obj_type {
         let delta = build_delta(base_obj.data, data)
         let compressed_delta = @zlib.zlib_compress(delta)
-        let back_offset = obj_offset - base_offset
-        let delta_len = type_and_size_len(delta.length()) +
-          ofs_delta_len(back_offset) +
-          compressed_delta.length()
-        if delta_len < normal_len {
-          encode_type_and_size(6, delta.length(), result)
-          encode_ofs_delta_offset(back_offset, result)
-          for b in compressed_delta {
-            result.push(b)
+        match delta_mode {
+          PackDeltaMode::OfsDelta => {
+            let back_offset = obj_offset - base_offset
+            let delta_len = type_and_size_len(delta.length()) +
+              ofs_delta_len(back_offset) +
+              compressed_delta.length()
+            if delta_len < normal_len {
+              encode_type_and_size(6, delta.length(), result)
+              encode_ofs_delta_offset(back_offset, result)
+              for b in compressed_delta {
+                result.push(b)
+              }
+              return (delta_len, true)
+            }
           }
-          return delta_len
+          PackDeltaMode::RefDelta => {
+            let base_id = hash_object_content(base_obj.obj_type, base_obj.data)
+            let delta_len = type_and_size_len(delta.length()) +
+              base_id.bytes.length() +
+              compressed_delta.length()
+            if delta_len < normal_len {
+              encode_type_and_size(7, delta.length(), result)
+              for b in base_id.bytes {
+                result.push(b)
+              }
+              for b in compressed_delta {
+                result.push(b)
+              }
+              return (delta_len, true)
+            }
+          }
+          PackDeltaMode::NoDelta => ()
         }
       }
       encode_type_and_size(obj_type, data.length(), result)
       for b in compressed {
         result.push(b)
       }
-      normal_len
+      (normal_len, false)
     }
   }
 }
@@ -396,6 +436,25 @@ fn pack_object_with_delta(
 ///   [...objects...]  variable
 ///   [SHA-1 trailer]  20 bytes
 pub fn create_packfile(objects : Array[PackObject]) -> Bytes {
+  create_packfile_with_delta(objects, PackDeltaMode::OfsDelta)
+}
+
+///|
+/// Create a packfile from a list of objects with a chosen delta mode
+pub fn create_packfile_with_delta(
+  objects : Array[PackObject],
+  delta_mode : PackDeltaMode,
+) -> Bytes {
+  let (pack, _) = create_packfile_with_delta_stats(objects, delta_mode)
+  pack
+}
+
+///|
+/// Create a packfile with delta statistics (delta object count)
+pub fn create_packfile_with_delta_stats(
+  objects : Array[PackObject],
+  delta_mode : PackDeltaMode,
+) -> (Bytes, Int) {
   let result : Array[Byte] = []
 
   // Magic: "PACK"
@@ -420,12 +479,18 @@ pub fn create_packfile(objects : Array[PackObject]) -> Bytes {
   // Pack each object (delta against the last object of the same type)
   let mut offset = 12
   let last_by_type : Map[Int, (Int, PackObject)] = {}
+  let mut delta_count = 0
   for obj in objects {
     let obj_offset = offset
     let key = obj.obj_type.to_packfile_type()
     let base = last_by_type.get(key)
-    let written = pack_object_with_delta(obj, base, obj_offset, result)
+    let (written, used_delta) = pack_object_with_delta(
+      obj, base, obj_offset, result, delta_mode,
+    )
     offset = offset + written
+    if used_delta {
+      delta_count = delta_count + 1
+    }
     last_by_type[key] = (obj_offset, obj)
   }
 
@@ -436,7 +501,7 @@ pub fn create_packfile(objects : Array[PackObject]) -> Bytes {
   for b in trailer.bytes {
     result.push(b)
   }
-  pack_array_to_bytes(result)
+  (pack_array_to_bytes(result), delta_count)
 }
 
 ///|
