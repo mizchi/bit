@@ -110,9 +110,9 @@ just git-t-allowlist-shim      # Run with git-shim
 
 | Category | Passed | Failed | Total |
 |----------|--------|--------|-------|
-| Pack/Index/Bitmap | 2835 | 0 | 2874 |
+| All (pack/fetch/push/clone/pull/protocol) | 3500 | 0 | 3542 |
 
-**2835/2874 tests pass** with 0 failures (2 skipped due to platform-specific prerequisites).
+**3500/3542 tests pass** with 0 failures (skipped tests are due to platform-specific prerequisites like GPG, MINGW, etc.).
 
 ### Oracle Testing
 

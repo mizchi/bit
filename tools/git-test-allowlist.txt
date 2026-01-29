@@ -3,8 +3,11 @@
 
 # pack / idx / bitmap
 t5300-pack-object.sh
+t5301-sliding-window.sh
 t5302-pack-index.sh
 t5303-pack-corruption-resilience.sh
+t5304-prune.sh
+t5305-include-tag.sh
 t5306-pack-nobase.sh
 t5307-pack-missing-commit.sh
 t5308-pack-detect-duplicates.sh
@@ -15,7 +18,10 @@ t5313-pack-bounds-checks.sh
 t5314-pack-cycle-detection.sh
 t5315-pack-objects-compression.sh
 t5316-pack-delta-depth.sh
+t5317-pack-objects-filter-objects.sh
+t5318-commit-graph.sh
 t5319-multi-pack-index.sh
+t5320-delta-islands.sh
 t5321-pack-large-objects.sh
 t5326-multi-pack-bitmaps.sh
 t5327-multi-pack-bitmaps-rev.sh
@@ -24,6 +30,11 @@ t5331-pack-objects-stdin.sh
 t5332-multi-pack-reuse.sh
 t5334-incremental-multi-pack-index.sh
 t5351-unpack-large-objects.sh
+
+# send-pack / receive-pack hooks
+t5400-send-pack.sh
+t5401-update-hooks.sh
+# t5410-receive-pack.sh  # requires core.alternateRefsCommand support
 
 # fetch / push / refs
 t5500-fetch-pack.sh
@@ -45,7 +56,11 @@ t5516-fetch-push.sh
 t5517-push-mirror.sh
 t5518-fetch-exit-status.sh
 t5519-push-alternates.sh
+t5520-pull.sh
+t5521-pull-options.sh
+t5522-pull-symlink.sh
 t5523-push-upstream.sh
+t5524-pull-msg.sh
 t5525-fetch-tagopt.sh
 t5527-fetch-odd-refs.sh
 t5528-push-default.sh
@@ -62,6 +77,20 @@ t5541-http-push-smart.sh
 t5543-atomic-push.sh
 t5545-push-options.sh
 t5546-receive-limits.sh
+
+# clone
+t5600-clone-fail-cleanup.sh
+t5601-clone.sh
+t5602-clone-remote-exec.sh
+t5603-clone-dirname.sh
+t5604-clone-reference.sh
+t5605-clone-local.sh
+t5606-clone-options.sh
+t5607-clone-bundle.sh
+t5609-clone-branch.sh
+t5610-clone-detached.sh
+t5611-clone-config.sh
+t5612-clone-refspec.sh
 
 # protocol v1/v2
 t5700-protocol-v1.sh
