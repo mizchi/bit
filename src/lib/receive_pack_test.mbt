@@ -63,3 +63,33 @@ test "receive-pack: advertise empty repo" {
   assert_true(line.contains("capabilities^{}"))
   assert_true(line.contains("report-status"))
 }
+
+///|
+test "receive-pack: reject non-fast-forward" {
+  let fs = @git.TestFs::new()
+  ignore(try? init_repo(fs, "/src"))
+  ignore(try? init_repo(fs, "/dst"))
+  fs.write_string("/src/a.txt", "one\n")
+  add_paths(fs, fs, "/src", ["a.txt"])
+  let commit_src = commit(
+    fs, fs, "/src", "src\n", "Test <t@example.com>", 1700000000L,
+  )
+  fs.write_string("/dst/b.txt", "two\n")
+  add_paths(fs, fs, "/dst", ["b.txt"])
+  let commit_dst = commit(
+    fs, fs, "/dst", "dst\n", "Test <t@example.com>", 1700000001L,
+  )
+  let db = ObjectDb::load(fs, "/src/.git")
+  let objects = collect_reachable_objects(db, fs, commit_src)
+  let pack = @git.create_packfile(objects)
+  let req = build_receive_request(
+    commit_dst, commit_src, "refs/heads/main", pack,
+  )
+  let res = parse_receive_pack_request(req)
+  let result = apply_receive_pack(fs, fs, "/dst", res)
+  assert_true(result.updated.length() == 0)
+  assert_true(result.rejected.length() == 1)
+  let (refname, msg) = result.rejected[0]
+  assert_true(refname == "refs/heads/main")
+  assert_true(msg.contains("non-fast-forward"))
+}

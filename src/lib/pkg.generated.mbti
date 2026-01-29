@@ -66,6 +66,10 @@ pub fn rebase_onto(&@git.FileSystem, &@git.RepoFileSystem, String, @git.ObjectId
 
 pub fn receive_pack(&@git.FileSystem, &@git.RepoFileSystem, String, Bytes) -> Bytes raise @git.GitError
 
+pub fn receive_pack_info_refs_response(&@git.RepoFileSystem, String, String?, String, agent? : String) -> HttpResponse raise @git.GitError
+
+pub fn receive_pack_response(&@git.FileSystem, &@git.RepoFileSystem, String, String?, String, Bytes) -> HttpResponse raise @git.GitError
+
 pub fn repack_repo(&@git.FileSystem, &@git.RepoFileSystem, String) -> RepackResult? raise @git.GitError
 
 pub fn reset(&@git.FileSystem, &@git.RepoFileSystem, String, String, ResetMode) -> @git.ObjectId raise @git.GitError
@@ -134,6 +138,12 @@ pub struct GcResult {
 pub enum HeadRef {
   Branch(String)
   Detached(@git.ObjectId)
+}
+
+pub struct HttpResponse {
+  status : Int
+  headers : Map[String, String]
+  body : Bytes
 }
 
 pub struct IndexEntry {

@@ -116,6 +116,7 @@ pub fn apply_receive_pack(
     let objects = @git.parse_packfile(req.pack)
     @git.write_packfile_with_index(fs, git_dir, req.pack, objects)
   }
+  let db = ObjectDb::load(rfs, git_dir)
   let updated : Array[String] = []
   let rejected : Array[(String, String)] = []
   for upd in req.updates {
@@ -127,6 +128,18 @@ pub fn apply_receive_pack(
     if current_id != upd.old_id {
       rejected.push((upd.refname, "old id mismatch"))
       continue
+    }
+    if upd.refname.has_prefix("refs/heads/") {
+      if current_id != @git.ObjectId::zero() &&
+        upd.new_id != @git.ObjectId::zero() {
+        let ff = receive_is_ancestor_commit(db, rfs, current_id, upd.new_id) catch {
+          _ => false
+        }
+        if not(ff) {
+          rejected.push((upd.refname, "non-fast-forward"))
+          continue
+        }
+      }
     }
     if upd.new_id == @git.ObjectId::zero() {
       if not(receive_delete_ref(fs, rfs, git_dir, upd.refname)) {
@@ -169,6 +182,58 @@ fn receive_build_status_response(result : ReceivePackResult) -> Bytes {
   }
   receive_push_bytes(out, @git.pktline_flush())
   Bytes::from_array(FixedArray::makei(out.length(), fn(i) { out[i] }))
+}
+
+///|
+fn receive_is_ancestor_commit(
+  db : ObjectDb,
+  fs : &@git.RepoFileSystem,
+  ancestor : @git.ObjectId,
+  commit_id : @git.ObjectId,
+) -> Bool raise @git.GitError {
+  if ancestor == commit_id {
+    return true
+  }
+  let stack : Array[@git.ObjectId] = [commit_id]
+  let seen : Map[String, Bool] = {}
+  while stack.length() > 0 {
+    let id = match stack.pop() {
+      None => raise @git.GitError::InvalidObject("Empty stack")
+      Some(v) => v
+    }
+    let hex = id.to_hex()
+    if seen.contains(hex) {
+      continue
+    }
+    seen[hex] = true
+    if id == ancestor {
+      return true
+    }
+    let parents = receive_commit_parents(db, fs, id)
+    for p in parents {
+      stack.push(p)
+    }
+  }
+  false
+}
+
+///|
+fn receive_commit_parents(
+  db : ObjectDb,
+  fs : &@git.RepoFileSystem,
+  commit_id : @git.ObjectId,
+) -> Array[@git.ObjectId] raise @git.GitError {
+  let obj = db.get(fs, commit_id)
+  match obj {
+    None => raise @git.GitError::InvalidObject("Missing commit object")
+    Some(o) => {
+      if o.obj_type != @git.ObjectType::Commit {
+        raise @git.GitError::InvalidObject("Object is not a commit")
+      }
+      let info = @git.parse_commit(o.data)
+      info.parents
+    }
+  }
 }
 
 ///|
