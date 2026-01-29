@@ -4,4 +4,4 @@ target/
 target
 .mooncakes/
 .moonagent/
-.jj/
+.jj/tools/git-shim/shim.log

@@ -286,3 +286,79 @@ test "git compat: SHA-1 quick brown fox" {
   )
   inspect(hash.to_hex(), content="2fd4e1c67a2d28fced849ee1bb76e7391b93eb12")
 }
+
+// =============================================================================
+// Nested Tree Tests
+// =============================================================================
+
+///|
+test "git compat: subtree with single file" {
+  // Tree containing: world.txt -> "world\n"
+  // This is the "subdir" tree in a nested structure
+  let world_id = @git.ObjectId::from_hex(
+    "cc628ccd10742baea8241c5924df992b5c019f71",
+  )
+  let entry = @git.TreeEntry::new("100644", "world.txt", world_id)
+  let (tree_id, _) = create_tree([entry])
+  inspect(tree_id.to_hex(), content="b032d4b998c65562e088abaa88fdd859476c089e")
+}
+
+///|
+test "git compat: nested tree with subdirectory" {
+  // Tree containing:
+  //   hello.txt -> "hello\n"
+  //   subdir/   -> tree(world.txt -> "world\n")
+  // Structure:
+  //   .
+  //   ├── hello.txt
+  //   └── subdir/
+  //       └── world.txt
+  let hello_id = @git.ObjectId::from_hex(
+    "ce013625030ba8dba906f756967f9e9ca394464a",
+  )
+  let subdir_id = @git.ObjectId::from_hex(
+    "b032d4b998c65562e088abaa88fdd859476c089e",
+  )
+  let entries = [
+    @git.TreeEntry::new("100644", "hello.txt", hello_id),
+    @git.TreeEntry::new("40000", "subdir", subdir_id),
+  ]
+  let (tree_id, _) = create_tree(entries)
+  inspect(tree_id.to_hex(), content="117040856e0066e76d38c559f9d2127fd6a10858")
+}
+
+// =============================================================================
+// Commit with Parent Tests
+// =============================================================================
+
+///|
+test "git compat: commit with parent" {
+  // Second commit with parent
+  // tree: 88e38705fdbd3608cddbe904b67c731f3234c45b (hello.txt + world.txt)
+  // parent: 681226a87c4a64f59b7b47bd497af25e16ac4635 (initial commit)
+  // author/committer: Test <test@example.com> 1700000100 +0000
+  // message: Second commit
+  let tree_id = @git.ObjectId::from_hex(
+    "88e38705fdbd3608cddbe904b67c731f3234c45b",
+  )
+  let parent_id = @git.ObjectId::from_hex(
+    "681226a87c4a64f59b7b47bd497af25e16ac4635",
+  )
+  let commit = @git.Commit::new(
+    tree_id,
+    [parent_id],
+    "Test <test@example.com>",
+    1700000100L,
+    "+0000",
+    "Test <test@example.com>",
+    1700000100L,
+    "+0000",
+    "Second commit\n",
+  )
+  let (commit_id, _) = create_commit(commit)
+  // Verified against git hash-object -t commit
+  inspect(
+    commit_id.to_hex(),
+    content="2fe96b04b8c1f081765898435f0d2497cfef21ea",
+  )
+}

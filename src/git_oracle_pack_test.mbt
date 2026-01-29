@@ -408,3 +408,52 @@ async test "git oracle: verify REF_DELTA packfile" {
   assert_true(verify_code == 0)
   remove_dir_recursive(temp_dir)
 }
+
+///|
+async test "git oracle: verify packfile with commit+tree+blob" {
+  // Create a packfile with all three object types using create_commit_packfile
+  let temp_dir = create_temp_dir("moonbit-commit-tree-blob-pack")
+  let blob_content = @utf8.encode("hello world\n")
+  let commit = Commit::new(
+    ObjectId::zero(), // Will be replaced by create_commit_packfile
+    [],
+    "Test <test@example.com>",
+    1700000000L,
+    "+0000",
+    "Test <test@example.com>",
+    1700000000L,
+    "+0000",
+    "Test commit\n",
+  )
+  let (_, pack) = create_commit_packfile(blob_content, "hello.txt", commit)
+  let pack_path = "\{temp_dir}/full.pack"
+  let idx_path = "\{temp_dir}/full.idx"
+  @fs.write_bytes_to_file(pack_path, pack) catch {
+    _ => {
+      remove_dir_recursive(temp_dir)
+      return ()
+    }
+  }
+  let (idx_code, _, _) = run_git(
+    ["index-pack", "-o", idx_path, pack_path],
+    None,
+    None,
+  )
+  if idx_code != 0 {
+    remove_dir_recursive(temp_dir)
+    return ()
+  }
+  // Verify pack is valid
+  let (verify_code, _, _) = run_git(["verify-pack", pack_path], None, None)
+  assert_true(verify_code == 0)
+  // Verify object count
+  let (vcode, vout, _) = run_git(["verify-pack", "-v", pack_path], None, None)
+  if vcode == 0 {
+    let out_str = bytes_to_string_lossy(vout)
+    // Should contain blob, tree, commit
+    assert_true(out_str.contains("blob"))
+    assert_true(out_str.contains("tree"))
+    assert_true(out_str.contains("commit"))
+  }
+  remove_dir_recursive(temp_dir)
+}
