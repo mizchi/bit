@@ -8,7 +8,7 @@
     "mizchi/tempfile": "0.1.0"
   },
   "readme": "README.mbt.md",
-  "repository": "https://github.com/mizchi/git",
+  "repository": "https://github.com/mizchi/git.mbt",
   "license": "Apache-2.0",
   "keywords": [
     "git",
