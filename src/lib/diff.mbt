@@ -33,17 +33,12 @@ pub fn diff_worktree(
   let seen : Map[String, Bool] = {}
   for path in files {
     seen[path] = true
-    let abs = join_path(root, path)
-    let content = fs.read_file(abs)
+    // Only diff files that are in the index (skip untracked files)
     match index_map.get(path) {
-      None =>
-        out.push({
-          path,
-          kind: DiffKind::Added,
-          old_content: None,
-          new_content: Some(content),
-        })
+      None => () // untracked files are not shown in `git diff`
       Some(entry) => {
+        let abs = join_path(root, path)
+        let content = fs.read_file(abs)
         let id = @git.hash_blob(content)
         if id != entry.id {
           let old = diff_read_blob(db, fs, entry.id)
