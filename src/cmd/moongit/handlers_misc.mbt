@@ -1191,19 +1191,29 @@ async fn handle_ls_tree(args : Array[String]) -> Unit raise Error {
   let fs = OsFs::new()
   let mut recursive = false
   let mut show_trees = false // -t option
+  let mut only_trees = false // -d option: only show trees
   let mut name_only = false
-  let mut tree_spec : String? = None
+  let mut recurse_submodules = false
+  let positional : Array[String] = []
   for arg in args {
     match arg {
       "-r" | "--recursive" => recursive = true
       "-t" => show_trees = true // Show tree entries when recursing
+      "-d" => only_trees = true // Only show tree entries
       "--name-only" | "--name-status" => name_only = true
-      _ if not(arg.has_prefix("-")) => tree_spec = Some(arg)
+      "--recurse-submodules" => recurse_submodules = true
+      _ if not(arg.has_prefix("-")) => positional.push(arg)
       _ => ()
     }
   }
-  guard tree_spec is Some(spec) else {
+  guard positional.length() > 0 else {
     raise @git.GitError::InvalidObject("tree-ish required")
+  }
+  let spec = positional[0]
+  // Path filters are remaining positional arguments
+  let path_filters : Array[String] = []
+  for i in 1..<positional.length() {
+    path_filters.push(positional[i])
   }
   let tree_id = @gitlib.rev_parse(fs, git_dir, spec)
   guard tree_id is Some(tid) else {
@@ -1212,8 +1222,25 @@ async fn handle_ls_tree(args : Array[String]) -> Unit raise Error {
   let db = @gitlib.ObjectDb::load(fs, git_dir)
   // Resolve to tree if it's a commit
   let actual_tree_id = resolve_to_tree(db, fs, tid)
+  // Parse submodules if needed
+  let submodules = if recurse_submodules {
+    parse_gitmodules(fs, root)
+  } else {
+    []
+  }
   print_tree_entries(
-    db, fs, actual_tree_id, "", recursive, show_trees, name_only,
+    db,
+    fs,
+    actual_tree_id,
+    "",
+    recursive,
+    show_trees,
+    only_trees,
+    name_only,
+    recurse_submodules,
+    root,
+    submodules,
+    path_filters,
   )
 }
 
@@ -1245,7 +1272,12 @@ async fn print_tree_entries(
   prefix : String,
   recursive : Bool,
   show_trees : Bool,
+  only_trees : Bool,
   name_only : Bool,
+  recurse_submodules : Bool,
+  root : String,
+  submodules : Array[SubmoduleInfo],
+  path_filters : Array[String],
 ) -> Unit raise Error {
   let obj = db.get(fs, tree_id)
   guard obj is Some(o) else {
@@ -1259,18 +1291,137 @@ async fn print_tree_entries(
       prefix + "/" + entry.name
     }
     let is_tree = entry.mode == "40000" || entry.mode == "040000"
+    let is_submodule = entry.mode == "160000"
+    // Path filtering logic
+    let (matches_filter, should_recurse_for_filter) = if path_filters.length() ==
+      0 {
+      (true, true)
+    } else {
+      let mut match_found = false
+      let mut recurse_needed = false
+      for filter in path_filters {
+        let has_trailing_slash = filter.has_suffix("/")
+        let filter_clean = if has_trailing_slash {
+          String::unsafe_substring(filter, start=0, end=filter.length() - 1)
+        } else {
+          filter
+        }
+        // Exact match (without trailing slash)
+        if path == filter_clean {
+          if has_trailing_slash {
+            // "path2/" means list contents of path2, so recurse but don't print path2 itself
+            if is_tree {
+              recurse_needed = true
+            }
+            // If it's a file with trailing slash filter, it's a no-match (file has no children)
+          } else {
+            // "path2" means show path2 entry itself, don't recurse further
+            match_found = true
+          }
+          continue
+        }
+        // Entry is under the filter path (filter is prefix of path)
+        // e.g., filter="path2/" and path="path2/baz"
+        if path.has_prefix(filter_clean + "/") {
+          // Only show descendants if filter has trailing slash
+          // Without trailing slash, exact match only (handled above)
+          if has_trailing_slash {
+            // Check if this is a direct child of the filter
+            let rest = String::unsafe_substring(
+              path,
+              start=filter_clean.length() + 1,
+              end=path.length(),
+            )
+            let is_direct_child = rest.find("/") == None
+            // "path2/" means show only direct children
+            if is_direct_child {
+              match_found = true
+            }
+          }
+          continue
+        }
+        // Filter is under the entry path (need to recurse into this tree to find it)
+        // e.g., path="path2" and filter="path2/baz"
+        if filter_clean.has_prefix(path + "/") {
+          recurse_needed = true
+        }
+      }
+      (match_found, recurse_needed)
+    }
+    if not(matches_filter) && not(should_recurse_for_filter) {
+      continue
+    }
+    // Skip submodule entries when recurse_submodules is enabled
+    // (we'll recurse into them instead of listing them)
+    if recurse_submodules && is_submodule {
+      // Find matching submodule info
+      let mut found_submod = false
+      for s in submodules {
+        if s.path == path {
+          found_submod = true
+          break
+        }
+      }
+      if found_submod {
+        // Resolve the submodule's git directory
+        let sub_git_path = root + "/" + path + "/.git"
+        let sub_git_dir = resolve_gitdir(fs, sub_git_path)
+        // Load the submodule's object database
+        let sub_db = @gitlib.ObjectDb::load(fs, sub_git_dir)
+        // entry.id is the commit SHA in the submodule
+        // Resolve it to a tree
+        let sub_tree_id = resolve_to_tree(sub_db, fs, entry.id) catch {
+          _ => continue // Skip if can't resolve submodule tree
+        }
+        // Recursively print submodule tree entries
+        print_tree_entries(
+          sub_db,
+          fs,
+          sub_tree_id,
+          path,
+          recursive,
+          show_trees,
+          only_trees,
+          name_only,
+          recurse_submodules,
+          root + "/" + path,
+          [], // No nested submodules for now
+          path_filters,
+        )
+      }
+      continue
+    }
+    // With -d, only show tree entries
     // With -r, don't print tree entries unless -t is also specified
-    let should_print = not(recursive) || not(is_tree) || show_trees
+    // With -t and path filters, show tree entries we're traversing through
+    let should_print = if not(matches_filter) &&
+      not(show_trees && should_recurse_for_filter && is_tree) {
+      false // Don't print if path doesn't match filters (unless -t and traversing trees)
+    } else if only_trees {
+      is_tree // Only print tree entries
+    } else {
+      not(recursive) || not(is_tree) || show_trees
+    }
     if should_print {
       if name_only {
         print_line(path)
       } else {
         let mode_str = if entry.mode == "40000" { "040000" } else { entry.mode }
-        let type_str = if is_tree { "tree" } else { "blob" }
+        let type_str = if is_tree {
+          "tree"
+        } else if is_submodule {
+          "commit"
+        } else {
+          "blob"
+        }
         print_line("\{mode_str} \{type_str} \{entry.id.to_hex()}\t\{path}")
       }
     }
-    if recursive && is_tree {
+    // Recurse if -r is set, or if we need to look deeper for path filters
+    // (but only for filter recursion when actually needed, not when filters are empty)
+    let need_recurse = recursive ||
+      (should_recurse_for_filter && path_filters.length() > 0)
+    if need_recurse && is_tree {
       print_tree_entries(
         db,
         fs,
@@ -1278,7 +1429,12 @@ async fn print_tree_entries(
         path,
         recursive,
         show_trees,
+        only_trees,
         name_only,
+        recurse_submodules,
+        root,
+        submodules,
+        path_filters,
       )
     }
   }
