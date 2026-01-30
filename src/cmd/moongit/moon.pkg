@@ -14,10 +14,16 @@ import {
 options(
   is_main: true,
   targets: {
+    "handlers_branch.mbt": [ "native" ],
+    "handlers_core.mbt": [ "native" ],
+    "handlers_misc.mbt": [ "native" ],
+    "handlers_remote.mbt": [ "native" ],
+    "helpers.mbt": [ "native" ],
     "index_pack.mbt": [ "native" ],
     "main.mbt": [ "native" ],
     "main_js.mbt": [ "js" ],
     "main_wasm.mbt": [ "wasm-gc", "wasm" ],
+    "osfs.mbt": [ "native" ],
     "pack_helpers.mbt": [ "native" ],
     "pack_objects.mbt": [ "native" ],
     "time_js.mbt": [ "js" ],
