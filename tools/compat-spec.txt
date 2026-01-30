@@ -60,7 +60,7 @@ receive-pack|full|||Protocol v1/v2
 upload-pack|full|||Protocol v1/v2
 
 # Not Implemented (fallback to system git)
-bisect|none|||
+bisect|partial|start,bad,good,skip,reset,log|visualize,view,replay,run,terms|
 blame|none|||
 clean|partial|-f,--force,-n,--dry-run,-d,-q,--quiet|-x,-X,--exclude|
 describe|none|||
