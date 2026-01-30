@@ -974,11 +974,14 @@ async fn handle_ls_files(args : Array[String]) -> Unit raise Error {
 
 ///|
 struct SubmoduleInfo {
+  name : String
   path : String
+  url : String
+  branch : String?
 }
 
 ///|
-/// Parse .gitmodules file to extract submodule paths
+/// Parse .gitmodules file to extract submodule info
 fn parse_gitmodules(
   fs : &@git.RepoFileSystem,
   root : String,
@@ -993,12 +996,16 @@ fn parse_gitmodules(
   let result : Array[SubmoduleInfo] = []
   let mut current_name = ""
   let mut current_path = ""
+  let mut current_url = ""
+  let mut current_branch : String? = None
   for line_view in content.split("\n") {
     let line = trim_string(line_view.to_string())
     if line.has_prefix("[submodule \"") && line.has_suffix("\"]") {
       // Save previous submodule if any
       if current_name.length() > 0 && current_path.length() > 0 {
-        result.push({ path: current_path })
+        result.push(
+          { name: current_name, path: current_path, url: current_url, branch: current_branch },
+        )
       }
       // Extract name from [submodule "name"]
       current_name = String::unsafe_substring(
@@ -1007,6 +1014,8 @@ fn parse_gitmodules(
         end=line.length() - 2,
       )
       current_path = ""
+      current_url = ""
+      current_branch = None
     } else if line.has_prefix("path") {
       let eq_idx = line.find("=")
       match eq_idx {
@@ -1016,11 +1025,33 @@ fn parse_gitmodules(
           )
         None => ()
       }
+    } else if line.has_prefix("url") {
+      let eq_idx = line.find("=")
+      match eq_idx {
+        Some(i) =>
+          current_url = trim_string(
+            String::unsafe_substring(line, start=i + 1, end=line.length()),
+          )
+        None => ()
+      }
+    } else if line.has_prefix("branch") {
+      let eq_idx = line.find("=")
+      match eq_idx {
+        Some(i) =>
+          current_branch = Some(
+            trim_string(
+              String::unsafe_substring(line, start=i + 1, end=line.length()),
+            ),
+          )
+        None => ()
+      }
     }
   }
   // Don't forget the last one
   if current_name.length() > 0 && current_path.length() > 0 {
-    result.push({ path: current_path })
+    result.push(
+      { name: current_name, path: current_path, url: current_url, branch: current_branch },
+    )
   }
   result
 }
@@ -2146,4 +2177,502 @@ async fn handle_grep(args : Array[String]) -> Unit raise Error {
   if not(found_any) {
     @sys.exit(1)
   }
+}
+
+///|
+async fn handle_submodule(args : Array[String]) -> Unit raise Error {
+  let root = get_work_root()
+  let git_dir = root + "/.git"
+  let fs = OsFs::new()
+  let subcmd = args.get(0).unwrap_or("")
+  let rest : Array[String] = []
+  for i in 1..<args.length() {
+    rest.push(args[i])
+  }
+  match subcmd {
+    "" | "status" => handle_submodule_status(fs, root, git_dir, rest)
+    "init" => handle_submodule_init(fs, root, git_dir, rest)
+    "update" => handle_submodule_update(fs, root, git_dir, rest)
+    "deinit" => handle_submodule_deinit(fs, root, git_dir, rest)
+    "sync" => handle_submodule_sync(fs, root, git_dir, rest)
+    _ => {
+      eprint_line("error: unknown submodule command: \{subcmd}")
+      @sys.exit(1)
+    }
+  }
+}
+
+///|
+async fn handle_submodule_status(
+  fs : OsFs,
+  root : String,
+  git_dir : String,
+  args : Array[String],
+) -> Unit raise Error {
+  let mut recursive = false
+  let paths : Array[String] = []
+  for arg in args {
+    match arg {
+      "--recursive" => recursive = true
+      _ if not(arg.has_prefix("-")) => paths.push(arg)
+      _ => ()
+    }
+  }
+  let rfs : &@git.RepoFileSystem = fs
+  let submodules = parse_gitmodules(rfs, root)
+  for sub in submodules {
+    if paths.length() > 0 && not(paths.contains(sub.path)) {
+      continue
+    }
+    let sub_path = root + "/" + sub.path
+    let sub_git = sub_path + "/.git"
+    // Check if initialized
+    if not(rfs.is_file(sub_git)) && not(rfs.is_dir(sub_git)) {
+      print_line("-\{String::make(40, '0')} \{sub.path}")
+      continue
+    }
+    // Get HEAD of submodule
+    let sub_git_dir = resolve_gitdir(rfs, sub_git)
+    let head_id = @gitlib.resolve_head_commit(rfs, sub_git_dir) catch {
+      _ => {
+        print_line("-\{String::make(40, '0')} \{sub.path}")
+        continue
+      }
+    }
+    match head_id {
+      Some(id) => {
+        // Check against index
+        let index_id = get_submodule_index_id(rfs, git_dir, sub.path)
+        let prefix = match index_id {
+          Some(idx) if idx.to_hex() == id.to_hex() => " "
+          Some(_) => "+"
+          None => " "
+        }
+        print_line("\{prefix}\{id.to_hex()} \{sub.path}")
+      }
+      None => print_line("-\{String::make(40, '0')} \{sub.path}")
+    }
+    // Handle recursive
+    if recursive {
+      let nested = sub_path + "/.gitmodules"
+      if rfs.is_file(nested) {
+        handle_submodule_status(fs, sub_path, sub_git_dir, args)
+      }
+    }
+  }
+}
+
+///|
+fn get_submodule_index_id(
+  fs : &@git.RepoFileSystem,
+  git_dir : String,
+  path : String,
+) -> @git.ObjectId? {
+  let entries = @gitlib.read_index_entries(fs, git_dir) catch { _ => return None }
+  for e in entries {
+    if e.path == path {
+      return Some(e.id)
+    }
+  }
+  None
+}
+
+///|
+async fn handle_submodule_init(
+  fs : OsFs,
+  root : String,
+  git_dir : String,
+  args : Array[String],
+) -> Unit raise Error {
+  let paths : Array[String] = []
+  for arg in args {
+    if not(arg.has_prefix("-")) {
+      paths.push(arg)
+    }
+  }
+  let rfs : &@git.RepoFileSystem = fs
+  let wfs : &@git.FileSystem = fs
+  let submodules = parse_gitmodules(rfs, root)
+  for sub in submodules {
+    if paths.length() > 0 && not(paths.contains(sub.path)) {
+      continue
+    }
+    // Write to .git/config
+    let config_path = git_dir + "/config"
+    let config_content = if rfs.is_file(config_path) {
+      decode_bytes(rfs.read_file(config_path))
+    } else {
+      ""
+    }
+    let section = "[submodule \"\{sub.name}\"]"
+    if config_content.contains(section) {
+      continue
+    }
+    let new_section = "\n\{section}\n\tactive = true\n\turl = \{sub.url}\n"
+    wfs.write_string(config_path, config_content + new_section)
+    print_line(
+      "Submodule '\{sub.name}' (\{sub.url}) registered for path '\{sub.path}'",
+    )
+  }
+}
+
+///|
+async fn handle_submodule_update(
+  fs : OsFs,
+  root : String,
+  git_dir : String,
+  args : Array[String],
+) -> Unit raise Error {
+  let mut init = false
+  let mut recursive = false
+  let paths : Array[String] = []
+  for arg in args {
+    match arg {
+      "--init" => init = true
+      "--recursive" => recursive = true
+      _ if not(arg.has_prefix("-")) => paths.push(arg)
+      _ => ()
+    }
+  }
+  let rfs : &@git.RepoFileSystem = fs
+  let wfs : &@git.FileSystem = fs
+  // Init first if requested
+  if init {
+    handle_submodule_init(fs, root, git_dir, paths)
+  }
+  let submodules = parse_gitmodules(rfs, root)
+  for sub in submodules {
+    if paths.length() > 0 && not(paths.contains(sub.path)) {
+      continue
+    }
+    let sub_path = root + "/" + sub.path
+    let modules_dir = git_dir + "/modules/" + sub.name
+    // Get expected commit from index
+    let expected_id = get_submodule_index_id(rfs, git_dir, sub.path)
+    guard expected_id is Some(target_id) else { continue }
+    let sub_git = sub_path + "/.git"
+    // Clone if needed
+    if not(rfs.is_file(sub_git)) && not(rfs.is_dir(sub_git)) {
+      print_line("Cloning into '\{sub.path}'...")
+      wfs.mkdir_p(modules_dir)
+      // Use system git for clone
+      let clone_result = run_git_command(
+        ["clone", "--bare", sub.url, modules_dir],
+      )
+      if clone_result != 0 {
+        eprint_line("Failed to clone \{sub.url}")
+        continue
+      }
+      // Create .git file
+      let rel_path = get_rel_path(sub_path, modules_dir)
+      wfs.write_string(sub_git, "gitdir: \{rel_path}\n")
+    }
+    // Checkout target commit
+    let sub_git_dir = resolve_gitdir(rfs, sub_git)
+    print_line(
+      "Submodule path '\{sub.path}': checked out '\{target_id.to_hex()}'",
+    )
+    // Use checkout command
+    run_checkout_in_submodule(wfs, rfs, sub_path, sub_git_dir, target_id)
+    // Handle recursive
+    if recursive {
+      let nested = sub_path + "/.gitmodules"
+      if rfs.is_file(nested) {
+        handle_submodule_update(fs, sub_path, sub_git_dir, args)
+      }
+    }
+  }
+}
+
+///|
+async fn run_git_command(args : Array[String]) -> Int {
+  // Find real git
+  let real_git = @sys.get_env_var("SHIM_REAL_GIT").unwrap_or("git")
+  @process.run(real_git, args)
+}
+
+///|
+fn run_checkout_in_submodule(
+  wfs : &@git.FileSystem,
+  rfs : &@git.RepoFileSystem,
+  work_tree : String,
+  git_dir : String,
+  commit_id : @git.ObjectId,
+) -> Unit {
+  // Read tree from commit and checkout files
+  let db = @gitlib.ObjectDb::load(rfs, git_dir) catch { _ => return }
+  let obj = db.get(rfs, commit_id) catch { _ => return }
+  guard obj is Some(o) else { return }
+  let commit_info = @git.parse_commit(o.data) catch { _ => return }
+  // Get tree entries
+  let tree_obj = db.get(rfs, commit_info.tree) catch { _ => return }
+  guard tree_obj is Some(to) else { return }
+  // Recursively checkout tree
+  checkout_tree_recursive(wfs, rfs, db, work_tree, "", to.data)
+}
+
+///|
+fn checkout_tree_recursive(
+  wfs : &@git.FileSystem,
+  rfs : &@git.RepoFileSystem,
+  db : @gitlib.ObjectDb,
+  work_tree : String,
+  prefix : String,
+  tree_data : Bytes,
+) -> Unit {
+  let entries = @git.parse_tree(tree_data) catch { _ => return }
+  for entry in entries {
+    let path = if prefix.length() > 0 {
+      prefix + "/" + entry.name
+    } else {
+      entry.name
+    }
+    let full_path = work_tree + "/" + path
+    if entry.mode == "40000" {
+      // Directory - recurse
+      wfs.mkdir_p(full_path) catch { _ => () }
+      let sub_obj = db.get(rfs, entry.id) catch { _ => continue }
+      guard sub_obj is Some(so) else { continue }
+      checkout_tree_recursive(wfs, rfs, db, work_tree, path, so.data)
+    } else if entry.mode == "160000" {
+      // Submodule - skip
+      continue
+    } else {
+      // File
+      let obj = db.get(rfs, entry.id) catch { _ => continue }
+      guard obj is Some(o) else { continue }
+      // Ensure parent directory exists
+      match full_path.rev_find("/") {
+        Some(idx) => {
+          let parent = String::unsafe_substring(full_path, start=0, end=idx)
+          wfs.mkdir_p(parent) catch { _ => () }
+        }
+        None => ()
+      }
+      wfs.write_file(full_path, o.data) catch { _ => () }
+    }
+  }
+}
+
+///|
+fn get_rel_path(from : String, to : String) -> String {
+  let from_parts : Array[String] = from
+    .split("/")
+    .filter(fn(s) { s.to_string().length() > 0 })
+    .map(fn(s) { s.to_string() })
+    .collect()
+  let to_parts : Array[String] = to
+    .split("/")
+    .filter(fn(s) { s.to_string().length() > 0 })
+    .map(fn(s) { s.to_string() })
+    .collect()
+  // Find common prefix
+  let mut common = 0
+  while common < from_parts.length() && common < to_parts.length() {
+    if from_parts[common] == to_parts[common] {
+      common += 1
+    } else {
+      break
+    }
+  }
+  // Build relative path
+  let mut result = ""
+  for _ in 0..<(from_parts.length() - common) {
+    result = result + "../"
+  }
+  for i in common..<to_parts.length() {
+    if result.length() > 0 && not(result.has_suffix("/")) {
+      result = result + "/"
+    }
+    result = result + to_parts[i]
+  }
+  result
+}
+
+///|
+async fn handle_submodule_deinit(
+  fs : OsFs,
+  root : String,
+  git_dir : String,
+  args : Array[String],
+) -> Unit raise Error {
+  let mut force = false
+  let mut all = false
+  let paths : Array[String] = []
+  for arg in args {
+    match arg {
+      "-f" | "--force" => force = true
+      "--all" => all = true
+      _ if not(arg.has_prefix("-")) => paths.push(arg)
+      _ => ()
+    }
+  }
+  let rfs : &@git.RepoFileSystem = fs
+  let wfs : &@git.FileSystem = fs
+  let submodules = parse_gitmodules(rfs, root)
+  for sub in submodules {
+    if not(all) && paths.length() > 0 && not(paths.contains(sub.path)) {
+      continue
+    }
+    let sub_path = root + "/" + sub.path
+    // Check for local modifications
+    if not(force) && rfs.is_dir(sub_path) {
+      let sub_git_dir = resolve_gitdir(rfs, sub_path + "/.git")
+      if rfs.is_dir(sub_git_dir) {
+        let status = @gitlib.status(rfs, sub_path) catch { _ => continue }
+        if status.unstaged_modified.length() > 0 {
+          eprint_line(
+            "error: '\{sub.path}' has local modifications (use --force)",
+          )
+          @sys.exit(1)
+        }
+      }
+    }
+    // Remove from .git/config
+    let config_path = git_dir + "/config"
+    if rfs.is_file(config_path) {
+      let content = decode_bytes(rfs.read_file(config_path))
+      let new_content = remove_config_section(content, "submodule", sub.name)
+      wfs.write_string(config_path, new_content)
+    }
+    // Clear working directory
+    if rfs.is_dir(sub_path) {
+      let entries = rfs.readdir(sub_path) catch { _ => continue }
+      for e in entries {
+        if e == ".git" {
+          continue
+        }
+        let full = sub_path + "/" + e
+        if rfs.is_dir(full) {
+          remove_dir_recursive(fs, full)
+        } else {
+          wfs.remove_file(full) catch { _ => () }
+        }
+      }
+    }
+    print_line("Cleared directory '\{sub.path}'")
+  }
+}
+
+///|
+fn remove_config_section(
+  content : String,
+  section_type : String,
+  name : String,
+) -> String {
+  let lines : Array[String] = []
+  let mut skip = false
+  let target = "[\{section_type} \"\{name}\"]"
+  for line_view in content.split("\n") {
+    let line = line_view.to_string()
+    let trimmed = trim_chars(line, " \t")
+    if trimmed.has_prefix("[") {
+      skip = trimmed == target
+    }
+    if not(skip) {
+      lines.push(line)
+    }
+  }
+  lines.join("\n")
+}
+
+///|
+async fn handle_submodule_sync(
+  fs : OsFs,
+  root : String,
+  git_dir : String,
+  args : Array[String],
+) -> Unit raise Error {
+  let mut recursive = false
+  let paths : Array[String] = []
+  for arg in args {
+    match arg {
+      "--recursive" => recursive = true
+      _ if not(arg.has_prefix("-")) => paths.push(arg)
+      _ => ()
+    }
+  }
+  let rfs : &@git.RepoFileSystem = fs
+  let wfs : &@git.FileSystem = fs
+  let submodules = parse_gitmodules(rfs, root)
+  for sub in submodules {
+    if paths.length() > 0 && not(paths.contains(sub.path)) {
+      continue
+    }
+    // Update .git/config
+    let config_path = git_dir + "/config"
+    if rfs.is_file(config_path) {
+      let content = decode_bytes(rfs.read_file(config_path))
+      let section = "[submodule \"\{sub.name}\"]"
+      if content.contains(section) {
+        let updated = update_config_value(content, sub.name, "url", sub.url)
+        wfs.write_string(config_path, updated)
+      }
+    }
+    // Update submodule's origin URL
+    let sub_path = root + "/" + sub.path
+    let sub_git_dir = resolve_gitdir(rfs, sub_path + "/.git")
+    let sub_config = sub_git_dir + "/config"
+    if rfs.is_file(sub_config) {
+      let content = decode_bytes(rfs.read_file(sub_config))
+      let updated = update_remote_origin(content, sub.url)
+      wfs.write_string(sub_config, updated)
+    }
+    print_line("Synchronizing submodule url for '\{sub.path}'")
+    // Handle recursive
+    if recursive {
+      let nested = sub_path + "/.gitmodules"
+      if rfs.is_file(nested) {
+        handle_submodule_sync(fs, sub_path, sub_git_dir, args)
+      }
+    }
+  }
+}
+
+///|
+fn update_config_value(
+  content : String,
+  name : String,
+  key : String,
+  value : String,
+) -> String {
+  let lines : Array[String] = []
+  let mut in_section = false
+  let mut updated = false
+  let target = "[submodule \"\{name}\"]"
+  for line_view in content.split("\n") {
+    let line = line_view.to_string()
+    let trimmed = trim_chars(line, " \t")
+    if trimmed.has_prefix("[") {
+      in_section = trimmed == target
+    }
+    if in_section && trimmed.has_prefix(key + " =") && not(updated) {
+      lines.push("\t\{key} = \{value}")
+      updated = true
+    } else {
+      lines.push(line)
+    }
+  }
+  lines.join("\n")
+}
+
+///|
+fn update_remote_origin(content : String, url : String) -> String {
+  let lines : Array[String] = []
+  let mut in_origin = false
+  let mut updated = false
+  for line_view in content.split("\n") {
+    let line = line_view.to_string()
+    let trimmed = trim_chars(line, " \t")
+    if trimmed.has_prefix("[") {
+      in_origin = trimmed == "[remote \"origin\"]"
+    }
+    if in_origin && trimmed.has_prefix("url =") && not(updated) {
+      lines.push("\turl = \{url}")
+      updated = true
+    } else {
+      lines.push(line)
+    }
+  }
+  lines.join("\n")
 }

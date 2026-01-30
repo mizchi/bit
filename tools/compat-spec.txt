@@ -70,4 +70,4 @@ grep|partial|<pattern>,-n,--line-number,-i,--ignore-case,-l,--files-with-matches
 notes|none|||
 revert|none|||
 shortlog|none|||
-submodule|none|||
+submodule|partial|status,init,update,deinit,sync,--init,--recursive|add,foreach,absorbgitdirs|
