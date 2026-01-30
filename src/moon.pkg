@@ -1,6 +1,7 @@
 import {
   "moonbitlang/async" as @async,
   "mizchi/zlib",
+  "mizchi/tempfile",
   "moonbitlang/async/process" as @process,
   "moonbitlang/async/io" as @io,
   "moonbitlang/core/encoding/utf8",

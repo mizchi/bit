@@ -1,54 +1,45 @@
 ///| Helpers for running git as an oracle in native tests
 
 ///|
-fn cleanup_temp_files(paths : Array[String]) -> Unit {
-  for path in paths {
-    if @fs.path_exists(path) {
-      @fs.remove_file(path) catch {
-        _ => ()
-      }
-    }
-  }
-}
-
-///|
-fn ensure_dir(path : String) -> Unit {
-  if not(@fs.path_exists(path)) {
-    @fs.create_dir(path) catch {
-      _ => ()
-    }
-  }
-}
-
-///|
-fn oracle_base_dir() -> String {
-  ensure_dir("target")
-  ensure_dir("target/git-oracle")
-  "target/git-oracle"
-}
-
-///|
 async fn run_git(
   args : Array[String],
   stdin_data : Bytes?,
   cwd : String?,
 ) -> (Int, Bytes, Bytes) {
-  let nonce = @async.now()
-  let base_dir = oracle_base_dir()
-  let base = "\{base_dir}/run-\{nonce}"
-  let stdout_path = "\{base}.out"
-  let stderr_path = "\{base}.err"
-  let stdin_path = "\{base}.in"
+  let stdout_file = @tempfile.Builder::new()
+    .prefix("git-stdout-")
+    .suffix(".out")
+    .create_temp_file() catch {
+      _ => return (-1, Bytes::default(), Bytes::default())
+    }
+  let stderr_file = @tempfile.Builder::new()
+    .prefix("git-stderr-")
+    .suffix(".err")
+    .create_temp_file() catch {
+      _ => return (-1, Bytes::default(), Bytes::default())
+    }
+  let stdout_path = stdout_file.path()
+  let stderr_path = stderr_file.path()
   let stdout = @process.redirect_to_file(stdout_path, truncate=true, create=420)
   let stderr = @process.redirect_to_file(stderr_path, truncate=true, create=420)
-  let stdin = match stdin_data {
+  let stdin_file : @tempfile.NamedTempFile? = match stdin_data {
     None => None
     Some(data) => {
-      @fs.write_bytes_to_file(stdin_path, data) catch {
+      let f = @tempfile.Builder::new()
+        .prefix("git-stdin-")
+        .suffix(".in")
+        .create_temp_file() catch {
+          _ => return (-1, Bytes::default(), Bytes::default())
+        }
+      f.write_bytes(data) catch {
         _ => ()
       }
-      Some(@process.redirect_from_file(stdin_path))
+      Some(f)
     }
+  }
+  let stdin = match stdin_file {
+    None => None
+    Some(f) => Some(@process.redirect_from_file(f.path()))
   }
   let code = match cwd {
     None =>
@@ -82,7 +73,17 @@ async fn run_git(
   }
   let out = @fs.read_file_to_bytes(stdout_path) catch { _ => Bytes::default() }
   let err = @fs.read_file_to_bytes(stderr_path) catch { _ => Bytes::default() }
-  cleanup_temp_files([stdout_path, stderr_path, stdin_path])
+  // Cleanup temp files
+  stdout_file.cleanup() catch {
+    _ => ()
+  }
+  stderr_file.cleanup() catch {
+    _ => ()
+  }
+  match stdin_file {
+    Some(f) => f.cleanup() catch { _ => () }
+    None => ()
+  }
   (code, out, err)
 }
 
@@ -111,13 +112,10 @@ fn contains_string(xs : Array[String], value : String) -> Bool {
 
 ///|
 fn create_temp_dir(prefix : String) -> String {
-  let nonce = @async.now()
-  let base_dir = oracle_base_dir()
-  let path = "\{base_dir}/\{prefix}-\{nonce}"
-  @fs.create_dir(path) catch {
-    _ => ()
-  }
-  path
+  let dir = @tempfile.Builder::new().prefix(prefix + "-").create_temp_dir() catch {
+      _ => return "/tmp/fallback-\{prefix}"
+    }
+  dir.keep()
 }
 
 ///|

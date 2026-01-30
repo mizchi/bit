@@ -4,7 +4,8 @@
   "deps": {
     "moonbitlang/async": "0.16.2",
     "mizchi/zlib": "0.3.0",
-    "moonbitlang/x": "0.4.38"
+    "moonbitlang/x": "0.4.38",
+    "mizchi/tempfile": "0.1.0"
   },
   "readme": "README.mbt.md",
   "repository": "https://github.com/mizchi/git",
