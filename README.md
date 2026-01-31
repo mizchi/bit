@@ -167,7 +167,7 @@ just git-t-allowlist  # Git compatibility tests
 # Build native binary
 moon build --target native
 
-# Install CLI
+# Install CLI (installs to ~/.local/bin/moongit)
 just install
 
 # Use as library
