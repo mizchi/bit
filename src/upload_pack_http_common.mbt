@@ -197,15 +197,31 @@ pub async fn clone_to_fs_with_http(
   if wants.length() == 0 {
     return refs
   }
-  let pack = fetch_pack_with_http(remote, wants, prefer_v2, http_get, http_post)
-  let objects = parse_packfile(pack)
+  // Phase 1: Fetch pack, parse, and write pack to disk
+  // This allows pack bytes to be released after writing
+  let objects = {
+    let pack = fetch_pack_with_http(
+      remote, wants, prefer_v2, http_get, http_post,
+    )
+    let objects = parse_packfile(pack)
+    // Write pack and index to disk immediately
+    match default_ref {
+      Some(_) => {
+        let git_dir = join_path(root, ".git")
+        fs.mkdir_p(join_path(git_dir, "objects/pack"))
+        write_packfile_with_index(fs, git_dir, pack, objects)
+      }
+      None => ()
+    }
+    objects
+    // pack goes out of scope here and can be GC'd
+  }
+  // Phase 2: Checkout (pack bytes no longer needed)
   let store = ObjectStore::from_pack(objects)
   match default_ref {
     None => ()
     Some((refname, commit_id)) => {
       materialize_clone_to_fs(store, commit_id, refname, remote, fs, root)
-      let git_dir = join_path(root, ".git")
-      write_packfile_with_index(fs, git_dir, pack, objects)
     }
   }
   refs
