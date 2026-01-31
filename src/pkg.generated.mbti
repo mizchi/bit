@@ -269,6 +269,7 @@ pub fn ObjectId::to_bytes(Self) -> Bytes
 pub fn ObjectId::to_hex(Self) -> String
 pub fn ObjectId::zero() -> Self
 pub impl Eq for ObjectId
+pub impl Hash for ObjectId
 pub impl Show for ObjectId
 
 pub struct ObjectStore {

@@ -110,6 +110,15 @@ pub impl Eq for ObjectId with equal(self, other) {
 }
 
 ///|
+/// Hash implementation for using ObjectId as Map key
+pub impl Hash for ObjectId with hash_combine(self, hasher) {
+  // Use first 8 bytes as hash (sufficient for distribution)
+  for i = 0; i < 8; i = i + 1 {
+    self.bytes[i].hash_combine(hasher)
+  }
+}
+
+///|
 /// Git object types
 pub(all) enum ObjectType {
   Blob

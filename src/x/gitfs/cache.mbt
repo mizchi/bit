@@ -58,7 +58,7 @@ pub fn ObjectCache::get_tree(
   self : ObjectCache,
   tree_id : @git.ObjectId,
 ) -> Array[@git.TreeEntry]? {
-  self.trees.get(tree_id.to_hex())
+  self.trees.get(tree_id) // Direct ObjectId lookup, no hex conversion
 }
 
 ///|
@@ -67,7 +67,7 @@ pub fn ObjectCache::set_tree(
   tree_id : @git.ObjectId,
   entries : Array[@git.TreeEntry],
 ) -> Unit {
-  self.trees[tree_id.to_hex()] = entries
+  self.trees[tree_id] = entries // Direct ObjectId key
 }
 
 ///|

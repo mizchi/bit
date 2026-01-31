@@ -59,7 +59,7 @@ pub(all) struct Layer {
 ///|
 pub(all) struct ObjectCache {
   blobs : Map[String, Bytes]
-  trees : Map[String, Array[@git.TreeEntry]]
+  trees : Map[@git.ObjectId, Array[@git.TreeEntry]] // ObjectId as key (no hex conversion)
   path_cache : Map[String, @git.ObjectId?]
   max_blob_bytes : Int
   mut blob_bytes : Int
