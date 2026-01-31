@@ -1330,10 +1330,10 @@ fn midx_find_chunk(data : Bytes, num_chunks : Int, chunk_id : String) -> Int {
     let id2 = data[entry_offset + 2].to_int()
     let id3 = data[entry_offset + 3].to_int()
     let id_str = String::from_array([
-      Char::from_int(id0),
-      Char::from_int(id1),
-      Char::from_int(id2),
-      Char::from_int(id3),
+      Int::unsafe_to_char(id0),
+      Int::unsafe_to_char(id1),
+      Int::unsafe_to_char(id2),
+      Int::unsafe_to_char(id3),
     ])
     if id_str == chunk_id {
       // Read offset (8 bytes, but we use lower 4)
@@ -1357,10 +1357,10 @@ fn midx_find_chunk_end(
     let id2 = data[entry_offset + 2].to_int()
     let id3 = data[entry_offset + 3].to_int()
     let id_str = String::from_array([
-      Char::from_int(id0),
-      Char::from_int(id1),
-      Char::from_int(id2),
-      Char::from_int(id3),
+      Int::unsafe_to_char(id0),
+      Int::unsafe_to_char(id1),
+      Int::unsafe_to_char(id2),
+      Int::unsafe_to_char(id3),
     ])
     if id_str == chunk_id {
       // Next chunk's offset is the end
@@ -1374,7 +1374,7 @@ fn midx_find_chunk_end(
 fn midx_bytes_to_string(data : Bytes, start : Int, end : Int) -> String {
   let chars : Array[Char] = []
   for i in start..<end {
-    chars.push(Char::from_int(data[i].to_int()))
+    chars.push(Int::unsafe_to_char(data[i].to_int()))
   }
   String::from_array(chars)
 }
