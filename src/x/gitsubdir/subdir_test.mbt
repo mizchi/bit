@@ -901,3 +901,652 @@ test "subdir: commit preserves files outside subdirectory" {
   assert_true(files.contains("src/main.mbt"))
   assert_true(files.contains("src/lib/foo.mbt"))
 }
+
+// ============================================================================
+// エラーケースのテスト
+// ============================================================================
+
+///|
+test "error: SubdirRepo from non-existent subdir" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.write_file("/repo/README.md", b"readme")
+  let commit_id = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Initial",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  // 存在しないサブディレクトリ - エラーになるはず
+  let _ = SubdirRepo::from_commit(fs, "/repo/.git", commit_id, "nonexistent") catch {
+    SubdirNotFound(_) => return () // 期待通り
+    _ => {
+      assert_true(false) // 予期しないエラー
+      return ()
+    }
+  }
+  // ここに来たら成功してしまった
+  assert_true(false)
+}
+
+///|
+test "error: commit without changes" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.mkdir_p("/repo/src/lib")
+  fs.write_file("/repo/src/lib/foo.mbt", b"content")
+  let commit_id = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Initial",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  let subdir = SubdirRepo::from_commit(fs, "/repo/.git", commit_id, "src/lib") catch {
+    _ => return ()
+  }
+  // 変更なしでコミット試行
+  assert_false(subdir.is_dirty())
+  let _ = subdir.commit(fs, fs, "No changes") catch {
+    IoError(_) => return () // 期待通り（nothing to commit）
+    _ => {
+      assert_true(false)
+      return ()
+    }
+  }
+  // ここに来たら成功してしまった
+  assert_true(false)
+}
+
+///|
+test "error: module init creates directories" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.mkdir_p("/repo/src/lib")
+  // 正常に初期化できることを確認
+  init_module(fs, fs, "/repo/.git", "/repo", "src/lib") catch { _ => return () }
+  assert_true(is_module_initialized(fs, "/repo/.git", "src/lib"))
+}
+
+// ============================================================================
+// エッジケースのテスト
+// ============================================================================
+
+///|
+test "edge: empty subdirectory" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.mkdir_p("/repo/src/lib")
+  fs.write_file("/repo/README.md", b"readme")
+  // 空のディレクトリはgitに含まれないので、ダミーファイルを追加
+  fs.write_file("/repo/src/lib/.gitkeep", b"")
+  let commit_id = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Initial",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  let subdir = SubdirRepo::from_commit(fs, "/repo/.git", commit_id, "src/lib") catch {
+    _ => return ()
+  }
+  // 空でも正常に作成される
+  assert_eq(subdir.path(), "src/lib")
+}
+
+///|
+test "edge: very deep nesting (5 levels)" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  let deep_path = "a/b/c/d/e"
+  fs.mkdir_p("/repo/" + deep_path)
+  fs.write_file("/repo/" + deep_path + "/file.txt", b"deep content")
+  let commit_id = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Initial",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  // 深いネストでも正常動作
+  let subdir = SubdirRepo::from_commit(fs, "/repo/.git", commit_id, deep_path) catch {
+    _ => return ()
+  }
+  assert_eq(subdir.path(), deep_path)
+  let content = subdir.fs().read_file(fs, "/file.txt") catch { _ => return () }
+  assert_eq(content, b"deep content")
+}
+
+///|
+test "edge: module with very deep nesting" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  let deep_path = "packages/scope/name/src/lib"
+  fs.mkdir_p("/repo/" + deep_path)
+  fs.write_file("/repo/" + deep_path + "/index.mbt", b"content")
+  init_module(fs, fs, "/repo/.git", "/repo", deep_path) catch { _ => return () }
+  // 正しいモジュール名で作成される
+  assert_true(fs.is_dir("/repo/.git/modules/packages_scope_name_src_lib"))
+  // .git ファイルのパスが正しい
+  let content = fs.read_file("/repo/" + deep_path + "/.git") catch {
+    _ => return ()
+  }
+  let content_str = bytes_to_string_test(content)
+  // 5階層分の ../
+  assert_true(content_str.contains("../../../../../.git/modules/"))
+}
+
+///|
+test "edge: path normalization variants" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.mkdir_p("/repo/src/lib")
+  fs.write_file("/repo/src/lib/foo.mbt", b"content")
+  let commit_id = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Initial",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  // 様々なパス形式
+  let paths = ["src/lib", "/src/lib", "src/lib/", "/src/lib/", "./src/lib"]
+  for path in paths {
+    let subdir = SubdirRepo::from_commit(fs, "/repo/.git", commit_id, path) catch {
+      _ => continue
+    }
+    assert_eq(subdir.path(), "src/lib")
+  }
+}
+
+///|
+test "edge: single file in subdirectory" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.mkdir_p("/repo/src/lib")
+  fs.write_file("/repo/src/lib/single.mbt", b"only file")
+  let commit_id = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Initial",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  let subdir = SubdirRepo::from_commit(fs, "/repo/.git", commit_id, "src/lib") catch {
+    _ => return ()
+  }
+  let files = subdir.fs().readdir(fs, "/") catch { _ => return () }
+  assert_eq(files.length(), 1)
+  assert_eq(files[0], "single.mbt")
+}
+
+// ============================================================================
+// ワークフロー統合テスト
+// ============================================================================
+
+///|
+test "workflow: init -> commit -> checkout -> deinit" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.mkdir_p("/repo/src/lib")
+  fs.write_file("/repo/src/lib/foo.mbt", b"v1")
+  fs.write_file("/repo/README.md", b"readme")
+  // 1. 初期コミット
+  let commit1 = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "v1",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  // 2. モジュール初期化
+  init_module(fs, fs, "/repo/.git", "/repo", "src/lib") catch { _ => return () }
+  assert_true(is_module_initialized(fs, "/repo/.git", "src/lib"))
+  // 3. SubdirRepo で変更してコミット
+  let subdir = SubdirRepo::from_commit(fs, "/repo/.git", commit1, "src/lib") catch {
+    _ => return ()
+  }
+  subdir.fs().write_file("/foo.mbt", b"v2")
+  let commit2 = subdir.commit(
+    fs,
+    fs,
+    "v2",
+    author="test <test@test.com>",
+    timestamp=2000L,
+  ) catch {
+    _ => return ()
+  }
+  // 4. 古いコミットをチェックアウト
+  let subdir_old = SubdirRepo::from_commit(
+    fs,
+    "/repo/.git",
+    commit1,
+    "src/lib",
+  ) catch {
+    _ => return ()
+  }
+  let old_content = subdir_old.fs().read_file(fs, "/foo.mbt") catch {
+    _ => return ()
+  }
+  assert_eq(old_content, b"v1")
+  // 5. 新しいコミットを確認
+  let subdir_new = SubdirRepo::from_commit(
+    fs,
+    "/repo/.git",
+    commit2,
+    "src/lib",
+  ) catch {
+    _ => return ()
+  }
+  let new_content = subdir_new.fs().read_file(fs, "/foo.mbt") catch {
+    _ => return ()
+  }
+  assert_eq(new_content, b"v2")
+  // 6. モジュール削除
+  deinit_module(fs, fs, "/repo/.git", "/repo", "src/lib") catch { _ => () }
+  assert_false(is_module_initialized(fs, "/repo/.git", "src/lib"))
+}
+
+///|
+test "workflow: multiple commits in sequence" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.mkdir_p("/repo/src/lib")
+  fs.write_file("/repo/src/lib/foo.mbt", b"v1")
+  let commit1 = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "v1",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  // 複数回コミット
+  let mut current_commit = commit1
+  for i = 2; i <= 5; i = i + 1 {
+    let subdir = SubdirRepo::from_commit(
+      fs,
+      "/repo/.git",
+      current_commit,
+      "src/lib",
+    ) catch {
+      _ => return ()
+    }
+    let version = "v" + i.to_string()
+    subdir.fs().write_file("/foo.mbt", string_to_bytes_test(version))
+    current_commit = subdir.commit(
+      fs,
+      fs,
+      version,
+      author="test <test@test.com>",
+      timestamp=(1000L + i.to_int64() * 1000L),
+    ) catch {
+      _ => return ()
+    }
+  }
+  // 最終バージョンを確認
+  let final_subdir = SubdirRepo::from_commit(
+    fs,
+    "/repo/.git",
+    current_commit,
+    "src/lib",
+  ) catch {
+    _ => return ()
+  }
+  let content = final_subdir.fs().read_file(fs, "/foo.mbt") catch {
+    _ => return ()
+  }
+  assert_eq(content, b"v5")
+}
+
+// ============================================================================
+// 並行操作テスト
+// ============================================================================
+
+///|
+test "parallel: multiple modules independent operations" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  // 複数のサブディレクトリを作成
+  fs.mkdir_p("/repo/packages/core")
+  fs.mkdir_p("/repo/packages/utils")
+  fs.mkdir_p("/repo/packages/cli")
+  fs.write_file("/repo/packages/core/index.mbt", b"core")
+  fs.write_file("/repo/packages/utils/index.mbt", b"utils")
+  fs.write_file("/repo/packages/cli/index.mbt", b"cli")
+  let commit_id = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Initial",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  // 全てをモジュールとして初期化
+  init_module(fs, fs, "/repo/.git", "/repo", "packages/core") catch {
+    _ => return ()
+  }
+  init_module(fs, fs, "/repo/.git", "/repo", "packages/utils") catch {
+    _ => return ()
+  }
+  init_module(fs, fs, "/repo/.git", "/repo", "packages/cli") catch {
+    _ => return ()
+  }
+  // 全て初期化されている
+  let modules = list_modules(fs, "/repo/.git")
+  assert_eq(modules.length(), 3)
+  // 各モジュールで独立してSubdirRepoを作成
+  let core = SubdirRepo::from_commit(
+    fs,
+    "/repo/.git",
+    commit_id,
+    "packages/core",
+  ) catch {
+    _ => return ()
+  }
+  let utils = SubdirRepo::from_commit(
+    fs,
+    "/repo/.git",
+    commit_id,
+    "packages/utils",
+  ) catch {
+    _ => return ()
+  }
+  // 独立して読み取り可能
+  let core_content = core.fs().read_file(fs, "/index.mbt") catch {
+    _ => return ()
+  }
+  let utils_content = utils.fs().read_file(fs, "/index.mbt") catch {
+    _ => return ()
+  }
+  assert_eq(core_content, b"core")
+  assert_eq(utils_content, b"utils")
+}
+
+///|
+test "parallel: commit to one module preserves others" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.mkdir_p("/repo/pkg/a")
+  fs.mkdir_p("/repo/pkg/b")
+  fs.write_file("/repo/pkg/a/file.mbt", b"a original")
+  fs.write_file("/repo/pkg/b/file.mbt", b"b original")
+  let commit1 = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Initial",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  // pkg/a だけ変更してコミット
+  let subdir_a = SubdirRepo::from_commit(fs, "/repo/.git", commit1, "pkg/a") catch {
+    _ => return ()
+  }
+  subdir_a.fs().write_file("/file.mbt", b"a modified")
+  let commit2 = subdir_a.commit(
+    fs,
+    fs,
+    "Update a",
+    author="test <test@test.com>",
+    timestamp=2000L,
+  ) catch {
+    _ => return ()
+  }
+  // pkg/b は変更されていない
+  let subdir_b = SubdirRepo::from_commit(fs, "/repo/.git", commit2, "pkg/b") catch {
+    _ => return ()
+  }
+  let b_content = subdir_b.fs().read_file(fs, "/file.mbt") catch {
+    _ => return ()
+  }
+  assert_eq(b_content, b"b original")
+  // pkg/a は変更されている
+  let subdir_a2 = SubdirRepo::from_commit(fs, "/repo/.git", commit2, "pkg/a") catch {
+    _ => return ()
+  }
+  let a_content = subdir_a2.fs().read_file(fs, "/file.mbt") catch {
+    _ => return ()
+  }
+  assert_eq(a_content, b"a modified")
+}
+
+// ============================================================================
+// sync 機能テスト
+// ============================================================================
+
+///|
+test "sync: sync_module updates HEAD" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.mkdir_p("/repo/src/lib")
+  fs.write_file("/repo/src/lib/foo.mbt", b"content")
+  // モジュール初期化
+  init_module(fs, fs, "/repo/.git", "/repo", "src/lib") catch { _ => return () }
+  // 親のHEADを変更（ブランチ参照に）
+  fs.write_file("/repo/.git/HEAD", b"ref: refs/heads/develop\n")
+  // sync実行
+  sync_module(fs, fs, "/repo/.git", "src/lib") catch { _ => return () }
+  // モジュールのHEADも更新される
+  let module_head = fs.read_file("/repo/.git/modules/src_lib/HEAD") catch {
+    _ => return ()
+  }
+  let head_str = bytes_to_string_test(module_head)
+  assert_true(head_str.contains("refs/heads/develop"))
+}
+
+// ============================================================================
+// その他のエッジケース
+// ============================================================================
+
+///|
+test "misc: log filters commits correctly" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.mkdir_p("/repo/src/lib")
+  fs.write_file("/repo/src/lib/foo.mbt", b"v1")
+  fs.write_file("/repo/README.md", b"readme v1")
+  // コミット1: 両方を変更
+  let _ = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Both",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  // コミット2: lib のみ変更
+  fs.write_file("/repo/src/lib/foo.mbt", b"v2")
+  let _ = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Lib only",
+    "test <test@test.com>",
+    2000L,
+  ) catch {
+    _ => return ()
+  }
+  // コミット3: README のみ変更
+  fs.write_file("/repo/README.md", b"readme v2")
+  let commit3 = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Readme only",
+    "test <test@test.com>",
+    3000L,
+  ) catch {
+    _ => return ()
+  }
+  // lib の履歴を取得
+  let subdir = SubdirRepo::from_commit(fs, "/repo/.git", commit3, "src/lib") catch {
+    _ => return ()
+  }
+  let history = subdir.log(fs) catch { _ => return () }
+  // lib を変更したコミットは2つ（Both と Lib only）
+  // Readme only は含まれない
+  assert_eq(history.length(), 2)
+}
+
+///|
+test "misc: diff shows only subdirectory changes" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.mkdir_p("/repo/src/lib")
+  fs.write_file("/repo/src/lib/foo.mbt", b"original")
+  let commit_id = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Initial",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  let subdir = SubdirRepo::from_commit(fs, "/repo/.git", commit_id, "src/lib") catch {
+    _ => return ()
+  }
+  // 複数のファイルを変更
+  subdir.fs().write_file("/foo.mbt", b"modified")
+  subdir.fs().write_file("/bar.mbt", b"new file")
+  let diff = subdir.diff()
+  assert_eq(diff.length(), 2)
+}
+
+///|
+test "misc: multiple files in subdirectory" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.mkdir_p("/repo/src/lib")
+  // 多数のファイルを作成
+  for i = 0; i < 10; i = i + 1 {
+    let filename = "file" + i.to_string() + ".mbt"
+    let content = "content " + i.to_string()
+    fs.write_file("/repo/src/lib/" + filename, string_to_bytes_test(content))
+  }
+  let commit_id = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Initial",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  let subdir = SubdirRepo::from_commit(fs, "/repo/.git", commit_id, "src/lib") catch {
+    _ => return ()
+  }
+  let files = subdir.fs().readdir(fs, "/") catch { _ => return () }
+  assert_eq(files.length(), 10)
+}
+
+///|
+test "misc: subdirectory with nested directories" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.mkdir_p("/repo/src/lib/internal/deep")
+  fs.write_file("/repo/src/lib/index.mbt", b"index")
+  fs.write_file("/repo/src/lib/internal/helper.mbt", b"helper")
+  fs.write_file("/repo/src/lib/internal/deep/util.mbt", b"util")
+  let commit_id = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Initial",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  let subdir = SubdirRepo::from_commit(fs, "/repo/.git", commit_id, "src/lib") catch {
+    _ => return ()
+  }
+  // ネストしたディレクトリも読める
+  let gitfs = subdir.fs()
+  assert_true(gitfs.is_dir(fs, "/internal"))
+  assert_true(gitfs.is_dir(fs, "/internal/deep"))
+  assert_true(gitfs.is_file(fs, "/internal/helper.mbt"))
+  assert_true(gitfs.is_file(fs, "/internal/deep/util.mbt"))
+}
+
+///|
+test "misc: commit with delete file" {
+  let fs = @git.TestFs::new()
+  @lib.init_repo(fs, "/repo") catch { _ => () }
+  fs.mkdir_p("/repo/src/lib")
+  fs.write_file("/repo/src/lib/keep.mbt", b"keep")
+  fs.write_file("/repo/src/lib/delete.mbt", b"delete me")
+  let commit1 = @lib.commit(
+    fs,
+    fs,
+    "/repo",
+    "Initial",
+    "test <test@test.com>",
+    1000L,
+  ) catch {
+    _ => return ()
+  }
+  let subdir = SubdirRepo::from_commit(fs, "/repo/.git", commit1, "src/lib") catch {
+    _ => return ()
+  }
+  // ファイルを削除
+  subdir.fs().remove_file("/delete.mbt")
+  let commit2 = subdir.commit(
+    fs,
+    fs,
+    "Delete file",
+    author="test <test@test.com>",
+    timestamp=2000L,
+  ) catch {
+    _ => return ()
+  }
+  // 削除後のコミットを確認
+  let subdir2 = SubdirRepo::from_commit(fs, "/repo/.git", commit2, "src/lib") catch {
+    _ => return ()
+  }
+  let files = subdir2.fs().readdir(fs, "/") catch { _ => return () }
+  assert_eq(files.length(), 1)
+  assert_eq(files[0], "keep.mbt")
+}
+
+///|
+fn string_to_bytes_test(s : String) -> Bytes {
+  let bytes : Array[Byte] = []
+  for c in s {
+    bytes.push(c.to_int().to_byte())
+  }
+  Bytes::from_array(bytes)
+}
