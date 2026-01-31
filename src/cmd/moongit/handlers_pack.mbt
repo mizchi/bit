@@ -149,9 +149,9 @@ async fn handle_rev_list(args : Array[String]) -> Unit raise Error {
   }
   // Apply reverse if requested
   if reverse {
-    result.rev_inplace()
+    result.rev_in_place()
     if objects {
-      object_ids.rev_inplace()
+      object_ids.rev_in_place()
     }
   }
   // Output

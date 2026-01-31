@@ -214,7 +214,7 @@ fn parse_mbox(input : String, keep_cr : Bool) -> Array[MboxPatch] {
             Some(idx) =>
               subject = subject
                 .substring(start=idx + 1)
-                .trim_space()
+                .trim()
                 .to_string()
             None => ()
           }
@@ -308,8 +308,8 @@ async fn apply_remaining_patches(
     apply_patch_to_worktree(fs, root, patch_content, three_way)
     let commit_msg = if signoff {
       let config_path = git_dir + "/config"
-      let user = get_config_value_simple(fs, config_path, "user.name").or("")
-      let email = get_config_value_simple(fs, config_path, "user.email").or("")
+      let user = get_config_value_simple(fs, config_path, "user.name").unwrap_or("")
+      let email = get_config_value_simple(fs, config_path, "user.email").unwrap_or("")
       if message.length() > 0 {
         "\{subject}\n\n\{message}\n\nSigned-off-by: \{user} <\{email}>"
       } else {
@@ -342,8 +342,8 @@ async fn apply_remaining_patches(
 ///|
 fn extract_name_str(author : String) -> String {
   match author.find("<") {
-    Some(idx) => author.substring(end=idx).trim_space().to_string()
-    None => author.trim_space().to_string()
+    Some(idx) => author.substring(end=idx).trim().to_string()
+    None => author.trim().to_string()
   }
 }
 
@@ -741,7 +741,7 @@ fn zero_pad_hex(n : Int, width : Int) -> String {
     result.push(c.to_string())
     val = val / 16
   }
-  result.rev_inplace()
+  result.rev_in_place()
   result.join("")
 }
 
