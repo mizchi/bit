@@ -16,7 +16,10 @@ pub struct LazyPackIndex {
 }
 
 ///|
-pub fn LazyPackIndex::new(idx_path : String, pack_path : String) -> LazyPackIndex {
+pub fn LazyPackIndex::new(
+  idx_path : String,
+  pack_path : String,
+) -> LazyPackIndex {
   { idx_path, pack_path, loaded: None }
 }
 

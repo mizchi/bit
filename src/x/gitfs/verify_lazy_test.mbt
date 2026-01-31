@@ -4,7 +4,6 @@
 test "verify: lazy loading on helix repo" {
   let osfs = @osfs.OsFs::new()
   let git_dir = "/Users/mz/ghq/github.com/helix-editor/helix/.git"
-
   if not(osfs.is_dir(git_dir)) {
     println("Skipping: helix repo not found")
     return
@@ -15,7 +14,11 @@ test "verify: lazy loading on helix repo" {
   let head_content = osfs.read_file(head_path)
   let head_str = @utf8.decode_lossy(head_content[:]).trim().to_string()
   let commit_id = if head_str.has_prefix("ref: ") {
-    let ref_name = String::unsafe_substring(head_str, start=5, end=head_str.length())
+    let ref_name = String::unsafe_substring(
+      head_str,
+      start=5,
+      end=head_str.length(),
+    )
     let ref_path = git_dir + "/" + ref_name
     let ref_content = osfs.read_file(ref_path)
     let ref_str = @utf8.decode_lossy(ref_content[:]).trim().to_string()
@@ -23,7 +26,6 @@ test "verify: lazy loading on helix repo" {
   } else {
     @git.ObjectId::from_hex(head_str)
   }
-
   println("HEAD: \{commit_id}")
 
   // Test lazy loading (default)
@@ -38,14 +40,12 @@ test "verify: lazy loading on helix repo" {
   // Read some files
   let readme = gitfs_lazy.read_file(osfs, "README.md")
   println("README.md: \{readme.length()} bytes")
-
   let cargo = gitfs_lazy.read_file(osfs, "Cargo.toml")
   println("Cargo.toml: \{cargo.length()} bytes")
 
   // Read nested files
   let helix_term = gitfs_lazy.readdir(osfs, "helix-term")
   println("helix-term/: \{helix_term.length()} entries")
-
   let src_files = gitfs_lazy.readdir(osfs, "helix-term/src")
   println("helix-term/src/: \{src_files.length()} entries")
 
@@ -72,15 +72,12 @@ test "verify: lazy loading on helix repo" {
   let config = GitFsConfig::eager()
   let gitfs_eager = GitFs::from_commit(osfs, git_dir, commit_id, config~)
   println("is_lazy: \{gitfs_eager.is_lazy()}")
-
   let root_eager = gitfs_eager.readdir(osfs, "")
   println("Root entries: \{root_eager.length()}")
   assert_eq(root.length(), root_eager.length())
-
   let readme_eager = gitfs_eager.read_file(osfs, "README.md")
   assert_eq(readme.length(), readme_eager.length())
   println("README.md matches lazy version: OK")
-
   println("\n=== All Checks Passed ===")
 }
 
@@ -88,7 +85,6 @@ test "verify: lazy loading on helix repo" {
 test "verify: lazy loading on this repo" {
   let osfs = @osfs.OsFs::new()
   let git_dir = "/Users/mz/ghq/github.com/mizchi/git/.git"
-
   if not(osfs.is_dir(git_dir)) {
     println("Skipping: this repo .git not found")
     return
@@ -99,7 +95,11 @@ test "verify: lazy loading on this repo" {
   let head_content = osfs.read_file(head_path)
   let head_str = @utf8.decode_lossy(head_content[:]).trim().to_string()
   let commit_id = if head_str.has_prefix("ref: ") {
-    let ref_name = String::unsafe_substring(head_str, start=5, end=head_str.length())
+    let ref_name = String::unsafe_substring(
+      head_str,
+      start=5,
+      end=head_str.length(),
+    )
     let ref_path = git_dir + "/" + ref_name
     if osfs.is_file(ref_path) {
       let ref_content = osfs.read_file(ref_path)
@@ -113,9 +113,7 @@ test "verify: lazy loading on this repo" {
   } else {
     @git.ObjectId::from_hex(head_str)
   }
-
   println("HEAD: \{commit_id}")
-
   let gitfs = GitFs::from_commit(osfs, git_dir, commit_id)
   println("is_lazy: \{gitfs.is_lazy()}")
 
@@ -137,6 +135,5 @@ test "verify: lazy loading on this repo" {
     let src = gitfs.readdir(osfs, "src")
     println("src/: \{src.length()} entries")
   }
-
   println("\n=== This Repo Check Passed ===")
 }

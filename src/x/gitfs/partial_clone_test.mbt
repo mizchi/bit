@@ -8,7 +8,9 @@ test "partial_clone: mount and list files" {
   // Skip if test repo not available
   if not(osfs.is_dir(git_dir)) {
     println("Skipping: partial clone test repo not found")
-    println("Run: moongit clone --filter=blob:none https://github.com/nickel-lang/tree-sitter-nickel /tmp/partial-clone-test/tree-sitter-nickel")
+    println(
+      "Run: moongit clone --filter=blob:none https://github.com/nickel-lang/tree-sitter-nickel /tmp/partial-clone-test/tree-sitter-nickel",
+    )
     return
   }
 
@@ -29,10 +31,16 @@ test "partial_clone: mount and list files" {
 
   // Get commit ID
   let commit_id = if head_str.has_prefix("ref: ") {
-    let ref_name = String::unsafe_substring(head_str, start=5, end=head_str.length())
+    let ref_name = String::unsafe_substring(
+      head_str,
+      start=5,
+      end=head_str.length(),
+    )
     let ref_path = git_dir + "/" + ref_name
     let ref_content = osfs.read_file(ref_path)
-    @git.ObjectId::from_hex(@utf8.decode_lossy(ref_content[:]).trim().to_string())
+    @git.ObjectId::from_hex(
+      @utf8.decode_lossy(ref_content[:]).trim().to_string(),
+    )
   } else {
     @git.ObjectId::from_hex(head_str)
   }
@@ -66,7 +74,6 @@ test "partial_clone: mount and list files" {
 async test "partial_clone: on-demand fetch" {
   let osfs = @osfs.OsFs::new()
   let git_dir = "/tmp/partial-clone-test/tree-sitter-nickel/.git"
-
   if not(osfs.is_dir(git_dir)) {
     println("Skipping: partial clone test repo not found")
     return
@@ -76,14 +83,19 @@ async test "partial_clone: on-demand fetch" {
   let head_ref = osfs.read_file(git_dir + "/HEAD")
   let head_str = @utf8.decode_lossy(head_ref[:]).trim().to_string()
   let commit_id = if head_str.has_prefix("ref: ") {
-    let ref_name = String::unsafe_substring(head_str, start=5, end=head_str.length())
+    let ref_name = String::unsafe_substring(
+      head_str,
+      start=5,
+      end=head_str.length(),
+    )
     let ref_path = git_dir + "/" + ref_name
     let ref_content = osfs.read_file(ref_path)
-    @git.ObjectId::from_hex(@utf8.decode_lossy(ref_content[:]).trim().to_string())
+    @git.ObjectId::from_hex(
+      @utf8.decode_lossy(ref_content[:]).trim().to_string(),
+    )
   } else {
     @git.ObjectId::from_hex(head_str)
   }
-
   let gitfs = GitFs::from_commit(osfs, git_dir, commit_id)
 
   // Try to read a file - this should trigger on-demand fetch
@@ -101,7 +113,10 @@ async test "partial_clone: on-demand fetch" {
 
   // Print first few lines
   let text = @utf8.decode_lossy(content[:])
-  let lines : Array[String] = text.split("\n").map(fn(sv) { sv.to_string() }).collect()
+  let lines : Array[String] = text
+    .split("\n")
+    .map(fn(sv) { sv.to_string() })
+    .collect()
   let preview_lines = if lines.length() > 5 { 5 } else { lines.length() }
   println("Content preview:")
   for i in 0..<preview_lines {
@@ -113,7 +128,6 @@ async test "partial_clone: on-demand fetch" {
   let content2 = gitfs.read_file(osfs, "README.md")
   println("Sync read after fetch: \{content2.length()} bytes")
   assert_eq(content.length(), content2.length())
-
   println("\n=== On-demand Fetch Test Passed ===")
 }
 
@@ -122,25 +136,27 @@ test "partial_clone: glob pattern matching" {
   // Test glob_match function via prefetch_glob behavior
   let osfs = @osfs.OsFs::new()
   let git_dir = "/tmp/partial-clone-test/tree-sitter-nickel/.git"
-
   if not(osfs.is_dir(git_dir)) {
     println("Skipping: partial clone test repo not found")
     return
   }
-
   let head_ref = osfs.read_file(git_dir + "/HEAD")
   let head_str = @utf8.decode_lossy(head_ref[:]).trim().to_string()
   let commit_id = if head_str.has_prefix("ref: ") {
-    let ref_name = String::unsafe_substring(head_str, start=5, end=head_str.length())
+    let ref_name = String::unsafe_substring(
+      head_str,
+      start=5,
+      end=head_str.length(),
+    )
     let ref_path = git_dir + "/" + ref_name
     let ref_content = osfs.read_file(ref_path)
-    @git.ObjectId::from_hex(@utf8.decode_lossy(ref_content[:]).trim().to_string())
+    @git.ObjectId::from_hex(
+      @utf8.decode_lossy(ref_content[:]).trim().to_string(),
+    )
   } else {
     @git.ObjectId::from_hex(head_str)
   }
-
   let gitfs = GitFs::from_commit(osfs, git_dir, commit_id)
-
   println("\n=== Glob Pattern Test ===")
 
   // Test collect_files_bfs
@@ -158,11 +174,9 @@ test "partial_clone: glob pattern matching" {
   for file in bfs_files {
     if file.contains("/") {
       found_subdir_file = true
-    } else {
       // Root file should not appear after subdir file in BFS
-      if found_subdir_file {
-        println("  Warning: root file after subdir file - not strict BFS")
-      }
+    } else if found_subdir_file {
+      println("  Warning: root file after subdir file - not strict BFS")
     }
   }
 
@@ -174,7 +188,6 @@ test "partial_clone: glob pattern matching" {
       println("  \{pending[i]}")
     }
   }
-
   println("\n=== Glob Pattern Test Passed ===")
 }
 
@@ -182,25 +195,27 @@ test "partial_clone: glob pattern matching" {
 async test "partial_clone: prefetch with glob" {
   let osfs = @osfs.OsFs::new()
   let git_dir = "/tmp/partial-clone-test/tree-sitter-nickel/.git"
-
   if not(osfs.is_dir(git_dir)) {
     println("Skipping: partial clone test repo not found")
     return
   }
-
   let head_ref = osfs.read_file(git_dir + "/HEAD")
   let head_str = @utf8.decode_lossy(head_ref[:]).trim().to_string()
   let commit_id = if head_str.has_prefix("ref: ") {
-    let ref_name = String::unsafe_substring(head_str, start=5, end=head_str.length())
+    let ref_name = String::unsafe_substring(
+      head_str,
+      start=5,
+      end=head_str.length(),
+    )
     let ref_path = git_dir + "/" + ref_name
     let ref_content = osfs.read_file(ref_path)
-    @git.ObjectId::from_hex(@utf8.decode_lossy(ref_content[:]).trim().to_string())
+    @git.ObjectId::from_hex(
+      @utf8.decode_lossy(ref_content[:]).trim().to_string(),
+    )
   } else {
     @git.ObjectId::from_hex(head_str)
   }
-
   let gitfs = GitFs::from_commit(osfs, git_dir, commit_id)
-
   println("\n=== Prefetch Glob Test ===")
 
   // Prefetch all .json files
@@ -211,7 +226,6 @@ async test "partial_clone: prefetch with glob" {
   let package_json = gitfs.read_file(osfs, "package.json")
   println("package.json: \{package_json.length()} bytes")
   assert_true(package_json.length() > 0)
-
   println("\n=== Prefetch Glob Test Passed ===")
 }
 
@@ -219,25 +233,27 @@ async test "partial_clone: prefetch with glob" {
 async test "partial_clone: prefetch BFS" {
   let osfs = @osfs.OsFs::new()
   let git_dir = "/tmp/partial-clone-test/tree-sitter-nickel/.git"
-
   if not(osfs.is_dir(git_dir)) {
     println("Skipping: partial clone test repo not found")
     return
   }
-
   let head_ref = osfs.read_file(git_dir + "/HEAD")
   let head_str = @utf8.decode_lossy(head_ref[:]).trim().to_string()
   let commit_id = if head_str.has_prefix("ref: ") {
-    let ref_name = String::unsafe_substring(head_str, start=5, end=head_str.length())
+    let ref_name = String::unsafe_substring(
+      head_str,
+      start=5,
+      end=head_str.length(),
+    )
     let ref_path = git_dir + "/" + ref_name
     let ref_content = osfs.read_file(ref_path)
-    @git.ObjectId::from_hex(@utf8.decode_lossy(ref_content[:]).trim().to_string())
+    @git.ObjectId::from_hex(
+      @utf8.decode_lossy(ref_content[:]).trim().to_string(),
+    )
   } else {
     @git.ObjectId::from_hex(head_str)
   }
-
   let gitfs = GitFs::from_commit(osfs, git_dir, commit_id)
-
   println("\n=== Prefetch BFS Test ===")
 
   // Get pending before prefetch
@@ -254,7 +270,6 @@ async test "partial_clone: prefetch BFS" {
 
   // Should have reduced pending count
   assert_true(pending_after.length() <= pending_before.length())
-
   println("\n=== Prefetch BFS Test Passed ===")
 }
 
@@ -262,25 +277,27 @@ async test "partial_clone: prefetch BFS" {
 async test "partial_clone: prefetch multiple files" {
   let osfs = @osfs.OsFs::new()
   let git_dir = "/tmp/partial-clone-test/tree-sitter-nickel/.git"
-
   if not(osfs.is_dir(git_dir)) {
     println("Skipping: partial clone test repo not found")
     return
   }
-
   let head_ref = osfs.read_file(git_dir + "/HEAD")
   let head_str = @utf8.decode_lossy(head_ref[:]).trim().to_string()
   let commit_id = if head_str.has_prefix("ref: ") {
-    let ref_name = String::unsafe_substring(head_str, start=5, end=head_str.length())
+    let ref_name = String::unsafe_substring(
+      head_str,
+      start=5,
+      end=head_str.length(),
+    )
     let ref_path = git_dir + "/" + ref_name
     let ref_content = osfs.read_file(ref_path)
-    @git.ObjectId::from_hex(@utf8.decode_lossy(ref_content[:]).trim().to_string())
+    @git.ObjectId::from_hex(
+      @utf8.decode_lossy(ref_content[:]).trim().to_string(),
+    )
   } else {
     @git.ObjectId::from_hex(head_str)
   }
-
   let gitfs = GitFs::from_commit(osfs, git_dir, commit_id)
-
   println("\n=== Prefetch Test ===")
 
   // Get list of files to prefetch
@@ -292,7 +309,6 @@ async test "partial_clone: prefetch multiple files" {
     }
   }
   println("Files needing fetch: \{files_to_fetch.length()}")
-
   if files_to_fetch.length() > 0 {
     // Prefetch first 3 files
     let to_prefetch = if files_to_fetch.length() > 3 {
@@ -301,7 +317,6 @@ async test "partial_clone: prefetch multiple files" {
       files_to_fetch
     }
     println("Prefetching: \{to_prefetch}")
-
     let fetched = gitfs.prefetch(osfs, osfs, to_prefetch)
     println("Fetched \{fetched} objects")
 
@@ -311,6 +326,5 @@ async test "partial_clone: prefetch multiple files" {
       println("  \{file}: \{content.length()} bytes")
     }
   }
-
   println("\n=== Prefetch Test Passed ===")
 }

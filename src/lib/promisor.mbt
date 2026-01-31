@@ -1,4 +1,5 @@
 ///| Promisor remote support for partial clones
+
 ///| Allows fetching missing objects on-demand from a remote
 
 ///|
@@ -40,7 +41,7 @@ pub struct PromisorDb {
 pub fn PromisorDb::new(
   fs : &@git.RepoFileSystem,
   git_dir : String,
-  lazy~ : Bool = true,
+  lazy? : Bool = true,
 ) -> PromisorDb raise @git.GitError {
   let db = if lazy {
     ObjectDb::load_lazy(fs, git_dir)
@@ -94,9 +95,7 @@ pub async fn PromisorDb::fetch_missing(
   write_fs : &@git.FileSystem,
   ids : Array[@git.ObjectId],
 ) -> Array[@git.PackObject] raise @git.GitError {
-  guard self.promisor_remote is Some(remote) else {
-    return []
-  }
+  guard self.promisor_remote is Some(remote) else { return [] }
   // Filter out already fetched
   let to_fetch : Array[@git.ObjectId] = []
   for id in ids {

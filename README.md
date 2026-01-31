@@ -57,6 +57,77 @@ moongit commit -m "changes"
 moongit push origin feature
 ```
 
+### 4. Subdir - Work with Subdirectories as Independent Repos
+
+Treat any subdirectory as an independent git repository while keeping it in the parent repo:
+
+```bash
+# Initialize subdirectory as module
+moongit subdir init src/lib
+
+# Standard git commands now work from within the subdirectory
+cd src/lib
+git status    # shows only subdirectory changes
+git log       # shows commits affecting subdirectory
+
+# View subdirectory info
+moongit subdir show src/lib
+moongit subdir log src/lib
+
+# Commit subdirectory changes
+moongit subdir commit src/lib -m "Update lib"
+
+# Checkout specific version
+moongit subdir checkout src/lib abc123
+
+# Extract subdirectory to another location
+moongit subdir extract src/lib /tmp/lib-standalone
+
+# Push/pull subdirectory to separate remote
+moongit subdir push src/lib https://github.com/user/lib
+moongit subdir pull src/lib https://github.com/user/lib
+```
+
+**Sparse checkout** for subdirectories:
+
+```bash
+# Enable sparse checkout
+moongit subdir sparse-checkout init src/lib
+
+# Set patterns (only checkout matching files)
+moongit subdir sparse-checkout set src/lib "*.mbt" "moon.pkg.json"
+
+# Add more patterns
+moongit subdir sparse-checkout add src/lib "tests/"
+
+# List current patterns
+moongit subdir sparse-checkout list src/lib
+
+# Disable sparse checkout
+moongit subdir sparse-checkout disable src/lib
+```
+
+**Checkout part of a remote repository** (e.g., monorepo):
+
+```bash
+# Clone with sparse checkout enabled (metadata only)
+moongit clone --filter=blob:none --sparse https://github.com/user/monorepo
+cd monorepo
+
+# Checkout only specific directories
+moongit sparse-checkout set packages/core packages/utils
+
+# Or use subdir to work with a specific package
+moongit subdir init packages/core
+cd packages/core
+git status  # scoped to this directory
+
+# Pull a subdirectory from another repository into your project
+cd /your/project
+mkdir -p vendor/lib
+moongit subdir pull vendor/lib https://github.com/user/lib-repo --branch main
+```
+
 ## Performance
 
 ```

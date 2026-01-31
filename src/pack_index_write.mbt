@@ -155,7 +155,6 @@ fn build_pack_index_v1_from_objects(
     let first = entry.id.bytes[0].to_int()
     counts[first] = counts[first] + 1
   }
-
   let out : Array[Byte] = []
 
   // v1 format: no header, starts directly with fanout
@@ -186,7 +185,6 @@ fn build_pack_index_v1_from_objects(
   for b in pack_checksum.bytes {
     out.push(b)
   }
-
   bytes_from_array(out)
 }
 

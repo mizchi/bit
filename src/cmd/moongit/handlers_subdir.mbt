@@ -99,7 +99,7 @@ async fn handle_subdir_show(args : Array[String]) -> Unit raise Error {
   let git_dir = root + "/.git"
   let fs = OsFs::new()
   // SubdirRepo を作成
-  let subdir = @gitsubdir.SubdirRepo::from_head(fs, git_dir, subdir_path) catch {
+  let subdir = @subdir.SubdirRepo::from_head(fs, git_dir, subdir_path) catch {
     err =>
       raise @git.GitError::IoError(
         "Failed to open subdirectory: " + err.to_string(),
@@ -143,7 +143,7 @@ async fn handle_subdir_log(args : Array[String]) -> Unit raise Error {
   let git_dir = root + "/.git"
   let fs = OsFs::new()
   // SubdirRepo を作成
-  let subdir = @gitsubdir.SubdirRepo::from_head(fs, git_dir, subdir_path) catch {
+  let subdir = @subdir.SubdirRepo::from_head(fs, git_dir, subdir_path) catch {
     err =>
       raise @git.GitError::IoError(
         "Failed to open subdirectory: " + err.to_string(),
@@ -187,7 +187,7 @@ async fn handle_subdir_diff(args : Array[String]) -> Unit raise Error {
   let git_dir = root + "/.git"
   let fs = OsFs::new()
   // SubdirRepo を作成
-  let subdir = @gitsubdir.SubdirRepo::from_head(fs, git_dir, subdir_path) catch {
+  let subdir = @subdir.SubdirRepo::from_head(fs, git_dir, subdir_path) catch {
     err =>
       raise @git.GitError::IoError(
         "Failed to open subdirectory: " + err.to_string(),
@@ -218,7 +218,7 @@ async fn handle_subdir_extract(args : Array[String]) -> Unit raise Error {
   let git_dir = root + "/.git"
   let fs = OsFs::new()
   // SubdirRepo を作成
-  let subdir = @gitsubdir.SubdirRepo::from_head(fs, git_dir, subdir_path) catch {
+  let subdir = @subdir.SubdirRepo::from_head(fs, git_dir, subdir_path) catch {
     err =>
       raise @git.GitError::IoError(
         "Failed to open subdirectory: " + err.to_string(),
@@ -335,12 +335,12 @@ async fn handle_subdir_init(args : Array[String]) -> Unit raise Error {
     return
   }
   // 既に初期化済みか確認
-  if @gitsubdir.is_module_initialized(fs, git_dir, subdir_path) {
+  if @subdir.is_module_initialized(fs, git_dir, subdir_path) {
     print_line("Subdirectory already initialized: " + subdir_path)
     return
   }
   // git modules 構造で初期化
-  @gitsubdir.init_module(fs, fs, git_dir, root, subdir_path) catch {
+  @subdir.init_module(fs, fs, git_dir, root, subdir_path) catch {
     err => raise @git.GitError::IoError("Failed to init: " + err.to_string())
   }
   // pre-commit hook に実行権限を付与
@@ -375,12 +375,12 @@ async fn handle_subdir_deinit(args : Array[String]) -> Unit raise Error {
   let git_dir = root + "/.git"
   let fs = OsFs::new()
   // モジュールとして初期化されているか確認
-  if not(@gitsubdir.is_module_initialized(fs, git_dir, subdir_path)) {
+  if not(@subdir.is_module_initialized(fs, git_dir, subdir_path)) {
     print_line("Subdirectory is not initialized: " + subdir_path)
     return
   }
   // モジュール構造を削除
-  @gitsubdir.deinit_module(fs, fs, git_dir, root, subdir_path) catch {
+  @subdir.deinit_module(fs, fs, git_dir, root, subdir_path) catch {
     err => raise @git.GitError::IoError("Failed to deinit: " + err.to_string())
   }
   print_line("Deinitialized subdirectory: " + subdir_path)
@@ -406,9 +406,9 @@ async fn handle_subdir_shell(args : Array[String]) -> Unit raise Error {
     return
   }
   // 環境変数を取得
-  let env_vars = @gitsubdir.generate_shell_env(git_dir, root, subdir_path)
+  let env_vars = @subdir.generate_shell_env(git_dir, root, subdir_path)
   // RC スクリプトを生成
-  let rc_script = @gitsubdir.generate_shell_rc(subdir_path)
+  let rc_script = @subdir.generate_shell_rc(subdir_path)
   // 一時ファイルに RC を書き込み
   let rc_path = "/tmp/moongit-subdir-rc-" + subdir_path_to_id(subdir_path)
   fs.write_file(rc_path, string_to_bytes_subdir(rc_script)) catch {
@@ -518,7 +518,7 @@ async fn handle_subdir_commit(args : Array[String]) -> Unit raise Error {
   let git_dir = root + "/.git"
   let fs = OsFs::new()
   // SubdirRepo を作成
-  let subdir = @gitsubdir.SubdirRepo::from_head(fs, git_dir, subdir_path) catch {
+  let subdir = @subdir.SubdirRepo::from_head(fs, git_dir, subdir_path) catch {
     err =>
       raise @git.GitError::IoError(
         "Failed to open subdirectory: " + err.to_string(),
@@ -560,7 +560,7 @@ async fn handle_subdir_checkout(args : Array[String]) -> Unit raise Error {
       )
   }
   // SubdirRepo を作成
-  let subdir = @gitsubdir.SubdirRepo::from_commit(
+  let subdir = @subdir.SubdirRepo::from_commit(
     fs, git_dir, commit_id, subdir_path,
   ) catch {
     err =>
@@ -640,7 +640,7 @@ async fn handle_subdir_push(args : Array[String]) -> Unit raise Error {
     }
   }
   // SubdirRepo を作成
-  let subdir = @gitsubdir.SubdirRepo::from_head(fs, git_dir, subdir_path) catch {
+  let subdir = @subdir.SubdirRepo::from_head(fs, git_dir, subdir_path) catch {
     err =>
       raise @git.GitError::IoError(
         "Failed to open subdirectory: " + err.to_string(),
@@ -924,7 +924,7 @@ async fn handle_subdir_list(_args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
   let git_dir = root + "/.git"
   let fs = OsFs::new()
-  let modules = @gitsubdir.list_modules(fs, git_dir)
+  let modules = @subdir.list_modules(fs, git_dir)
   if modules.length() == 0 {
     print_line("No subdirectory modules initialized.")
     print_line("Use 'moongit subdir init <path>' to initialize a subdirectory.")
@@ -949,24 +949,24 @@ async fn handle_subdir_sync(args : Array[String]) -> Unit raise Error {
   let fs = OsFs::new()
   if args[0] == "--all" {
     // 全モジュールを同期
-    let modules = @gitsubdir.list_modules(fs, git_dir)
+    let modules = @subdir.list_modules(fs, git_dir)
     if modules.length() == 0 {
       print_line("No subdirectory modules to sync.")
       return
     }
     for path in modules {
-      @gitsubdir.sync_module(fs, fs, git_dir, path) catch {
+      @subdir.sync_module(fs, fs, git_dir, path) catch {
         _ => ()
       }
       print_line("Synced: " + path)
     }
   } else {
     let subdir_path = args[0]
-    if not(@gitsubdir.is_module_initialized(fs, git_dir, subdir_path)) {
+    if not(@subdir.is_module_initialized(fs, git_dir, subdir_path)) {
       print_line("Subdirectory is not initialized: " + subdir_path)
       return
     }
-    @gitsubdir.sync_module(fs, fs, git_dir, subdir_path) catch {
+    @subdir.sync_module(fs, fs, git_dir, subdir_path) catch {
       err => raise @git.GitError::IoError("Failed to sync: " + err.to_string())
     }
     print_line("Synced: " + subdir_path)
@@ -1036,7 +1036,7 @@ async fn handle_sparse_init(args : Array[String]) -> Unit raise Error {
   let git_dir = root + "/.git"
   let fs = OsFs::new()
   // モジュールが初期化されているか確認
-  if not(@gitsubdir.is_module_initialized(fs, git_dir, subdir_path)) {
+  if not(@subdir.is_module_initialized(fs, git_dir, subdir_path)) {
     print_line(
       "Error: subdirectory not initialized. Run 'moongit subdir init " +
       subdir_path +
@@ -1045,7 +1045,7 @@ async fn handle_sparse_init(args : Array[String]) -> Unit raise Error {
     return
   }
   // sparse checkout を初期化
-  @gitsubdir.init_module_sparse(fs, fs, git_dir, subdir_path, cone~) catch {
+  @subdir.init_module_sparse(fs, fs, git_dir, subdir_path, cone~) catch {
     err =>
       raise @git.GitError::IoError("Failed to init sparse: " + err.to_string())
   }
@@ -1080,7 +1080,7 @@ async fn handle_sparse_set(args : Array[String]) -> Unit raise Error {
   let git_dir = root + "/.git"
   let fs = OsFs::new()
   // モジュールが初期化されているか確認
-  if not(@gitsubdir.is_module_initialized(fs, git_dir, subdir_path)) {
+  if not(@subdir.is_module_initialized(fs, git_dir, subdir_path)) {
     print_line(
       "Error: subdirectory not initialized. Run 'moongit subdir init " +
       subdir_path +
@@ -1089,7 +1089,7 @@ async fn handle_sparse_set(args : Array[String]) -> Unit raise Error {
     return
   }
   // パターンを設定
-  @gitsubdir.set_module_sparse_patterns(fs, fs, git_dir, subdir_path, patterns) catch {
+  @subdir.set_module_sparse_patterns(fs, fs, git_dir, subdir_path, patterns) catch {
     err =>
       raise @git.GitError::IoError("Failed to set patterns: " + err.to_string())
   }
@@ -1121,7 +1121,7 @@ async fn handle_sparse_add(args : Array[String]) -> Unit raise Error {
   let git_dir = root + "/.git"
   let fs = OsFs::new()
   // モジュールが初期化されているか確認
-  if not(@gitsubdir.is_module_initialized(fs, git_dir, subdir_path)) {
+  if not(@subdir.is_module_initialized(fs, git_dir, subdir_path)) {
     print_line(
       "Error: subdirectory not initialized. Run 'moongit subdir init " +
       subdir_path +
@@ -1130,13 +1130,13 @@ async fn handle_sparse_add(args : Array[String]) -> Unit raise Error {
     return
   }
   // パターンを追加
-  @gitsubdir.add_module_sparse_patterns(fs, fs, git_dir, subdir_path, patterns) catch {
+  @subdir.add_module_sparse_patterns(fs, fs, git_dir, subdir_path, patterns) catch {
     err =>
       raise @git.GitError::IoError("Failed to add patterns: " + err.to_string())
   }
   print_line("Patterns added to sparse checkout for: " + subdir_path)
   // 現在のパターンを表示
-  let all_patterns = @gitsubdir.read_module_sparse_patterns(
+  let all_patterns = @subdir.read_module_sparse_patterns(
     fs, git_dir, subdir_path,
   )
   print_line("")
@@ -1157,12 +1157,12 @@ async fn handle_sparse_list(args : Array[String]) -> Unit raise Error {
   let git_dir = root + "/.git"
   let fs = OsFs::new()
   // モジュールが初期化されているか確認
-  if not(@gitsubdir.is_module_initialized(fs, git_dir, subdir_path)) {
+  if not(@subdir.is_module_initialized(fs, git_dir, subdir_path)) {
     print_line("Error: subdirectory not initialized.")
     return
   }
   // sparse checkout が有効かチェック
-  if not(@gitsubdir.is_module_sparse_enabled(fs, git_dir, subdir_path)) {
+  if not(@subdir.is_module_sparse_enabled(fs, git_dir, subdir_path)) {
     print_line("Sparse checkout is not enabled for: " + subdir_path)
     print_line(
       "Use 'moongit subdir sparse-checkout init " + subdir_path + "' to enable.",
@@ -1170,7 +1170,7 @@ async fn handle_sparse_list(args : Array[String]) -> Unit raise Error {
     return
   }
   // パターンを表示
-  let patterns = @gitsubdir.read_module_sparse_patterns(
+  let patterns = @subdir.read_module_sparse_patterns(
     fs, git_dir, subdir_path,
   )
   if patterns.length() == 0 {
@@ -1195,12 +1195,12 @@ async fn handle_sparse_disable(args : Array[String]) -> Unit raise Error {
   let git_dir = root + "/.git"
   let fs = OsFs::new()
   // モジュールが初期化されているか確認
-  if not(@gitsubdir.is_module_initialized(fs, git_dir, subdir_path)) {
+  if not(@subdir.is_module_initialized(fs, git_dir, subdir_path)) {
     print_line("Error: subdirectory not initialized.")
     return
   }
   // sparse checkout を無効化
-  @gitsubdir.disable_module_sparse(fs, fs, git_dir, subdir_path) catch {
+  @subdir.disable_module_sparse(fs, fs, git_dir, subdir_path) catch {
     err =>
       raise @git.GitError::IoError(
         "Failed to disable sparse: " + err.to_string(),

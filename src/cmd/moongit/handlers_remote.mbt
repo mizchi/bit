@@ -374,19 +374,11 @@ fn parse_filter_spec(spec : String) -> @git.FilterSpec {
     @git.FilterSpec::BlobNone
   } else if spec.has_prefix("blob:limit=") {
     let limit_str = String::unsafe_substring(spec, start=11, end=spec.length())
-    let limit = try {
-      @strconv.parse_int64!(limit_str)
-    } catch {
-      _ => 0L
-    }
+    let limit = @strconv.parse_int64(limit_str) catch { _ => 0L }
     @git.FilterSpec::BlobLimit(limit)
   } else if spec.has_prefix("tree:") {
     let depth_str = String::unsafe_substring(spec, start=5, end=spec.length())
-    let depth = try {
-      @strconv.parse_int!(depth_str)
-    } catch {
-      _ => 0
-    }
+    let depth = @strconv.parse_int(depth_str) catch { _ => 0 }
     @git.FilterSpec::TreeDepth(depth)
   } else {
     @git.FilterSpec::NoFilter
@@ -406,21 +398,13 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
     if arg == "--depth" && i + 1 < args.length() {
       // Parse depth value
       let depth_str = args[i + 1]
-      depth = try {
-        @strconv.parse_int!(depth_str)
-      } catch {
-        _ => 0
-      }
+      depth = @strconv.parse_int(depth_str) catch { _ => 0 }
       i += 2
       continue
     }
     if arg.has_prefix("--depth=") {
       let depth_str = String::unsafe_substring(arg, start=8, end=arg.length())
-      depth = try {
-        @strconv.parse_int!(depth_str)
-      } catch {
-        _ => 0
-      }
+      depth = @strconv.parse_int(depth_str) catch { _ => 0 }
       i += 1
       continue
     }
@@ -485,7 +469,14 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
   }
   print_line("Cloning into '\{relative_target}'... (\{clone_type})")
   let fs = OsFs::new()
-  let refs = @git.clone_http_to_fs(remote_url, true, fs, target, depth~, filter~)
+  let refs = @git.clone_http_to_fs(
+    remote_url,
+    true,
+    fs,
+    target,
+    depth~,
+    filter~,
+  )
   if refs.length() > 0 {
     print_line("done.")
   } else {

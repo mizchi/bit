@@ -2,7 +2,7 @@ import {
   "mizchi/git" as @git,
   "mizchi/git/lib" as @gitlib,
   "mizchi/git/x/gitfs" as @gitfs,
-  "mizchi/git/x/gitsubdir" as @gitsubdir,
+  "mizchi/git/x/subdir" as @subdir,
   "moonbitlang/async" as @async,
   "moonbitlang/async/process" as @process,
   "moonbitlang/async/stdio" as @stdio,

@@ -222,7 +222,9 @@ fn parse_packfile_internal(
       // Compute CRC32 and hash for non-delta objects
       let crc = crc32_range(data, obj_offset, after)
       let obj_id = hash_object_content(obj_type, content)
-      let obj = PackObject::with_metadata(obj_type, content, obj_id, obj_offset, crc)
+      let obj = PackObject::with_metadata(
+        obj_type, content, obj_id, obj_offset, crc,
+      )
       objects.push(obj)
       resolved.push(true)
       obj_offsets.push(obj_offset)

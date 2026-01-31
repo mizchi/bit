@@ -4,7 +4,6 @@
 /// 1. Mount is instant (no blob resolution)
 /// 2. list_dir resolves tree objects only
 /// 3. read_file triggers blob fetch on-demand
-
 test "perf: partial clone access pattern verification" {
   let osfs = @osfs.OsFs::new()
   let git_dir = "/tmp/partial-clone-test/tree-sitter-nickel/.git"
@@ -12,20 +11,27 @@ test "perf: partial clone access pattern verification" {
   // Skip if test repo not available
   if not(osfs.is_dir(git_dir)) {
     println("Skipping: partial clone test repo not found")
-    println("Run: moongit clone --filter=blob:none https://github.com/nickel-lang/tree-sitter-nickel /tmp/partial-clone-test/tree-sitter-nickel")
+    println(
+      "Run: moongit clone --filter=blob:none https://github.com/nickel-lang/tree-sitter-nickel /tmp/partial-clone-test/tree-sitter-nickel",
+    )
     return
   }
-
   println("\n=== Partial Clone Access Pattern Test ===\n")
 
   // Get commit ID
   let head_ref = osfs.read_file(git_dir + "/HEAD")
   let head_str = @utf8.decode_lossy(head_ref[:]).trim().to_string()
   let commit_id = if head_str.has_prefix("ref: ") {
-    let ref_name = String::unsafe_substring(head_str, start=5, end=head_str.length())
+    let ref_name = String::unsafe_substring(
+      head_str,
+      start=5,
+      end=head_str.length(),
+    )
     let ref_path = git_dir + "/" + ref_name
     let ref_content = osfs.read_file(ref_path)
-    @git.ObjectId::from_hex(@utf8.decode_lossy(ref_content[:]).trim().to_string())
+    @git.ObjectId::from_hex(
+      @utf8.decode_lossy(ref_content[:]).trim().to_string(),
+    )
   } else {
     @git.ObjectId::from_hex(head_str)
   }
@@ -36,7 +42,9 @@ test "perf: partial clone access pattern verification" {
   println("  - No pack file parsing yet")
   println("  - No network activity")
   let gitfs = GitFs::from_commit(osfs, git_dir, commit_id)
-  println("  → Mounted: lazy=\{gitfs.is_lazy()}, promisor=\{gitfs.is_promisor_enabled()}")
+  println(
+    "  → Mounted: lazy=\{gitfs.is_lazy()}, promisor=\{gitfs.is_promisor_enabled()}",
+  )
   println("")
 
   // Phase 2: List root directory (resolves commit + root tree)
@@ -108,21 +116,24 @@ test "perf: partial clone access pattern verification" {
 test "perf: verify lazy vs eager difference" {
   let osfs = @osfs.OsFs::new()
   let git_dir = "/tmp/partial-clone-test/tree-sitter-nickel/.git"
-
   if not(osfs.is_dir(git_dir)) {
     println("Skipping: partial clone test repo not found")
     return
   }
-
   println("\n=== Lazy vs Eager Mode Comparison ===\n")
-
   let head_ref = osfs.read_file(git_dir + "/HEAD")
   let head_str = @utf8.decode_lossy(head_ref[:]).trim().to_string()
   let commit_id = if head_str.has_prefix("ref: ") {
-    let ref_name = String::unsafe_substring(head_str, start=5, end=head_str.length())
+    let ref_name = String::unsafe_substring(
+      head_str,
+      start=5,
+      end=head_str.length(),
+    )
     let ref_path = git_dir + "/" + ref_name
     let ref_content = osfs.read_file(ref_path)
-    @git.ObjectId::from_hex(@utf8.decode_lossy(ref_content[:]).trim().to_string())
+    @git.ObjectId::from_hex(
+      @utf8.decode_lossy(ref_content[:]).trim().to_string(),
+    )
   } else {
     @git.ObjectId::from_hex(head_str)
   }

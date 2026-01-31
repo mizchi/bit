@@ -132,7 +132,11 @@ pub fn GitFs::get_promisor_db(
   match self.cached_promisor_db {
     Some(db) => Some(db)
     None => {
-      let db = @lib.PromisorDb::new(backing_fs, self.git_dir, lazy=self.lazy_mode)
+      let db = @lib.PromisorDb::new(
+        backing_fs,
+        self.git_dir,
+        lazy=self.lazy_mode,
+      )
       self.cached_promisor_db = Some(db)
       Some(db)
     }

@@ -435,9 +435,7 @@ pub async fn GitFs::prefetch(
   paths : Array[String],
 ) -> Int raise @git.GitError {
   let promisor_db = self.get_promisor_db(read_fs)
-  guard promisor_db is Some(pdb) else {
-    return 0
-  }
+  guard promisor_db is Some(pdb) else { return 0 }
   if not(pdb.has_promisor()) {
     return 0
   }
@@ -454,7 +452,7 @@ pub async fn GitFs::prefetch(
     }
     // Resolve path to object ID
     match self.resolve_path(read_fs, norm) {
-      Some(id) => {
+      Some(id) =>
         // Check if not already cached
         if self.cache.get_blob(norm) is None {
           // Check if not locally available
@@ -462,7 +460,6 @@ pub async fn GitFs::prefetch(
             ids.push(id)
           }
         }
-      }
       None => ()
     }
   }
@@ -492,9 +489,7 @@ pub fn GitFs::needs_fetch(
   }
   // Resolve to object ID
   let obj_id = self.resolve_path(read_fs, norm)
-  guard obj_id is Some(id) else {
-    return false
-  }
+  guard obj_id is Some(id) else { return false }
   // Check if object exists locally
   let promisor_db = self.get_promisor_db(read_fs)
   match promisor_db {
@@ -514,12 +509,7 @@ fn glob_match(pattern : String, path : String) -> Bool {
 }
 
 ///|
-fn glob_match_impl(
-  pattern : String,
-  pi : Int,
-  path : String,
-  si : Int
-) -> Bool {
+fn glob_match_impl(pattern : String, pi : Int, path : String, si : Int) -> Bool {
   let plen = pattern.length()
   let slen = path.length()
   // Both exhausted
@@ -539,7 +529,7 @@ fn glob_match_impl(
       pi + 2
     }
     // ** matches zero or more path segments
-    for i in si..=slen {
+    for i in si..<=slen {
       if glob_match_impl(pattern, next_pi, path, i) {
         return true
       }

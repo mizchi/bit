@@ -390,7 +390,11 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
           let idx_path = base_name + "-" + hash_hex + ".idx"
           fs.write_file(pack_path, pack)
           @git.write_pack_index_from_objects_versioned(
-            fs, idx_path, pack, group, cfg.index_version,
+            fs,
+            idx_path,
+            pack,
+            group,
+            cfg.index_version,
           )
           @stdio.stdout.write(hash_hex + "\n")
         }

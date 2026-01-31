@@ -244,7 +244,7 @@ pub async fn clone_to_fs_with_http(
   // Phase 2: Checkout (pack bytes no longer needed)
   // Skip checkout for partial clone with blob:none (no blobs to checkout)
   match filter {
-    BlobNone => {
+    BlobNone =>
       // For partial clone, only write refs and config, don't checkout files
       match default_ref {
         Some((refname, commit_id)) => {
@@ -253,14 +253,12 @@ pub async fn clone_to_fs_with_http(
         }
         None => ()
       }
-    }
     _ => {
       let store = ObjectStore::from_pack(objects)
       match default_ref {
         None => ()
-        Some((refname, commit_id)) => {
+        Some((refname, commit_id)) =>
           materialize_clone_to_fs(store, commit_id, refname, remote, fs, root)
-        }
       }
     }
   }

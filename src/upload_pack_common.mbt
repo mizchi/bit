@@ -216,7 +216,7 @@ pub fn build_fetch_request_v2(
   agent : String,
   wants : Array[ObjectId],
   depth : Int,
-  filter~ : FilterSpec = FilterSpec::NoFilter,
+  filter? : FilterSpec = FilterSpec::NoFilter,
 ) -> Bytes {
   let chunks : Array[Bytes] = []
   chunks.push(pktline_encode("command=fetch\n"))

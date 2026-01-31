@@ -24,7 +24,11 @@ pub fn ObjectStore::add_objects(
 ) -> Unit {
   for obj in objects {
     // Use cached id if available (offset >= 0 means it was parsed from pack)
-    let id = if obj.offset >= 0 { obj.id } else { hash_object_content(obj.obj_type, obj.data) }
+    let id = if obj.offset >= 0 {
+      obj.id
+    } else {
+      hash_object_content(obj.obj_type, obj.data)
+    }
     self.objects[id.to_hex()] = obj
   }
 }
@@ -96,7 +100,9 @@ pub fn parse_tree(content : Bytes) -> Array[TreeEntry] raise GitError {
       raise GitError::InvalidObject("Truncated tree entry name")
     }
     let name_len = i - name_start
-    let name_bytes = FixedArray::makei(name_len, fn(j) { content[name_start + j] })
+    let name_bytes = FixedArray::makei(name_len, fn(j) {
+      content[name_start + j]
+    })
     let name = @utf8.decode_lossy(Bytes::from_array(name_bytes)[:])
     i += 1 // skip NUL
     if i + 20 > content.length() {

@@ -227,7 +227,6 @@ fn verify_pack_index(idx : Bytes, pack : Bytes) -> String? {
       return Some("bogus object offset: \{offset} (beyond pack data)")
     }
   }
-
   None
 }
 
@@ -300,7 +299,6 @@ fn verify_pack_index_v1(idx : Bytes, pack : Bytes) -> String? {
       return Some("bogus object offset: \{offset} (beyond pack data)")
     }
   }
-
   None
 }
 
@@ -395,7 +393,6 @@ async fn handle_index_pack(args : Array[String]) -> Unit {
         }
         return
       }
-
       if cfg.stdin {
         let pack = read_all_stdin()
         let hash_hex = pack_hash_hex(pack)

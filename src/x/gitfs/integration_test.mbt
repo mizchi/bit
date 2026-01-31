@@ -288,9 +288,7 @@ test "bench_integration: helix lazy mount" (b : @bench.T) {
     return
   }
   let commit_id = try! get_helix_head()
-  b.bench(fn() {
-    b.keep(try! GitFs::from_commit(osfs, git_dir, commit_id))
-  })
+  b.bench(fn() { b.keep(try! GitFs::from_commit(osfs, git_dir, commit_id)) })
 }
 
 ///|
