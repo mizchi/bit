@@ -51,8 +51,25 @@ fn get_head_commit(
 }
 
 ///|
+/// Check if the bench git directory exists
+fn bench_git_dir_exists() -> Bool {
+  let osfs = @osfs.OsFs::new()
+  let git_dir = get_bench_git_dir()
+  try {
+    let _ = osfs.read_file(git_dir + "/HEAD")
+    true
+  } catch {
+    _ => false
+  }
+}
+
+///|
 /// Simple test to verify real git reading works
 test "real_git: can read HEAD" {
+  if not(bench_git_dir_exists()) {
+    println("Skipping: bench git dir not found")
+    return
+  }
   let osfs = @osfs.OsFs::new()
   let git_dir = get_bench_git_dir()
   let commit_id = get_head_commit(osfs, git_dir)
@@ -62,6 +79,10 @@ test "real_git: can read HEAD" {
 ///|
 /// Simple test to verify GitFs from real git works
 test "real_git: can create GitFs from HEAD" {
+  if not(bench_git_dir_exists()) {
+    println("Skipping: bench git dir not found")
+    return
+  }
   let osfs = @osfs.OsFs::new()
   let git_dir = get_bench_git_dir()
   let commit_id = get_head_commit(osfs, git_dir)
@@ -72,6 +93,10 @@ test "real_git: can create GitFs from HEAD" {
 ///|
 /// Test reading files from real git
 test "real_git: can read files" {
+  if not(bench_git_dir_exists()) {
+    println("Skipping: bench git dir not found")
+    return
+  }
   let osfs = @osfs.OsFs::new()
   let git_dir = get_bench_git_dir()
   let commit_id = get_head_commit(osfs, git_dir)
