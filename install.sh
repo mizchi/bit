@@ -33,7 +33,7 @@ detect_platform() {
     case "$(uname -s)" in
         Linux*)  os="linux" ;;
         Darwin*) os="darwin" ;;
-        MINGW*|MSYS*|CYGWIN*) os="windows" ;;
+        MINGW*|MSYS*|CYGWIN*) error "Windows is not yet supported. Please build from source." ;;
         *) error "Unsupported OS: $(uname -s)" ;;
     esac
 
@@ -51,8 +51,6 @@ detect_platform() {
             error "Linux arm64 is not yet supported"
         fi
         echo "linux-x64"
-    elif [[ "$os" == "windows" ]]; then
-        echo "windows-x64"
     fi
 }
 
