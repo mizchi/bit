@@ -4,7 +4,7 @@
 ///|
 test "subdir: write and read attributes" {
   let fs = OsFs::new()
-  let test_dir = "/tmp/moongit-test-subdir-" + get_current_timestamp().to_string()
+  let test_dir = "/tmp/bit-test-subdir-" + get_current_timestamp().to_string()
   fs.mkdir_p(test_dir + "/.git/info")
   // Write attributes
   let commit_id = @git.ObjectId::from_hex("a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2") catch {
@@ -37,7 +37,7 @@ test "subdir: write and read attributes" {
 ///|
 test "subdir: is_subdir_clone detection" {
   let fs = OsFs::new()
-  let test_dir = "/tmp/moongit-test-subdir2-" + get_current_timestamp().to_string()
+  let test_dir = "/tmp/bit-test-subdir2-" + get_current_timestamp().to_string()
   fs.mkdir_p(test_dir + "/.git/info")
   // Initially not a subdir-clone
   assert_false(is_subdir_clone(fs, test_dir + "/.git"))
@@ -64,7 +64,7 @@ test "subdir: is_subdir_clone detection" {
 ///|
 test "subdir: get_subdir_info returns metadata" {
   let fs = OsFs::new()
-  let test_dir = "/tmp/moongit-test-subdir3-" + get_current_timestamp().to_string()
+  let test_dir = "/tmp/bit-test-subdir3-" + get_current_timestamp().to_string()
   fs.mkdir_p(test_dir + "/.git/info")
   // Write attributes
   let commit_id = @git.ObjectId::from_hex("c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4") catch {
@@ -97,7 +97,7 @@ test "subdir: get_subdir_info returns metadata" {
 ///|
 test "subdir: update_subdir_base updates base commit" {
   let fs = OsFs::new()
-  let test_dir = "/tmp/moongit-test-subdir4-" + get_current_timestamp().to_string()
+  let test_dir = "/tmp/bit-test-subdir4-" + get_current_timestamp().to_string()
   fs.mkdir_p(test_dir + "/.git/info")
   // Write initial attributes
   let commit_id = @git.ObjectId::from_hex("d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5") catch {
@@ -130,7 +130,7 @@ test "subdir: update_subdir_base updates base commit" {
 ///|
 test "subdir: get_effective_remote_url prefers subdir remote" {
   let fs = OsFs::new()
-  let test_dir = "/tmp/moongit-test-subdir5-" + get_current_timestamp().to_string()
+  let test_dir = "/tmp/bit-test-subdir5-" + get_current_timestamp().to_string()
   fs.mkdir_p(test_dir + "/.git/info")
   // Write config with origin remote
   let config = #|[remote "origin"]
@@ -165,7 +165,7 @@ test "subdir: get_effective_remote_url prefers subdir remote" {
 ///|
 test "subdir: get_effective_remote_url falls back to config" {
   let fs = OsFs::new()
-  let test_dir = "/tmp/moongit-test-subdir6-" + get_current_timestamp().to_string()
+  let test_dir = "/tmp/bit-test-subdir6-" + get_current_timestamp().to_string()
   fs.mkdir_p(test_dir + "/.git/info")
   // Write config with origin remote (no subdir attributes)
   let config = #|[remote "origin"]
@@ -188,7 +188,7 @@ test "subdir: get_effective_remote_url falls back to config" {
 ///|
 test "subdir: attributes file format" {
   let fs = OsFs::new()
-  let test_dir = "/tmp/moongit-test-subdir7-" + get_current_timestamp().to_string()
+  let test_dir = "/tmp/bit-test-subdir7-" + get_current_timestamp().to_string()
   fs.mkdir_p(test_dir + "/.git/info")
   // Write attributes
   let commit_id = @git.ObjectId::from_hex("1234567890abcdef1234567890abcdef12345678") catch {
@@ -221,7 +221,7 @@ test "subdir: attributes file format" {
 ///|
 test "subdir: resolve_ref_for_subdir with direct ref" {
   let fs = OsFs::new()
-  let test_dir = "/tmp/moongit-test-subdir8-" + get_current_timestamp().to_string()
+  let test_dir = "/tmp/bit-test-subdir8-" + get_current_timestamp().to_string()
   fs.mkdir_p(test_dir + "/.git/refs/heads")
   fs.mkdir_p(test_dir + "/.git/objects")
   // Write HEAD ref
@@ -253,7 +253,7 @@ test "subdir: resolve_ref_for_subdir with direct ref" {
 ///|
 test "subdir: resolve_ref_for_subdir with remote ref" {
   let fs = OsFs::new()
-  let test_dir = "/tmp/moongit-test-subdir9-" + get_current_timestamp().to_string()
+  let test_dir = "/tmp/bit-test-subdir9-" + get_current_timestamp().to_string()
   fs.mkdir_p(test_dir + "/.git/refs/remotes/origin")
   fs.mkdir_p(test_dir + "/.git/objects")
   // Write remote ref

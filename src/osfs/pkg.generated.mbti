@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "mizchi/git/osfs"
+package "mizchi/bit/osfs"
 
 import {
-  "mizchi/git",
+  "mizchi/bit",
 }
 
 // Values
@@ -14,8 +14,8 @@ pub struct OsFs {
   // private fields
 }
 pub fn OsFs::new() -> Self
-pub impl @git.FileSystem for OsFs
-pub impl @git.RepoFileSystem for OsFs
+pub impl @bit.FileSystem for OsFs
+pub impl @bit.RepoFileSystem for OsFs
 
 // Type aliases
 

@@ -4589,7 +4589,7 @@ fn generate_patch(
   }
   let diff = generate_commit_diff(db, rfs, commit_id, parent_id)
   sb.write_string(diff)
-  sb.write_string("\n-- \n2.47.0 (moongit)\n\n")
+  sb.write_string("\n-- \n2.47.0 (bit)\n\n")
   sb.to_string()
 }
 

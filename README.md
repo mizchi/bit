@@ -35,7 +35,7 @@ let pending = bitfs.get_pending_fetches(fs, 100)
 
 ```bash
 # Clone metadata only (100KB vs full clone)
-moongit clone --filter=blob:none https://github.com/user/repo
+bit clone --filter=blob:none https://github.com/user/repo
 ```
 
 ```moonbit
@@ -51,10 +51,10 @@ bitfs.prefetch_bfs(fs, fs, limit=50)
 All standard Git operations work:
 
 ```bash
-moongit clone https://github.com/user/repo
-moongit checkout -b feature
-moongit commit -m "changes"
-moongit push origin feature
+bit clone https://github.com/user/repo
+bit checkout -b feature
+bit commit -m "changes"
+bit push origin feature
 ```
 
 ### 4. Subdir - Work with Subdirectories as Independent Repos
@@ -63,7 +63,7 @@ Treat any subdirectory as an independent git repository while keeping it in the 
 
 ```bash
 # Initialize subdirectory as module
-moongit subdir init src/lib
+bit subdir init src/lib
 
 # Standard git commands now work from within the subdirectory
 cd src/lib
@@ -71,61 +71,61 @@ git status    # shows only subdirectory changes
 git log       # shows commits affecting subdirectory
 
 # View subdirectory info
-moongit subdir show src/lib
-moongit subdir log src/lib
+bit subdir show src/lib
+bit subdir log src/lib
 
 # Commit subdirectory changes
-moongit subdir commit src/lib -m "Update lib"
+bit subdir commit src/lib -m "Update lib"
 
 # Checkout specific version
-moongit subdir checkout src/lib abc123
+bit subdir checkout src/lib abc123
 
 # Extract subdirectory to another location
-moongit subdir extract src/lib /tmp/lib-standalone
+bit subdir extract src/lib /tmp/lib-standalone
 
 # Push/pull subdirectory to separate remote
-moongit subdir push src/lib https://github.com/user/lib
-moongit subdir pull src/lib https://github.com/user/lib
+bit subdir push src/lib https://github.com/user/lib
+bit subdir pull src/lib https://github.com/user/lib
 ```
 
 **Sparse checkout** for subdirectories:
 
 ```bash
 # Enable sparse checkout
-moongit subdir sparse-checkout init src/lib
+bit subdir sparse-checkout init src/lib
 
 # Set patterns (only checkout matching files)
-moongit subdir sparse-checkout set src/lib "*.mbt" "moon.pkg.json"
+bit subdir sparse-checkout set src/lib "*.mbt" "moon.pkg.json"
 
 # Add more patterns
-moongit subdir sparse-checkout add src/lib "tests/"
+bit subdir sparse-checkout add src/lib "tests/"
 
 # List current patterns
-moongit subdir sparse-checkout list src/lib
+bit subdir sparse-checkout list src/lib
 
 # Disable sparse checkout
-moongit subdir sparse-checkout disable src/lib
+bit subdir sparse-checkout disable src/lib
 ```
 
 **Checkout part of a remote repository** (e.g., monorepo):
 
 ```bash
 # Clone with sparse checkout enabled (metadata only)
-moongit clone --filter=blob:none --sparse https://github.com/user/monorepo
+bit clone --filter=blob:none --sparse https://github.com/user/monorepo
 cd monorepo
 
 # Checkout only specific directories
-moongit sparse-checkout set packages/core packages/utils
+bit sparse-checkout set packages/core packages/utils
 
 # Or use subdir to work with a specific package
-moongit subdir init packages/core
+bit subdir init packages/core
 cd packages/core
 git status  # scoped to this directory
 
 # Pull a subdirectory from another repository into your project
 cd /your/project
 mkdir -p vendor/lib
-moongit subdir pull vendor/lib https://github.com/user/lib-repo --branch main
+bit subdir pull vendor/lib https://github.com/user/lib-repo --branch main
 ```
 
 ## Performance
@@ -167,7 +167,7 @@ just git-t-allowlist  # Git compatibility tests
 # Build native binary
 moon build --target native
 
-# Install CLI (installs to ~/.local/bin/moongit)
+# Install CLI (installs to ~/.local/bin/bit)
 just install
 
 # Use as library
@@ -204,16 +204,16 @@ Clone a subdirectory from a remote repository as a standalone git repo:
 
 ```bash
 # Clone only src/lib from a monorepo
-moongit subdir-clone https://github.com/user/monorepo src/lib
+bit subdir-clone https://github.com/user/monorepo src/lib
 
 # Creates mylib/ with src/lib contents at root
-moongit subdir-clone https://github.com/user/monorepo src/lib mylib
+bit subdir-clone https://github.com/user/monorepo src/lib mylib
 cd mylib
 
 # Standard commands detect subdir-clone automatically
-moongit status      # Shows subdir-clone info
-moongit fetch       # Fetches from original remote
-moongit rebase origin/main  # Rebases only subdir changes
+bit status      # Shows subdir-clone info
+bit fetch       # Fetches from original remote
+bit rebase origin/main  # Rebases only subdir changes
 ```
 
 ### Den - Git-Native Collaboration (WIP)

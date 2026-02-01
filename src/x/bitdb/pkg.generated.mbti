@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "mizchi/git/x/gitdb"
+package "mizchi/bit/x/bitdb"
 
 import {
-  "mizchi/git",
-  "mizchi/git/x/gitfs",
+  "mizchi/bit",
+  "mizchi/bit/x/bitfs",
 }
 
 // Values
@@ -11,75 +11,75 @@ import {
 // Errors
 
 // Types and methods
-pub struct GitDb {
+pub struct BitDb {
   node_id : NodeId
-  gitfs : @gitfs.GitFs
+  bitfs : @bitfs.BitFs
   mut clock : VectorClock
-  mut head : @git.ObjectId
+  mut head : @bit.ObjectId
   peers : Map[String, PeerInfo]
   pending_objects : Map[String, GitObject]
 }
-pub fn GitDb::add_peer(Self, PeerInfo) -> Unit
-pub fn GitDb::apply_pending_objects(Self, &@git.FileSystem, String) -> Int raise @git.GitError
-pub fn GitDb::clock(Self) -> VectorClock
-pub fn GitDb::commit(Self, &@git.FileSystem, &@git.RepoFileSystem, String, Int64) -> @git.ObjectId raise @git.GitError
-pub fn GitDb::delete(Self, String) -> Unit
-pub fn GitDb::empty(NodeId, String) -> Self
-pub fn GitDb::get(Self, &@git.RepoFileSystem, String) -> Bytes?
-pub fn GitDb::get_gossip_state(Self, Int64) -> GossipState
-pub fn GitDb::get_peers(Self) -> Array[PeerInfo]
-pub fn GitDb::handle_gossip(Self, &@git.RepoFileSystem, GossipMessage, Int64) -> GossipMessage?
-pub fn GitDb::has(Self, &@git.RepoFileSystem, String) -> Bool
-pub fn GitDb::has_pending_objects(Self) -> Bool
-pub fn GitDb::head(Self) -> @git.ObjectId
-pub fn GitDb::is_dirty(Self) -> Bool
-pub fn GitDb::list(Self, &@git.RepoFileSystem, String) -> Array[String]
-pub fn GitDb::list_recursive(Self, &@git.RepoFileSystem, String) -> Array[String]
-pub fn GitDb::merge(Self, &@git.FileSystem, &@git.RepoFileSystem, @git.ObjectId, VectorClock, MergeStrategy, Int64) -> MergeResult raise @git.GitError
-pub fn GitDb::new(NodeId, @gitfs.GitFs, @git.ObjectId) -> Self
-pub fn GitDb::node_id(Self) -> NodeId
-pub fn GitDb::pending_object_count(Self) -> Int
-pub fn GitDb::remove_peer(Self, NodeId) -> Bool
-pub fn GitDb::rollback(Self) -> Unit
-pub fn GitDb::select_gossip_peers(Self, Int, Int64) -> Array[PeerInfo]
-pub fn GitDb::serialize_snapshot(Self, &@git.RepoFileSystem) -> SerializedSnapshot
-pub fn GitDb::set(Self, String, Bytes) -> Unit
-pub fn GitDb::set_string(Self, String, String) -> Unit
+pub fn BitDb::add_peer(Self, PeerInfo) -> Unit
+pub fn BitDb::apply_pending_objects(Self, &@bit.FileSystem, String) -> Int raise @bit.GitError
+pub fn BitDb::clock(Self) -> VectorClock
+pub fn BitDb::commit(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64) -> @bit.ObjectId raise @bit.GitError
+pub fn BitDb::delete(Self, String) -> Unit
+pub fn BitDb::empty(NodeId, String) -> Self
+pub fn BitDb::get(Self, &@bit.RepoFileSystem, String) -> Bytes?
+pub fn BitDb::get_gossip_state(Self, Int64) -> GossipState
+pub fn BitDb::get_peers(Self) -> Array[PeerInfo]
+pub fn BitDb::handle_gossip(Self, &@bit.RepoFileSystem, GossipMessage, Int64) -> GossipMessage?
+pub fn BitDb::has(Self, &@bit.RepoFileSystem, String) -> Bool
+pub fn BitDb::has_pending_objects(Self) -> Bool
+pub fn BitDb::head(Self) -> @bit.ObjectId
+pub fn BitDb::is_dirty(Self) -> Bool
+pub fn BitDb::list(Self, &@bit.RepoFileSystem, String) -> Array[String]
+pub fn BitDb::list_recursive(Self, &@bit.RepoFileSystem, String) -> Array[String]
+pub fn BitDb::merge(Self, &@bit.FileSystem, &@bit.RepoFileSystem, @bit.ObjectId, VectorClock, MergeStrategy, Int64) -> MergeResult raise @bit.GitError
+pub fn BitDb::new(NodeId, @bitfs.BitFs, @bit.ObjectId) -> Self
+pub fn BitDb::node_id(Self) -> NodeId
+pub fn BitDb::pending_object_count(Self) -> Int
+pub fn BitDb::remove_peer(Self, NodeId) -> Bool
+pub fn BitDb::rollback(Self) -> Unit
+pub fn BitDb::select_gossip_peers(Self, Int, Int64) -> Array[PeerInfo]
+pub fn BitDb::serialize_snapshot(Self, &@bit.RepoFileSystem) -> SerializedSnapshot
+pub fn BitDb::set(Self, String, Bytes) -> Unit
+pub fn BitDb::set_string(Self, String, String) -> Unit
 
-pub(all) struct GitDbConfig {
+pub(all) struct BitDbConfig {
   node_id : NodeId
-  gitfs_config : @gitfs.GitFsConfig
+  bitfs_config : @bitfs.BitFsConfig
   max_peers : Int
   gossip_interval_ms : Int
   sync_batch_size : Int
 }
-pub fn GitDbConfig::default(NodeId) -> Self
+pub fn BitDbConfig::default(NodeId) -> Self
 
 pub(all) struct GitObject {
-  id : @git.ObjectId
-  obj_type : @git.ObjectType
+  id : @bit.ObjectId
+  obj_type : @bit.ObjectType
   data : Bytes
 }
 
 pub(all) enum GossipMessage {
   Announce(GossipState)
-  WantObjects(Array[@git.ObjectId])
+  WantObjects(Array[@bit.ObjectId])
   HaveObjects(Array[GitObject])
-  SyncRequest(NodeId, @git.ObjectId)
-  SyncResponse(Array[GitObject], @git.ObjectId)
+  SyncRequest(NodeId, @bit.ObjectId)
+  SyncResponse(Array[GitObject], @bit.ObjectId)
 }
 
 pub(all) struct GossipState {
   node_id : NodeId
-  head : @git.ObjectId
+  head : @bit.ObjectId
   clock : VectorClock
   timestamp : Int64
 }
 
 pub(all) enum MergeResult {
   NoOp
-  FastForward(@git.ObjectId)
-  Merged(@git.ObjectId, Array[String])
+  FastForward(@bit.ObjectId)
+  Merged(@bit.ObjectId, Array[String])
   Conflict(Array[String])
 }
 
@@ -100,7 +100,7 @@ pub impl Show for NodeId
 pub(all) struct PeerInfo {
   node_id : NodeId
   last_seen : Int64
-  head : @git.ObjectId
+  head : @bit.ObjectId
   endpoint : String
 }
 
@@ -135,7 +135,7 @@ pub(all) struct SyncResult {
   objects_sent : Int
   objects_received : Int
   conflicts : Array[String]
-  new_head : @git.ObjectId
+  new_head : @bit.ObjectId
 }
 
 pub(all) struct VectorClock {

@@ -1,8 +1,8 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "mizchi/git/x/den"
+package "mizchi/bit/x/den"
 
 import {
-  "mizchi/git",
+  "mizchi/bit",
 }
 
 // Values
@@ -10,9 +10,9 @@ pub fn parse_issue(String) -> Issue raise PrError
 
 pub fn parse_issue_comment(String) -> IssueComment raise PrError
 
-pub fn parse_note(String) -> Note raise PrError
+pub fn parse_note(String) -> Note
 
-pub fn parse_note_plain(@git.ObjectId, String) -> Note
+pub fn parse_note_plain(@bit.ObjectId, String) -> Note
 
 pub fn parse_pr_comment(String) -> PrComment raise PrError
 
@@ -35,35 +35,35 @@ pub struct Den {
   git_dir : String
   mut next_id : Int
 }
-pub fn Den::add_comment(Self, &@git.FileSystem, &@git.RepoFileSystem, String, String, String, Int64, reply_to? : String?, file_path? : String?, line_number? : Int?, commit_id? : @git.ObjectId?) -> PrComment raise @git.GitError
-pub fn Den::add_issue_comment(Self, &@git.FileSystem, &@git.RepoFileSystem, String, String, String, Int64, reply_to? : String?) -> IssueComment raise @git.GitError
-pub fn Den::add_note(Self, &@git.FileSystem, &@git.RepoFileSystem, @git.ObjectId, String, String, Int64, ns? : String) -> Note raise @git.GitError
-pub fn Den::add_note_plain(Self, &@git.FileSystem, &@git.RepoFileSystem, @git.ObjectId, String, ns? : String) -> Unit raise @git.GitError
-pub fn Den::can_merge(Self, &@git.RepoFileSystem, String) -> Bool raise @git.GitError
-pub fn Den::close_issue(Self, &@git.FileSystem, &@git.RepoFileSystem, String, Int64) -> Unit raise @git.GitError
-pub fn Den::close_pr(Self, &@git.FileSystem, &@git.RepoFileSystem, String, Int64) -> Unit raise @git.GitError
-pub fn Den::create_issue(Self, &@git.FileSystem, &@git.RepoFileSystem, String, String, String, Int64, labels? : Array[String], assignees? : Array[String]) -> Issue raise @git.GitError
-pub fn Den::create_pr(Self, &@git.FileSystem, &@git.RepoFileSystem, String, String, String, String, String, Int64) -> PullRequest raise @git.GitError
-pub async fn Den::fetch(Self, &@git.FileSystem, &@git.RepoFileSystem, String) -> PrSyncResult raise @git.GitError
-pub fn Den::get_issue(Self, &@git.RepoFileSystem, String) -> Issue? raise @git.GitError
-pub fn Den::get_note(Self, &@git.RepoFileSystem, @git.ObjectId, ns? : String) -> Note? raise @git.GitError
-pub fn Den::get_pr(Self, &@git.RepoFileSystem, String) -> PullRequest? raise @git.GitError
-pub fn Den::init(&@git.FileSystem, &@git.RepoFileSystem, String) -> Self raise @git.GitError
-pub fn Den::is_approved(Self, &@git.RepoFileSystem, String) -> Bool raise @git.GitError
-pub fn Den::link_pr_to_issue(Self, &@git.FileSystem, &@git.RepoFileSystem, String, String, Int64) -> Unit raise @git.GitError
-pub fn Den::list_comments(Self, &@git.RepoFileSystem, String) -> Array[PrComment] raise @git.GitError
-pub fn Den::list_issue_comments(Self, &@git.RepoFileSystem, String) -> Array[IssueComment] raise @git.GitError
-pub fn Den::list_issues(Self, &@git.RepoFileSystem, state? : IssueState?) -> Array[Issue] raise @git.GitError
-pub fn Den::list_notes(Self, &@git.RepoFileSystem, ns? : String) -> Array[Note] raise @git.GitError
-pub fn Den::list_prs(Self, &@git.RepoFileSystem, state? : PrState?) -> Array[PullRequest] raise @git.GitError
-pub fn Den::list_reviews(Self, &@git.RepoFileSystem, String) -> Array[PrReview] raise @git.GitError
-pub fn Den::load(&@git.RepoFileSystem, String) -> Self raise @git.GitError
-pub fn Den::merge_pr(Self, &@git.FileSystem, &@git.RepoFileSystem, String, String, Int64, strategy? : PrMergeStrategy) -> PrMergeResult raise @git.GitError
-pub async fn Den::push(Self, &@git.RepoFileSystem, String) -> PrSyncResult raise @git.GitError
-pub fn Den::remove_note(Self, &@git.FileSystem, &@git.RepoFileSystem, @git.ObjectId, ns? : String) -> Unit raise @git.GitError
-pub fn Den::submit_review(Self, &@git.FileSystem, &@git.RepoFileSystem, String, String, ReviewVerdict, String, @git.ObjectId, Int64) -> PrReview raise @git.GitError
-pub fn Den::update_issue(Self, &@git.FileSystem, &@git.RepoFileSystem, String, Int64, title? : String?, body? : String?, labels? : Array[String]?, assignees? : Array[String]?) -> Issue raise @git.GitError
-pub fn Den::update_pr(Self, &@git.FileSystem, &@git.RepoFileSystem, String, Int64, title? : String?, body? : String?, labels? : Array[String]?) -> PullRequest raise @git.GitError
+pub fn Den::add_comment(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, Int64, reply_to? : String?, file_path? : String?, line_number? : Int?, commit_id? : @bit.ObjectId?) -> PrComment raise @bit.GitError
+pub fn Den::add_issue_comment(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, Int64, reply_to? : String?) -> IssueComment raise @bit.GitError
+pub fn Den::add_note(Self, &@bit.FileSystem, &@bit.RepoFileSystem, @bit.ObjectId, String, String, Int64, ns? : String) -> Note raise @bit.GitError
+pub fn Den::add_note_plain(Self, &@bit.FileSystem, &@bit.RepoFileSystem, @bit.ObjectId, String, ns? : String) -> Unit raise @bit.GitError
+pub fn Den::can_merge(Self, &@bit.RepoFileSystem, String) -> Bool raise @bit.GitError
+pub fn Den::close_issue(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64) -> Unit raise @bit.GitError
+pub fn Den::close_pr(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64) -> Unit raise @bit.GitError
+pub fn Den::create_issue(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, Int64, labels? : Array[String], assignees? : Array[String]) -> Issue raise @bit.GitError
+pub fn Den::create_pr(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, String, String, Int64) -> PullRequest raise @bit.GitError
+pub async fn Den::fetch(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String) -> PrSyncResult raise @bit.GitError
+pub fn Den::get_issue(Self, &@bit.RepoFileSystem, String) -> Issue? raise @bit.GitError
+pub fn Den::get_note(Self, &@bit.RepoFileSystem, @bit.ObjectId, ns? : String) -> Note? raise @bit.GitError
+pub fn Den::get_pr(Self, &@bit.RepoFileSystem, String) -> PullRequest? raise @bit.GitError
+pub fn Den::init(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> Self raise @bit.GitError
+pub fn Den::is_approved(Self, &@bit.RepoFileSystem, String) -> Bool raise @bit.GitError
+pub fn Den::link_pr_to_issue(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, Int64) -> Unit raise @bit.GitError
+pub fn Den::list_comments(Self, &@bit.RepoFileSystem, String) -> Array[PrComment] raise @bit.GitError
+pub fn Den::list_issue_comments(Self, &@bit.RepoFileSystem, String) -> Array[IssueComment] raise @bit.GitError
+pub fn Den::list_issues(Self, &@bit.RepoFileSystem, state? : IssueState?) -> Array[Issue] raise @bit.GitError
+pub fn Den::list_notes(Self, &@bit.RepoFileSystem, ns? : String) -> Array[Note] raise @bit.GitError
+pub fn Den::list_prs(Self, &@bit.RepoFileSystem, state? : PrState?) -> Array[PullRequest] raise @bit.GitError
+pub fn Den::list_reviews(Self, &@bit.RepoFileSystem, String) -> Array[PrReview] raise @bit.GitError
+pub fn Den::load(&@bit.RepoFileSystem, String) -> Self raise @bit.GitError
+pub fn Den::merge_pr(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, Int64, strategy? : PrMergeStrategy) -> PrMergeResult raise @bit.GitError
+pub async fn Den::push(Self, &@bit.RepoFileSystem, String) -> PrSyncResult raise @bit.GitError
+pub fn Den::remove_note(Self, &@bit.FileSystem, &@bit.RepoFileSystem, @bit.ObjectId, ns? : String) -> Unit raise @bit.GitError
+pub fn Den::submit_review(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, ReviewVerdict, String, @bit.ObjectId, Int64) -> PrReview raise @bit.GitError
+pub fn Den::update_issue(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64, title? : String?, body? : String?, labels? : Array[String]?, assignees? : Array[String]?) -> Issue raise @bit.GitError
+pub fn Den::update_pr(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64, title? : String?, body? : String?, labels? : Array[String]?) -> PullRequest raise @bit.GitError
 
 pub struct Issue {
   id : String
@@ -116,7 +116,7 @@ pub impl Eq for IssueState
 pub impl Show for IssueState
 
 pub struct Note {
-  commit_id : @git.ObjectId
+  commit_id : @bit.ObjectId
   body : String
   author : String
   created_at : Int64
@@ -124,9 +124,9 @@ pub struct Note {
 }
 pub fn Note::author(Self) -> String
 pub fn Note::body(Self) -> String
-pub fn Note::commit_id(Self) -> @git.ObjectId
+pub fn Note::commit_id(Self) -> @bit.ObjectId
 pub fn Note::created_at(Self) -> Int64
-pub fn Note::new(@git.ObjectId, String, String, Int64, ns? : String) -> Self
+pub fn Note::new(@bit.ObjectId, String, String, Int64, ns? : String) -> Self
 pub fn Note::ns(Self) -> String
 pub fn Note::serialize(Self) -> String
 pub fn Note::serialize_plain(Self) -> String
@@ -140,27 +140,27 @@ pub struct PrComment {
   reply_to : String?
   file_path : String?
   line_number : Int?
-  commit_id : @git.ObjectId?
+  commit_id : @bit.ObjectId?
 }
 pub fn PrComment::author(Self) -> String
 pub fn PrComment::body(Self) -> String
-pub fn PrComment::commit_id(Self) -> @git.ObjectId?
+pub fn PrComment::commit_id(Self) -> @bit.ObjectId?
 pub fn PrComment::created_at(Self) -> Int64
 pub fn PrComment::file_path(Self) -> String?
 pub fn PrComment::id(Self) -> String
 pub fn PrComment::line_number(Self) -> Int?
-pub fn PrComment::new(String, String, String, String, Int64, reply_to? : String?, file_path? : String?, line_number? : Int?, commit_id? : @git.ObjectId?) -> Self
+pub fn PrComment::new(String, String, String, String, Int64, reply_to? : String?, file_path? : String?, line_number? : Int?, commit_id? : @bit.ObjectId?) -> Self
 pub fn PrComment::pr_id(Self) -> String
 pub fn PrComment::reply_to(Self) -> String?
 pub fn PrComment::serialize(Self) -> String
 
 pub struct PrMergeResult {
   success : Bool
-  commit_id : @git.ObjectId?
+  commit_id : @bit.ObjectId?
   conflicts : Array[String]
   message : String
 }
-pub fn PrMergeResult::commit_id(Self) -> @git.ObjectId?
+pub fn PrMergeResult::commit_id(Self) -> @bit.ObjectId?
 pub fn PrMergeResult::conflicts(Self) -> Array[String]
 pub fn PrMergeResult::message(Self) -> String
 pub fn PrMergeResult::success(Self) -> Bool
@@ -178,14 +178,14 @@ pub struct PrReview {
   verdict : ReviewVerdict
   body : String
   created_at : Int64
-  commit_id : @git.ObjectId
+  commit_id : @bit.ObjectId
 }
 pub fn PrReview::author(Self) -> String
 pub fn PrReview::body(Self) -> String
-pub fn PrReview::commit_id(Self) -> @git.ObjectId
+pub fn PrReview::commit_id(Self) -> @bit.ObjectId
 pub fn PrReview::created_at(Self) -> Int64
 pub fn PrReview::id(Self) -> String
-pub fn PrReview::new(String, String, String, ReviewVerdict, String, Int64, @git.ObjectId) -> Self
+pub fn PrReview::new(String, String, String, ReviewVerdict, String, Int64, @bit.ObjectId) -> Self
 pub fn PrReview::pr_id(Self) -> String
 pub fn PrReview::serialize(Self) -> String
 pub fn PrReview::verdict(Self) -> ReviewVerdict
@@ -202,12 +202,12 @@ pub impl Show for PrState
 pub struct PrSyncResult {
   success : Bool
   message : String
-  local_commit : @git.ObjectId?
-  remote_commit : @git.ObjectId?
+  local_commit : @bit.ObjectId?
+  remote_commit : @bit.ObjectId?
 }
-pub fn PrSyncResult::local_commit(Self) -> @git.ObjectId?
+pub fn PrSyncResult::local_commit(Self) -> @bit.ObjectId?
 pub fn PrSyncResult::message(Self) -> String
-pub fn PrSyncResult::remote_commit(Self) -> @git.ObjectId?
+pub fn PrSyncResult::remote_commit(Self) -> @bit.ObjectId?
 pub fn PrSyncResult::success(Self) -> Bool
 
 pub struct PullRequest {
@@ -215,9 +215,9 @@ pub struct PullRequest {
   title : String
   body : String
   source_branch : String
-  source_commit : @git.ObjectId
+  source_commit : @bit.ObjectId
   target_branch : String
-  target_commit : @git.ObjectId
+  target_commit : @bit.ObjectId
   author : String
   created_at : Int64
   updated_at : Int64
@@ -231,13 +231,13 @@ pub fn PullRequest::closes_issues(Self) -> Array[String]
 pub fn PullRequest::created_at(Self) -> Int64
 pub fn PullRequest::id(Self) -> String
 pub fn PullRequest::labels(Self) -> Array[String]
-pub fn PullRequest::new(String, String, String, String, @git.ObjectId, String, @git.ObjectId, String, Int64, Int64, PrState, Array[String], closes_issues? : Array[String]) -> Self
+pub fn PullRequest::new(String, String, String, String, @bit.ObjectId, String, @bit.ObjectId, String, Int64, Int64, PrState, Array[String], closes_issues? : Array[String]) -> Self
 pub fn PullRequest::serialize(Self) -> String
 pub fn PullRequest::source_branch(Self) -> String
-pub fn PullRequest::source_commit(Self) -> @git.ObjectId
+pub fn PullRequest::source_commit(Self) -> @bit.ObjectId
 pub fn PullRequest::state(Self) -> PrState
 pub fn PullRequest::target_branch(Self) -> String
-pub fn PullRequest::target_commit(Self) -> @git.ObjectId
+pub fn PullRequest::target_commit(Self) -> @bit.ObjectId
 pub fn PullRequest::title(Self) -> String
 pub fn PullRequest::updated_at(Self) -> Int64
 

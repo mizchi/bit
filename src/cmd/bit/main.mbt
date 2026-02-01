@@ -3,10 +3,10 @@
 ///|
 async fn show_help() -> Unit {
   let help =
-    #|usage: moongit [-v | --version] [-h | --help] [-C <path>]
-    #|               <command> [<args>]
+    #|usage: bit [-v | --version] [-h | --help] [-C <path>]
+    #|           <command> [<args>]
     #|
-    #|moongit is a Git implementation in MoonBit.
+    #|bit is a Git implementation in MoonBit.
     #|Unsupported commands will fail with an error.
     #|
     #|start a working area
@@ -84,7 +84,7 @@ async fn main_async() -> Unit {
   for i in 1..<args.length() {
     match args[i] {
       "--version" | "version" => {
-        print_line("git version 2.47.0 (moongit)")
+        print_line("git version 2.47.0 (bit)")
         return ()
       }
       "-h" | "--help" | "help" => {
@@ -97,11 +97,11 @@ async fn main_async() -> Unit {
   }
   let opts = parse_global_options(args)
   guard opts.subcmd is Some(cmd) else {
-    eprint_line("moongit: missing subcommand")
+    eprint_line("bit: missing subcommand")
     @sys.exit(2)
   }
   if opts.unsupported_global {
-    eprint_line("moongit: unsupported global option")
+    eprint_line("bit: unsupported global option")
     @sys.exit(1)
   }
   // Store config overrides in environment variable for handlers to access
@@ -459,10 +459,10 @@ async fn dispatch_command(cmd : String, rest : Array[String]) -> Unit {
       handle_cherry(rest) catch {
         err => exit_with_error("cherry", err)
       }
-    "version" | "--version" => print_line("git version 2.47.0 (moongit)")
+    "version" | "--version" => print_line("git version 2.47.0 (bit)")
     // Error for unknown commands
     _ => {
-      eprint_line("moongit: '\{cmd}' is not a moongit command")
+      eprint_line("bit: '\{cmd}' is not a bit command")
       @sys.exit(1)
     }
   }

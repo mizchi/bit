@@ -3,7 +3,7 @@
 
 ///|
 fn print_subdir_clone_usage() -> Unit {
-  println("Usage: moongit subdir-clone <url> <path> [<dest>]")
+  println("Usage: bit subdir-clone <url> <path> [<dest>]")
   println("")
   println("Clone a subdirectory from a remote repository as an independent git repo.")
   println("")
@@ -13,16 +13,16 @@ fn print_subdir_clone_usage() -> Unit {
   println("  <dest>        Local directory name (default: last component of path)")
   println("")
   println("Examples:")
-  println("  moongit subdir-clone https://github.com/user/repo src")
+  println("  bit subdir-clone https://github.com/user/repo src")
   println("    → Creates src/ with contents of repo's src/")
   println("")
-  println("  moongit subdir-clone https://github.com/user/repo src/lib mylib")
+  println("  bit subdir-clone https://github.com/user/repo src/lib mylib")
   println("    → Creates mylib/ with contents of repo's src/lib/")
   println("")
-  println("After cloning, standard git/moongit commands work from the directory:")
+  println("After cloning, standard git/bit commands work from the directory:")
   println("  cd mylib")
-  println("  moongit status     # detects subdir-clone automatically")
-  println("  moongit rebase origin/main  # rebases only subdir changes")
+  println("  bit status     # detects subdir-clone automatically")
+  println("  bit rebase origin/main  # rebases only subdir changes")
 }
 
 ///|
@@ -159,7 +159,7 @@ async fn handle_subdir_clone(args : Array[String]) -> Unit raise Error {
   // Step 6: Create orphan commit with subdirectory as root
   print_line("  Creating initial commit...")
   let timestamp = get_current_timestamp()
-  let author = "subdir-clone <subdir-clone@moongit>"
+  let author = "subdir-clone <subdir-clone@bit>"
   let message = "Initial commit (cloned from " + subdir_path + ")\n"
   let parents : Array[@git.ObjectId] = []
   let commit = @git.Commit::new(
@@ -195,10 +195,10 @@ async fn handle_subdir_clone(args : Array[String]) -> Unit raise Error {
   print_line("")
   print_line("Cloned '\{subdir_path}' to '\{relative_target}/'")
   print_line("")
-  print_line("Standard git/moongit commands work from this directory:")
+  print_line("Standard git/bit commands work from this directory:")
   print_line("  cd \{relative_target}")
-  print_line("  moongit status")
-  print_line("  moongit rebase origin/main  # rebases only subdir changes")
+  print_line("  bit status")
+  print_line("  bit rebase origin/main  # rebases only subdir changes")
 }
 
 ///|

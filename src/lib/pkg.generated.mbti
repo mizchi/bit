@@ -1,247 +1,247 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "mizchi/git/lib"
+package "mizchi/bit/lib"
 
 import {
-  "mizchi/git",
+  "mizchi/bit",
 }
 
 // Values
-pub fn add_paths(&@git.FileSystem, &@git.RepoFileSystem, String, Array[String]) -> Unit raise @git.GitError
+pub fn add_paths(&@bit.FileSystem, &@bit.RepoFileSystem, String, Array[String]) -> Unit raise @bit.GitError
 
-pub fn append_reflog(&@git.FileSystem, &@git.RepoFileSystem, String, String, @git.ObjectId, @git.ObjectId, String, String, Int64, String, String) -> Unit raise @git.GitError
+pub fn append_reflog(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, @bit.ObjectId, @bit.ObjectId, String, String, Int64, String, String) -> Unit raise @bit.GitError
 
-pub fn apply_receive_pack(&@git.FileSystem, &@git.RepoFileSystem, String, ReceivePackRequest) -> ReceivePackResult raise @git.GitError
+pub fn apply_receive_pack(&@bit.FileSystem, &@bit.RepoFileSystem, String, ReceivePackRequest) -> ReceivePackResult raise @bit.GitError
 
-pub fn apply_template(&@git.FileSystem, &@git.RepoFileSystem, String, String) -> Unit raise @git.GitError
+pub fn apply_template(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> Unit raise @bit.GitError
 
-pub fn build_receive_pack_advertisement(&@git.RepoFileSystem, String, agent? : String) -> Bytes raise @git.GitError
+pub fn build_receive_pack_advertisement(&@bit.RepoFileSystem, String, agent? : String) -> Bytes raise @bit.GitError
 
-pub fn build_upload_pack_advertisement(&@git.RepoFileSystem, String, agent? : String) -> Bytes raise @git.GitError
+pub fn build_upload_pack_advertisement(&@bit.RepoFileSystem, String, agent? : String) -> Bytes raise @bit.GitError
 
-pub fn checkout(&@git.FileSystem, &@git.RepoFileSystem, String, String, detach? : Bool, update_worktree? : Bool, update_index? : Bool) -> @git.ObjectId raise @git.GitError
+pub fn checkout(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, detach? : Bool, update_worktree? : Bool, update_index? : Bool) -> @bit.ObjectId raise @bit.GitError
 
-pub fn cherry_pick(&@git.FileSystem, &@git.RepoFileSystem, String, @git.ObjectId, String, Int64) -> CherryPickResult raise @git.GitError
+pub fn cherry_pick(&@bit.FileSystem, &@bit.RepoFileSystem, String, @bit.ObjectId, String, Int64) -> CherryPickResult raise @bit.GitError
 
-pub fn clear_rebase_state(&@git.FileSystem, &@git.RepoFileSystem, String) -> Unit raise @git.GitError
+pub fn clear_rebase_state(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> Unit raise @bit.GitError
 
-pub async fn clone_http(&@git.FileSystem, &@git.RepoFileSystem, String, String, Bool) -> @git.ObjectId? raise @git.GitError
+pub async fn clone_http(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, Bool) -> @bit.ObjectId? raise @bit.GitError
 
-pub fn collect_reachable_objects(ObjectDb, &@git.RepoFileSystem, @git.ObjectId) -> Array[@git.PackObject] raise @git.GitError
+pub fn collect_reachable_objects(ObjectDb, &@bit.RepoFileSystem, @bit.ObjectId) -> Array[@bit.PackObject] raise @bit.GitError
 
-pub fn collect_reachable_objects_from_commits(ObjectDb, &@git.RepoFileSystem, Array[@git.ObjectId]) -> Array[@git.PackObject] raise @git.GitError
+pub fn collect_reachable_objects_from_commits(ObjectDb, &@bit.RepoFileSystem, Array[@bit.ObjectId]) -> Array[@bit.PackObject] raise @bit.GitError
 
-pub fn collect_tree_files(ObjectDb, &@git.RepoFileSystem, @git.ObjectId) -> Map[String, TreeFileEntry] raise @git.GitError
+pub fn collect_tree_files(ObjectDb, &@bit.RepoFileSystem, @bit.ObjectId) -> Map[String, TreeFileEntry] raise @bit.GitError
 
-pub fn collect_tree_files_from_commit(ObjectDb, &@git.RepoFileSystem, @git.ObjectId) -> Map[String, TreeFileEntry] raise @git.GitError
+pub fn collect_tree_files_from_commit(ObjectDb, &@bit.RepoFileSystem, @bit.ObjectId) -> Map[String, TreeFileEntry] raise @bit.GitError
 
-pub fn commit(&@git.FileSystem, &@git.RepoFileSystem, String, String, String, Int64, committer? : String, committer_timestamp? : Int64) -> @git.ObjectId raise @git.GitError
+pub fn commit(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, Int64, committer? : String, committer_timestamp? : Int64) -> @bit.ObjectId raise @bit.GitError
 
-pub fn commit_amend(&@git.FileSystem, &@git.RepoFileSystem, String, String, String, Int64, committer? : String, committer_timestamp? : Int64) -> @git.ObjectId raise @git.GitError
+pub fn commit_amend(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, Int64, committer? : String, committer_timestamp? : Int64) -> @bit.ObjectId raise @bit.GitError
 
-pub fn create_annotated_tag(&@git.FileSystem, &@git.RepoFileSystem, String, String, @git.ObjectId, String, String, Int64) -> Unit raise @git.GitError
+pub fn create_annotated_tag(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, @bit.ObjectId, String, String, Int64) -> Unit raise @bit.GitError
 
-pub fn create_branch(&@git.FileSystem, &@git.RepoFileSystem, String, String) -> Unit raise @git.GitError
+pub fn create_branch(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> Unit raise @bit.GitError
 
-pub fn create_branch_at(&@git.FileSystem, &@git.RepoFileSystem, String, String, @git.ObjectId) -> Unit raise @git.GitError
+pub fn create_branch_at(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, @bit.ObjectId) -> Unit raise @bit.GitError
 
-pub fn create_lightweight_tag(&@git.FileSystem, String, String, @git.ObjectId) -> Unit raise @git.GitError
+pub fn create_lightweight_tag(&@bit.FileSystem, String, String, @bit.ObjectId) -> Unit raise @bit.GitError
 
-pub fn create_reflog(&@git.FileSystem, &@git.RepoFileSystem, String, String) -> Unit raise @git.GitError
+pub fn create_reflog(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> Unit raise @bit.GitError
 
-pub fn create_worktree(&@git.FileSystem, &@git.RepoFileSystem, String, String, String?, detach? : Bool, new_branch? : String?) -> Unit raise @git.GitError
+pub fn create_worktree(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String?, detach? : Bool, new_branch? : String?) -> Unit raise @bit.GitError
 
-pub fn delete_branch(&@git.FileSystem, &@git.RepoFileSystem, String, String, force? : Bool) -> Unit raise @git.GitError
+pub fn delete_branch(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, force? : Bool) -> Unit raise @bit.GitError
 
-pub fn delete_reflog(&@git.FileSystem, &@git.RepoFileSystem, String, String) -> Unit raise @git.GitError
+pub fn delete_reflog(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> Unit raise @bit.GitError
 
-pub fn delete_tag(&@git.FileSystem, String, String) -> Unit raise @git.GitError
+pub fn delete_tag(&@bit.FileSystem, String, String) -> Unit raise @bit.GitError
 
-pub fn diff_index(&@git.RepoFileSystem, String) -> Array[DiffFile] raise @git.GitError
+pub fn diff_index(&@bit.RepoFileSystem, String) -> Array[DiffFile] raise @bit.GitError
 
 pub fn diff_stat(Array[DiffFile]) -> Array[String]
 
 pub fn diff_text(Array[DiffFile]) -> Array[String]
 
-pub fn diff_worktree(&@git.RepoFileSystem, String) -> Array[DiffFile] raise @git.GitError
+pub fn diff_worktree(&@bit.RepoFileSystem, String) -> Array[DiffFile] raise @bit.GitError
 
-pub fn fast_forward_to(&@git.FileSystem, &@git.RepoFileSystem, String, @git.ObjectId) -> Unit raise @git.GitError
+pub fn fast_forward_to(&@bit.FileSystem, &@bit.RepoFileSystem, String, @bit.ObjectId) -> Unit raise @bit.GitError
 
-pub fn gc_repo(&@git.FileSystem, &@git.RepoFileSystem, String) -> GcResult raise @git.GitError
+pub fn gc_repo(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> GcResult raise @bit.GitError
 
 pub fn get_reflog_path(String, String) -> String
 
-pub fn get_worktree_lock_reason(&@git.RepoFileSystem, String, String) -> String? raise @git.GitError
+pub fn get_worktree_lock_reason(&@bit.RepoFileSystem, String, String) -> String? raise @bit.GitError
 
-pub fn get_worktree_prunable_reason(&@git.RepoFileSystem, String, String) -> String? raise @git.GitError
+pub fn get_worktree_prunable_reason(&@bit.RepoFileSystem, String, String) -> String? raise @bit.GitError
 
-pub fn init_repo(&@git.FileSystem, String, default_branch? : String, bare? : Bool) -> Unit raise @git.GitError
+pub fn init_repo(&@bit.FileSystem, String, default_branch? : String, bare? : Bool) -> Unit raise @bit.GitError
 
-pub fn init_repo_with_options(&@git.FileSystem, String, InitOptions) -> Unit raise @git.GitError
+pub fn init_repo_with_options(&@bit.FileSystem, String, InitOptions) -> Unit raise @bit.GitError
 
-pub fn is_branch_checked_out(&@git.RepoFileSystem, String, String) -> String? raise @git.GitError
+pub fn is_branch_checked_out(&@bit.RepoFileSystem, String, String) -> String? raise @bit.GitError
 
-pub fn is_ignored_path(&@git.RepoFileSystem, String, String, Bool) -> Bool raise @git.GitError
+pub fn is_ignored_path(&@bit.RepoFileSystem, String, String, Bool) -> Bool raise @bit.GitError
 
-pub fn is_partial_clone(&@git.RepoFileSystem, String) -> Bool
+pub fn is_partial_clone(&@bit.RepoFileSystem, String) -> Bool
 
-pub fn is_rebase_in_progress(&@git.RepoFileSystem, String) -> Bool
+pub fn is_rebase_in_progress(&@bit.RepoFileSystem, String) -> Bool
 
-pub fn is_sparse_checkout_enabled(&@git.RepoFileSystem, String) -> Bool
+pub fn is_sparse_checkout_enabled(&@bit.RepoFileSystem, String) -> Bool
 
-pub fn list_branches(&@git.RepoFileSystem, String) -> (HeadRef, Array[BranchInfo]) raise @git.GitError
+pub fn list_branches(&@bit.RepoFileSystem, String) -> (HeadRef, Array[BranchInfo]) raise @bit.GitError
 
-pub fn list_branches_text(&@git.RepoFileSystem, String) -> Array[String] raise @git.GitError
+pub fn list_branches_text(&@bit.RepoFileSystem, String) -> Array[String] raise @bit.GitError
 
-pub fn list_branches_verbose(&@git.RepoFileSystem, String) -> Array[String] raise @git.GitError
+pub fn list_branches_verbose(&@bit.RepoFileSystem, String) -> Array[String] raise @bit.GitError
 
-pub fn list_remote_branches(&@git.RepoFileSystem, String) -> Array[String]
+pub fn list_remote_branches(&@bit.RepoFileSystem, String) -> Array[String]
 
-pub fn list_tags(&@git.RepoFileSystem, String) -> Array[String]
+pub fn list_tags(&@bit.RepoFileSystem, String) -> Array[String]
 
-pub fn list_working_files(&@git.RepoFileSystem, String) -> Array[String] raise @git.GitError
+pub fn list_working_files(&@bit.RepoFileSystem, String) -> Array[String] raise @bit.GitError
 
-pub fn list_worktrees(&@git.RepoFileSystem, String) -> Array[WorktreeInfo] raise @git.GitError
+pub fn list_worktrees(&@bit.RepoFileSystem, String) -> Array[WorktreeInfo] raise @bit.GitError
 
-pub fn load_object_store_from_fs(&@git.RepoFileSystem, String) -> @git.ObjectStore raise @git.GitError
+pub fn load_object_store_from_fs(&@bit.RepoFileSystem, String) -> @bit.ObjectStore raise @bit.GitError
 
-pub fn load_rebase_state(&@git.RepoFileSystem, String) -> RebaseState? raise @git.GitError
+pub fn load_rebase_state(&@bit.RepoFileSystem, String) -> RebaseState? raise @bit.GitError
 
-pub fn lock_worktree(&@git.FileSystem, &@git.RepoFileSystem, String, String, reason? : String?) -> Unit raise @git.GitError
+pub fn lock_worktree(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, reason? : String?) -> Unit raise @bit.GitError
 
-pub fn log_head(&@git.RepoFileSystem, String, max_count? : Int) -> Array[LogEntry] raise @git.GitError
+pub fn log_head(&@bit.RepoFileSystem, String, max_count? : Int) -> Array[LogEntry] raise @bit.GitError
 
-pub fn log_head_oneline(&@git.RepoFileSystem, String, max_count? : Int) -> Array[String] raise @git.GitError
+pub fn log_head_oneline(&@bit.RepoFileSystem, String, max_count? : Int) -> Array[String] raise @bit.GitError
 
 pub fn matches_sparse_pattern(String, Array[String]) -> Bool
 
-pub fn merge(&@git.FileSystem, &@git.RepoFileSystem, String, @git.ObjectId, String, String, Int64) -> MergeResult raise @git.GitError
+pub fn merge(&@bit.FileSystem, &@bit.RepoFileSystem, String, @bit.ObjectId, String, String, Int64) -> MergeResult raise @bit.GitError
 
-pub fn move_worktree(&@git.FileSystem, &@git.RepoFileSystem, String, String, String, force? : Bool) -> Unit raise @git.GitError
+pub fn move_worktree(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, force? : Bool) -> Unit raise @bit.GitError
 
-pub fn mv_path(&@git.FileSystem, &@git.RepoFileSystem, String, String, String, force? : Bool) -> Unit raise @git.GitError
+pub fn mv_path(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, force? : Bool) -> Unit raise @bit.GitError
 
-pub fn parse_receive_pack_request(Bytes) -> ReceivePackRequest raise @git.GitError
+pub fn parse_receive_pack_request(Bytes) -> ReceivePackRequest raise @bit.GitError
 
-pub fn parse_upload_pack_request(Bytes) -> UploadPackRequest raise @git.GitError
+pub fn parse_upload_pack_request(Bytes) -> UploadPackRequest raise @bit.GitError
 
-pub fn prune_repo(&@git.FileSystem, &@git.RepoFileSystem, String) -> PruneResult raise @git.GitError
+pub fn prune_repo(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> PruneResult raise @bit.GitError
 
-pub fn prune_worktrees(&@git.FileSystem, &@git.RepoFileSystem, String, dry_run? : Bool) -> Array[String] raise @git.GitError
+pub fn prune_worktrees(&@bit.FileSystem, &@bit.RepoFileSystem, String, dry_run? : Bool) -> Array[String] raise @bit.GitError
 
-pub async fn pull_http(&@git.FileSystem, &@git.RepoFileSystem, String, String, Bool, rebase? : Bool) -> @git.ObjectId? raise @git.GitError
+pub async fn pull_http(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, Bool, rebase? : Bool) -> @bit.ObjectId? raise @bit.GitError
 
-pub async fn push_http(&@git.RepoFileSystem, String, String, String) -> String raise @git.GitError
+pub async fn push_http(&@bit.RepoFileSystem, String, String, String) -> String raise @bit.GitError
 
-pub fn read_head_ref(&@git.RepoFileSystem, String) -> HeadRef raise @git.GitError
+pub fn read_head_ref(&@bit.RepoFileSystem, String) -> HeadRef raise @bit.GitError
 
-pub fn read_index_entries(&@git.RepoFileSystem, String) -> Array[IndexEntry] raise @git.GitError
+pub fn read_index_entries(&@bit.RepoFileSystem, String) -> Array[IndexEntry] raise @bit.GitError
 
-pub fn read_promisor_remote(&@git.RepoFileSystem, String) -> String?
+pub fn read_promisor_remote(&@bit.RepoFileSystem, String) -> String?
 
-pub fn read_reflog(&@git.RepoFileSystem, String, String) -> Array[ReflogEntry] raise @git.GitError
+pub fn read_reflog(&@bit.RepoFileSystem, String, String) -> Array[ReflogEntry] raise @bit.GitError
 
-pub fn read_sparse_patterns(&@git.RepoFileSystem, String) -> Array[String] raise @git.GitError
+pub fn read_sparse_patterns(&@bit.RepoFileSystem, String) -> Array[String] raise @bit.GitError
 
-pub fn rebase_abort(&@git.FileSystem, &@git.RepoFileSystem, String) -> Unit raise @git.GitError
+pub fn rebase_abort(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> Unit raise @bit.GitError
 
-pub fn rebase_continue(&@git.FileSystem, &@git.RepoFileSystem, String) -> RebaseResult raise @git.GitError
+pub fn rebase_continue(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> RebaseResult raise @bit.GitError
 
-pub fn rebase_onto(&@git.FileSystem, &@git.RepoFileSystem, String, @git.ObjectId) -> @git.ObjectId raise @git.GitError
+pub fn rebase_onto(&@bit.FileSystem, &@bit.RepoFileSystem, String, @bit.ObjectId) -> @bit.ObjectId raise @bit.GitError
 
-pub fn rebase_skip(&@git.FileSystem, &@git.RepoFileSystem, String) -> RebaseResult raise @git.GitError
+pub fn rebase_skip(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> RebaseResult raise @bit.GitError
 
-pub fn rebase_start(&@git.FileSystem, &@git.RepoFileSystem, String, @git.ObjectId) -> RebaseResult raise @git.GitError
+pub fn rebase_start(&@bit.FileSystem, &@bit.RepoFileSystem, String, @bit.ObjectId) -> RebaseResult raise @bit.GitError
 
-pub fn receive_pack(&@git.FileSystem, &@git.RepoFileSystem, String, Bytes) -> Bytes raise @git.GitError
+pub fn receive_pack(&@bit.FileSystem, &@bit.RepoFileSystem, String, Bytes) -> Bytes raise @bit.GitError
 
-pub fn receive_pack_info_refs_response(&@git.RepoFileSystem, String, String?, String, agent? : String) -> HttpResponse raise @git.GitError
+pub fn receive_pack_info_refs_response(&@bit.RepoFileSystem, String, String?, String, agent? : String) -> HttpResponse raise @bit.GitError
 
-pub fn receive_pack_response(&@git.FileSystem, &@git.RepoFileSystem, String, String?, String, Bytes) -> HttpResponse raise @git.GitError
+pub fn receive_pack_response(&@bit.FileSystem, &@bit.RepoFileSystem, String, String?, String, Bytes) -> HttpResponse raise @bit.GitError
 
-pub fn reflog_exists(&@git.RepoFileSystem, String, String) -> Bool
+pub fn reflog_exists(&@bit.RepoFileSystem, String, String) -> Bool
 
-pub fn remove_worktree(&@git.FileSystem, &@git.RepoFileSystem, String, String, force? : Bool) -> Unit raise @git.GitError
+pub fn remove_worktree(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, force? : Bool) -> Unit raise @bit.GitError
 
-pub fn repack_repo(&@git.FileSystem, &@git.RepoFileSystem, String) -> RepackResult? raise @git.GitError
+pub fn repack_repo(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> RepackResult? raise @bit.GitError
 
-pub fn repair_worktree(&@git.FileSystem, &@git.RepoFileSystem, String, worktree_paths? : Array[String]) -> Array[String] raise @git.GitError
+pub fn repair_worktree(&@bit.FileSystem, &@bit.RepoFileSystem, String, worktree_paths? : Array[String]) -> Array[String] raise @bit.GitError
 
-pub fn reset(&@git.FileSystem, &@git.RepoFileSystem, String, String, ResetMode) -> @git.ObjectId raise @git.GitError
+pub fn reset(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, ResetMode) -> @bit.ObjectId raise @bit.GitError
 
-pub fn resolve_head_commit(&@git.RepoFileSystem, String) -> @git.ObjectId? raise @git.GitError
+pub fn resolve_head_commit(&@bit.RepoFileSystem, String) -> @bit.ObjectId? raise @bit.GitError
 
-pub fn resolve_ref(&@git.RepoFileSystem, String, String) -> @git.ObjectId? raise @git.GitError
+pub fn resolve_ref(&@bit.RepoFileSystem, String, String) -> @bit.ObjectId? raise @bit.GitError
 
-pub fn restore_paths(&@git.FileSystem, &@git.RepoFileSystem, String, Array[String]) -> Unit raise @git.GitError
+pub fn restore_paths(&@bit.FileSystem, &@bit.RepoFileSystem, String, Array[String]) -> Unit raise @bit.GitError
 
-pub fn rev_parse(&@git.RepoFileSystem, String, String) -> @git.ObjectId? raise @git.GitError
+pub fn rev_parse(&@bit.RepoFileSystem, String, String) -> @bit.ObjectId? raise @bit.GitError
 
-pub fn rm_paths(&@git.FileSystem, &@git.RepoFileSystem, String, Array[String], cached? : Bool, force? : Bool, recursive? : Bool) -> Unit raise @git.GitError
+pub fn rm_paths(&@bit.FileSystem, &@bit.RepoFileSystem, String, Array[String], cached? : Bool, force? : Bool, recursive? : Bool) -> Unit raise @bit.GitError
 
-pub fn should_log_ref(&@git.RepoFileSystem, String, String, Bool) -> (Bool, Bool) raise @git.GitError
+pub fn should_log_ref(&@bit.RepoFileSystem, String, String, Bool) -> (Bool, Bool) raise @bit.GitError
 
-pub fn show_ref(&@git.RepoFileSystem, String) -> Array[(String, @git.ObjectId)] raise @git.GitError
+pub fn show_ref(&@bit.RepoFileSystem, String) -> Array[(String, @bit.ObjectId)] raise @bit.GitError
 
-pub fn show_ref_text(&@git.RepoFileSystem, String) -> Array[String] raise @git.GitError
+pub fn show_ref_text(&@bit.RepoFileSystem, String) -> Array[String] raise @bit.GitError
 
-pub fn sparse_checkout_add(&@git.FileSystem, &@git.RepoFileSystem, String, Array[String]) -> Unit raise @git.GitError
+pub fn sparse_checkout_add(&@bit.FileSystem, &@bit.RepoFileSystem, String, Array[String]) -> Unit raise @bit.GitError
 
-pub fn sparse_checkout_disable(&@git.FileSystem, &@git.RepoFileSystem, String) -> Unit raise @git.GitError
+pub fn sparse_checkout_disable(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> Unit raise @bit.GitError
 
-pub fn sparse_checkout_init(&@git.FileSystem, &@git.RepoFileSystem, String, cone? : Bool) -> Unit raise @git.GitError
+pub fn sparse_checkout_init(&@bit.FileSystem, &@bit.RepoFileSystem, String, cone? : Bool) -> Unit raise @bit.GitError
 
-pub fn sparse_checkout_set(&@git.FileSystem, &@git.RepoFileSystem, String, Array[String]) -> Unit raise @git.GitError
+pub fn sparse_checkout_set(&@bit.FileSystem, &@bit.RepoFileSystem, String, Array[String]) -> Unit raise @bit.GitError
 
-pub fn stash_apply(&@git.FileSystem, &@git.RepoFileSystem, String, Int, Bool) -> Unit raise @git.GitError
+pub fn stash_apply(&@bit.FileSystem, &@bit.RepoFileSystem, String, Int, Bool) -> Unit raise @bit.GitError
 
-pub fn stash_drop(&@git.FileSystem, &@git.RepoFileSystem, String, Int) -> Unit raise @git.GitError
+pub fn stash_drop(&@bit.FileSystem, &@bit.RepoFileSystem, String, Int) -> Unit raise @bit.GitError
 
-pub fn stash_list(&@git.RepoFileSystem, String) -> Array[StashEntry] raise @git.GitError
+pub fn stash_list(&@bit.RepoFileSystem, String) -> Array[StashEntry] raise @bit.GitError
 
-pub fn stash_push(&@git.FileSystem, &@git.RepoFileSystem, String, String, String, Int64) -> @git.ObjectId? raise @git.GitError
+pub fn stash_push(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, Int64) -> @bit.ObjectId? raise @bit.GitError
 
-pub fn status(&@git.RepoFileSystem, String) -> Status raise @git.GitError
+pub fn status(&@bit.RepoFileSystem, String) -> Status raise @bit.GitError
 
-pub fn status_porcelain(&@git.RepoFileSystem, String) -> Array[String] raise @git.GitError
+pub fn status_porcelain(&@bit.RepoFileSystem, String) -> Array[String] raise @bit.GitError
 
 pub fn status_porcelain_from(Status) -> Array[String]
 
-pub fn status_text(&@git.RepoFileSystem, String) -> String raise @git.GitError
+pub fn status_text(&@bit.RepoFileSystem, String) -> String raise @bit.GitError
 
-pub fn switch_branch(&@git.FileSystem, &@git.RepoFileSystem, String, String, create? : Bool, checkout? : Bool) -> Unit raise @git.GitError
+pub fn switch_branch(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, create? : Bool, checkout? : Bool) -> Unit raise @bit.GitError
 
-pub fn tree_files_to_index(ObjectDb, &@git.RepoFileSystem, Map[String, TreeFileEntry]) -> Array[IndexEntry] raise @git.GitError
+pub fn tree_files_to_index(ObjectDb, &@bit.RepoFileSystem, Map[String, TreeFileEntry]) -> Array[IndexEntry] raise @bit.GitError
 
-pub fn unlock_worktree(&@git.FileSystem, &@git.RepoFileSystem, String, String) -> Unit raise @git.GitError
+pub fn unlock_worktree(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> Unit raise @bit.GitError
 
-pub fn update_head_ref(&@git.FileSystem, &@git.RepoFileSystem, String, @git.ObjectId) -> Unit raise @git.GitError
+pub fn update_head_ref(&@bit.FileSystem, &@bit.RepoFileSystem, String, @bit.ObjectId) -> Unit raise @bit.GitError
 
-pub fn upload_pack(&@git.RepoFileSystem, String, UploadPackRequest) -> Bytes raise @git.GitError
+pub fn upload_pack(&@bit.RepoFileSystem, String, UploadPackRequest) -> Bytes raise @bit.GitError
 
-pub fn write_index_entries(&@git.FileSystem, String, Array[IndexEntry]) -> Unit raise @git.GitError
+pub fn write_index_entries(&@bit.FileSystem, String, Array[IndexEntry]) -> Unit raise @bit.GitError
 
-pub fn write_loose_object(&@git.FileSystem, String, @git.ObjectType, Bytes) -> @git.ObjectId raise @git.GitError
+pub fn write_loose_object(&@bit.FileSystem, String, @bit.ObjectType, Bytes) -> @bit.ObjectId raise @bit.GitError
 
-pub fn write_object_bytes(&@git.FileSystem, String, @git.ObjectId, Bytes) -> Unit raise @git.GitError
+pub fn write_object_bytes(&@bit.FileSystem, String, @bit.ObjectId, Bytes) -> Unit raise @bit.GitError
 
-pub fn write_sparse_patterns(&@git.FileSystem, String, Array[String]) -> Unit raise @git.GitError
+pub fn write_sparse_patterns(&@bit.FileSystem, String, Array[String]) -> Unit raise @bit.GitError
 
-pub fn write_tree_from_index(&@git.FileSystem, String, Array[IndexEntry], prefix? : String?) -> @git.ObjectId raise @git.GitError
+pub fn write_tree_from_index(&@bit.FileSystem, String, Array[IndexEntry], prefix? : String?) -> @bit.ObjectId raise @bit.GitError
 
-pub fn write_worktree_from_files(ObjectDb, &@git.FileSystem, &@git.RepoFileSystem, String, String, Map[String, TreeFileEntry], remove_missing? : Bool) -> Unit raise @git.GitError
+pub fn write_worktree_from_files(ObjectDb, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, Map[String, TreeFileEntry], remove_missing? : Bool) -> Unit raise @bit.GitError
 
 // Errors
 
 // Types and methods
 pub struct BranchInfo {
   name : String
-  id : @git.ObjectId
+  id : @bit.ObjectId
   current : Bool
 }
 
 pub struct CherryPickResult {
   status : CherryPickStatus
-  commit_id : @git.ObjectId?
+  commit_id : @bit.ObjectId?
   conflicts : Array[String]
 }
 
@@ -265,12 +265,12 @@ pub enum DiffKind {
 
 pub struct GcResult {
   pack : RepackResult?
-  dangling : Array[@git.ObjectId]
+  dangling : Array[@bit.ObjectId]
 }
 
 pub enum HeadRef {
   Branch(String)
-  Detached(@git.ObjectId)
+  Detached(@bit.ObjectId)
 }
 
 pub struct HttpResponse {
@@ -281,11 +281,11 @@ pub struct HttpResponse {
 
 pub struct IndexEntry {
   path : String
-  id : @git.ObjectId
+  id : @bit.ObjectId
   mode : Int
   size : Int
 }
-pub fn IndexEntry::new(String, @git.ObjectId, Int, Int) -> Self
+pub fn IndexEntry::new(String, @bit.ObjectId, Int, Int) -> Self
 
 pub(all) struct InitOptions {
   default_branch : String
@@ -300,13 +300,13 @@ pub struct LazyPackIndex {
   pack_path : String
   mut loaded : PackIndex?
 }
-pub fn LazyPackIndex::find_offset(Self, &@git.RepoFileSystem, @git.ObjectId) -> Int64? raise @git.GitError
-pub fn LazyPackIndex::find_offset_hex(Self, &@git.RepoFileSystem, String) -> Int64? raise @git.GitError
-pub fn LazyPackIndex::get(Self, &@git.RepoFileSystem) -> PackIndex raise @git.GitError
+pub fn LazyPackIndex::find_offset(Self, &@bit.RepoFileSystem, @bit.ObjectId) -> Int64? raise @bit.GitError
+pub fn LazyPackIndex::find_offset_hex(Self, &@bit.RepoFileSystem, String) -> Int64? raise @bit.GitError
+pub fn LazyPackIndex::get(Self, &@bit.RepoFileSystem) -> PackIndex raise @bit.GitError
 pub fn LazyPackIndex::new(String, String) -> Self
 
 pub struct LogEntry {
-  id : @git.ObjectId
+  id : @bit.ObjectId
   message : String
   author : String
   timestamp : Int64
@@ -314,7 +314,7 @@ pub struct LogEntry {
 
 pub struct MergeResult {
   status : MergeStatus
-  commit_id : @git.ObjectId?
+  commit_id : @bit.ObjectId?
   conflicts : Array[String]
 }
 
@@ -331,16 +331,16 @@ pub struct ObjectDb {
   packs : Array[PackIndex]
   lazy_packs : Array[LazyPackIndex]
 }
-pub fn ObjectDb::get(Self, &@git.RepoFileSystem, @git.ObjectId) -> @git.PackObject? raise @git.GitError
-pub fn ObjectDb::load(&@git.RepoFileSystem, String) -> Self raise @git.GitError
-pub fn ObjectDb::load_lazy(&@git.RepoFileSystem, String) -> Self raise @git.GitError
+pub fn ObjectDb::get(Self, &@bit.RepoFileSystem, @bit.ObjectId) -> @bit.PackObject? raise @bit.GitError
+pub fn ObjectDb::load(&@bit.RepoFileSystem, String) -> Self raise @bit.GitError
+pub fn ObjectDb::load_lazy(&@bit.RepoFileSystem, String) -> Self raise @bit.GitError
 
 pub struct PackIndex {
   pack_path : String
   ids : Array[String]
   offsets : Array[Int64]
 }
-pub fn PackIndex::find_offset(Self, @git.ObjectId) -> Int64?
+pub fn PackIndex::find_offset(Self, @bit.ObjectId) -> Int64?
 pub fn PackIndex::find_offset_hex(Self, String) -> Int64?
 
 pub struct PromisorDb {
@@ -349,32 +349,32 @@ pub struct PromisorDb {
   promisor_remote : String?
   fetched : Map[String, Bool]
 }
-pub async fn PromisorDb::fetch_missing(Self, &@git.FileSystem, Array[@git.ObjectId]) -> Array[@git.PackObject] raise @git.GitError
-pub async fn PromisorDb::fetch_one(Self, &@git.FileSystem, @git.ObjectId) -> @git.PackObject? raise @git.GitError
-pub fn PromisorDb::get(Self, &@git.RepoFileSystem, @git.ObjectId) -> @git.PackObject? raise @git.GitError
-pub async fn PromisorDb::get_or_fetch(Self, &@git.RepoFileSystem, &@git.FileSystem, @git.ObjectId) -> @git.PackObject? raise @git.GitError
+pub async fn PromisorDb::fetch_missing(Self, &@bit.FileSystem, Array[@bit.ObjectId]) -> Array[@bit.PackObject] raise @bit.GitError
+pub async fn PromisorDb::fetch_one(Self, &@bit.FileSystem, @bit.ObjectId) -> @bit.PackObject? raise @bit.GitError
+pub fn PromisorDb::get(Self, &@bit.RepoFileSystem, @bit.ObjectId) -> @bit.PackObject? raise @bit.GitError
+pub async fn PromisorDb::get_or_fetch(Self, &@bit.RepoFileSystem, &@bit.FileSystem, @bit.ObjectId) -> @bit.PackObject? raise @bit.GitError
 pub fn PromisorDb::get_promisor_remote(Self) -> String?
-pub fn PromisorDb::has_local(Self, &@git.RepoFileSystem, @git.ObjectId) -> Bool raise @git.GitError
+pub fn PromisorDb::has_local(Self, &@bit.RepoFileSystem, @bit.ObjectId) -> Bool raise @bit.GitError
 pub fn PromisorDb::has_promisor(Self) -> Bool
-pub fn PromisorDb::new(&@git.RepoFileSystem, String, lazy? : Bool) -> Self raise @git.GitError
+pub fn PromisorDb::new(&@bit.RepoFileSystem, String, lazy_load? : Bool) -> Self raise @bit.GitError
 
 pub struct PruneResult {
-  pruned : Array[@git.ObjectId]
+  pruned : Array[@bit.ObjectId]
 }
 
 pub struct RebaseResult {
   status : RebaseStatus
-  commit_id : @git.ObjectId?
+  commit_id : @bit.ObjectId?
   conflicts : Array[String]
 }
 
 pub struct RebaseState {
-  onto : @git.ObjectId
-  orig_head : @git.ObjectId
+  onto : @bit.ObjectId
+  orig_head : @bit.ObjectId
   head_name : String
-  todo : Array[@git.ObjectId]
-  done : Array[@git.ObjectId]
-  current : @git.ObjectId?
+  todo : Array[@bit.ObjectId]
+  done : Array[@bit.ObjectId]
+  current : @bit.ObjectId?
   message : String
   author : String
   author_time : Int64
@@ -399,14 +399,14 @@ pub struct ReceivePackResult {
 }
 
 pub struct RefUpdate {
-  old_id : @git.ObjectId
-  new_id : @git.ObjectId
+  old_id : @bit.ObjectId
+  new_id : @bit.ObjectId
   refname : String
 }
 
 pub struct ReflogEntry {
-  old_id : @git.ObjectId
-  new_id : @git.ObjectId
+  old_id : @bit.ObjectId
+  new_id : @bit.ObjectId
   author : String
   email : String
   timestamp : Int64
@@ -415,7 +415,7 @@ pub struct ReflogEntry {
 }
 
 pub struct RepackResult {
-  pack_id : @git.ObjectId
+  pack_id : @bit.ObjectId
   object_count : Int
   pack_bytes : Int
 }
@@ -427,7 +427,7 @@ pub(all) enum ResetMode {
 }
 
 pub struct StashEntry {
-  id : @git.ObjectId
+  id : @bit.ObjectId
   message : String
 }
 
@@ -441,20 +441,20 @@ pub struct Status {
 }
 
 pub struct TreeFileEntry {
-  id : @git.ObjectId
+  id : @bit.ObjectId
   mode : Int
 }
 
 pub struct UploadPackRequest {
-  wants : Array[@git.ObjectId]
-  haves : Array[@git.ObjectId]
+  wants : Array[@bit.ObjectId]
+  haves : Array[@bit.ObjectId]
   capabilities : Array[String]
   done : Bool
 }
 
 pub(all) struct WorktreeInfo {
   path : String
-  head_id : @git.ObjectId?
+  head_id : @bit.ObjectId?
   branch : String?
   locked : Bool
   is_main : Bool

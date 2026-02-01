@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "mizchi/git/ignore"
+package "mizchi/bit/ignore"
 
 // Values
 pub fn match_glob(String, String) -> Bool

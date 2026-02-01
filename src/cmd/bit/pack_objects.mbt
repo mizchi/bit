@@ -257,7 +257,7 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
       }
       // SHA256 repositories are not yet supported
       if fs.is_dir(git_dir) && is_sha256_repo(git_dir) {
-        @stdio.stderr.write("moongit: SHA256 repositories are not supported\n")
+        @stdio.stderr.write("bit: SHA256 repositories are not supported\n")
         @sys.exit(1)
       }
       // Read pack.packSizeLimit from config

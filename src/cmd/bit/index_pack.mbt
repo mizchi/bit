@@ -340,7 +340,7 @@ fn read_sha1_at(data : Bytes, offset : Int) -> @git.ObjectId {
 async fn handle_index_pack(args : Array[String]) -> Unit {
   match parse_index_pack_args(args) {
     IndexPackParse::Unsupported => {
-      @stdio.stderr.write("moongit index-pack: unsupported options\n")
+      @stdio.stderr.write("bit index-pack: unsupported options\n")
       @sys.exit(1)
     }
     IndexPackParse::Error(msg) => {
@@ -404,7 +404,7 @@ async fn handle_index_pack(args : Array[String]) -> Unit {
         // SHA256 repositories are not yet supported
         if is_sha256_repo(git_dir) {
           @stdio.stderr.write(
-            "moongit: SHA256 repositories are not supported\n",
+            "bit: SHA256 repositories are not supported\n",
           )
           @sys.exit(1)
         }
@@ -425,7 +425,7 @@ async fn handle_index_pack(args : Array[String]) -> Unit {
       // For file mode, check if current repo is SHA256
       let git_dir = git_dir_from_env()
       if fs.is_dir(git_dir) && is_sha256_repo(git_dir) {
-        @stdio.stderr.write("moongit: SHA256 repositories are not supported\n")
+        @stdio.stderr.write("bit: SHA256 repositories are not supported\n")
         @sys.exit(1)
       }
       let pack_path = match cfg.pack_path {

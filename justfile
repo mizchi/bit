@@ -38,19 +38,19 @@ clean:
 build:
     moon build --target native
 
-# Install moongit to ~/.local/bin
+# Install bit to ~/.local/bin
 install: build
     @mkdir -p ~/.local/bin
-    @cp _build/native/release/build/cmd/moongit/moongit.exe ~/.local/bin/moongit
-    @chmod +x ~/.local/bin/moongit
-    @echo "Installed moongit to ~/.local/bin/moongit"
+    @cp _build/native/release/build/cmd/bit/bit.exe ~/.local/bin/bit
+    @chmod +x ~/.local/bin/bit
+    @echo "Installed bit to ~/.local/bin/bit"
 
-# Uninstall moongit
+# Uninstall bit
 uninstall:
-    @rm -f ~/.local/bin/moongit
-    @echo "Removed ~/.local/bin/moongit"
+    @rm -f ~/.local/bin/bit
+    @echo "Removed ~/.local/bin/bit"
 
-# Run e2e tests (moongit integration tests)
+# Run e2e tests (bit integration tests)
 e2e:
     bash e2e/run-tests.sh
 
@@ -148,7 +148,7 @@ git-t-one test_file:
     CPATH="$prefix/include" LDFLAGS="-L$prefix/lib" LIBRARY_PATH="$prefix/lib" \
     make -C third_party/git test T="{{test_file}}"
 
-# Compare moongit vs real git performance
+# Compare bit vs real git performance
 compare-real-git:
     bash tools/compare-real-git.sh
 
