@@ -33,6 +33,9 @@ jobs:
         with:
           submodules: true
 
+      - name: Apply git test patches
+        run: tools/apply-git-test-patches.sh
+
       - name: Install dependencies
         run: |
           sudo apt-get update

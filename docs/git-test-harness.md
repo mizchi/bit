@@ -44,6 +44,8 @@ running via `make test`:
 ## Notes
 
 - The allowlist is in `tools/git-test-allowlist.txt`.
+- Upstream tests are patched at runtime via `tools/apply-git-test-patches.sh`;
+  patch files live in `tools/git-patches/`.
 - Shim mode is scaffolding: it doesn't test this repo's implementation until
   `SHIM_MOON` points to a real CLI that calls MoonBit code.
 - On Apple Git, `git version --build-options` does not emit `default-hash`,
