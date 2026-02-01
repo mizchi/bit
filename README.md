@@ -2,6 +2,8 @@
 
 Git implementation in [MoonBit](https://docs.moonbitlang.com) - fully compatible with some extensions.
 
+> **Warning**: This is an experimental implementation. Do not use in production. Data corruption may occur in worst case scenarios. Always keep backups of important repositories.
+
 ## Install
 
 **Supported platforms**: Linux x64, macOS arm64/x64
@@ -10,11 +12,13 @@ Git implementation in [MoonBit](https://docs.moonbitlang.com) - fully compatible
 # One-line install
 curl -fsSL https://raw.githubusercontent.com/mizchi/bit/main/install.sh | bash
 
-# Or download from GitHub Releases
-# https://github.com/mizchi/bit/releases
+# Or build from source
+git clone https://github.com/mizchi/bit
+cd bit
+just install  # requires MoonBit toolchain
 ```
 
-Installs to `~/.local/bin/bit`. macOS x64 (Intel) runs arm64 binary via Rosetta.
+Installs to `~/.local/bin/bit`.
 
 ## Subdirectory Clone
 
@@ -71,13 +75,6 @@ Pull Requests and Issues stored as Git objects:
 let collab = Collab::init(fs, fs, git_dir)
 let pr = collab.create_pr(fs, fs, "Fix bug", "...",
   source_branch, target_branch, author, ts)
-```
-
-## Build from Source
-
-```bash
-moon build --target native
-just install
 ```
 
 ## License
