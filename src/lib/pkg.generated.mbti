@@ -26,6 +26,10 @@ pub fn clear_rebase_state(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> Uni
 
 pub async fn clone_http(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, Bool) -> @bit.ObjectId? raise @bit.GitError
 
+pub fn collect_commit_tree_only(ObjectDb, &@bit.RepoFileSystem, @bit.ObjectId) -> Array[@bit.PackObject] raise @bit.GitError
+
+pub fn collect_diff_objects(ObjectDb, &@bit.RepoFileSystem, @bit.ObjectId, @bit.ObjectId) -> Array[@bit.PackObject] raise @bit.GitError
+
 pub fn collect_reachable_objects(ObjectDb, &@bit.RepoFileSystem, @bit.ObjectId) -> Array[@bit.PackObject] raise @bit.GitError
 
 pub fn collect_reachable_objects_from_commits(ObjectDb, &@bit.RepoFileSystem, Array[@bit.ObjectId]) -> Array[@bit.PackObject] raise @bit.GitError
@@ -131,6 +135,10 @@ pub fn prune_worktrees(&@bit.FileSystem, &@bit.RepoFileSystem, String, dry_run? 
 pub async fn pull_http(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, Bool, rebase? : Bool) -> @bit.ObjectId? raise @bit.GitError
 
 pub async fn push_http(&@bit.RepoFileSystem, String, String, String) -> String raise @bit.GitError
+
+pub async fn push_http_from_commit(&@bit.RepoFileSystem, String, String, @bit.ObjectId, String) -> String raise @bit.GitError
+
+pub async fn push_http_tree_only(&@bit.RepoFileSystem, String, String, @bit.ObjectId, @bit.ObjectId, String) -> String raise @bit.GitError
 
 pub fn read_head_ref(&@bit.RepoFileSystem, String) -> HeadRef raise @bit.GitError
 

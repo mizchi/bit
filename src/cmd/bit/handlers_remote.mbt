@@ -788,13 +788,283 @@ async fn handle_push(args : Array[String]) -> Unit raise Error {
       }
     }
   }
-  print_line("Pushing to \{url}...")
-  ignore(force) // TODO: implement force push
-  let result = @gitlib.push_http(fs, root, url, refname)
-  print_line(result)
+  // Check if this is a subdir-clone - if so, transform commits before push
+  match get_subdir_info(fs, git_dir) {
+    Some((remote_url, subdir_path, base_hex)) => {
+      print_line("Pushing subdir-clone to \{remote_url}...")
+      print_line("  Subdirectory: \{subdir_path}")
+      handle_subdir_push(
+        fs, root, git_dir, remote_url, subdir_path, base_hex, refname, force,
+      ) catch { err => raise err }
+    }
+    None => {
+      print_line("Pushing to \{url}...")
+      ignore(force) // TODO: implement force push
+      let result = @gitlib.push_http(fs, root, url, refname)
+      print_line(result)
+    }
+  }
   if set_upstream {
     // TODO: set tracking branch
     print_line("Branch '\{refname}' set up to track remote branch.")
+  }
+}
+
+///|
+/// Handle push for subdir-clone repositories
+/// Transforms local commits to fit the original repository structure
+async fn handle_subdir_push(
+  fs : OsFs,
+  root : String,
+  git_dir : String,
+  remote_url : String,
+  subdir_path : String,
+  base_hex : String,
+  refname : String,
+  _force : Bool,
+) -> Unit raise Error {
+  // Step 1: Get local HEAD commit
+  let local_head_opt = @gitlib.rev_parse(fs, git_dir, "HEAD") catch {
+    _ => raise @git.GitError::InvalidObject("Cannot resolve HEAD")
+  }
+  guard local_head_opt is Some(local_head) else {
+    raise @git.GitError::InvalidObject("HEAD not found")
+  }
+  print_line("  Local HEAD: \{local_head.to_hex()}")
+  // Step 2: Get the initial commit (first commit in the subdir-clone)
+  let initial_commit = find_initial_subdir_commit(fs, git_dir) catch {
+    _ => raise @git.GitError::InvalidObject("Cannot find initial commit")
+  }
+  print_line("  Initial commit: \{initial_commit.to_hex()}")
+  // Step 3: Collect local commits since initial
+  let local_commits = collect_commits_since(
+    fs, git_dir, initial_commit, local_head,
+  ) catch { err => raise err }
+  if local_commits.length() == 0 {
+    print_line("Nothing to push.")
+    return
+  }
+  print_line("  Found \{local_commits.length()} local commits to transform")
+  // Step 4: Get upstream base commit
+  let upstream_base = @git.ObjectId::from_hex(base_hex) catch {
+    _ => raise @git.GitError::InvalidObject("Cannot parse base commit")
+  }
+  print_line("  Upstream base: \{upstream_base.to_hex()}")
+  // Step 5: Fetch upstream base commit and its tree from remote
+  print_line("  Fetching upstream objects...")
+  let pack = @git.fetch_pack_http(remote_url, [upstream_base], true)
+  let objects = @git.parse_packfile(pack)
+  @git.write_packfile_with_index(fs, git_dir, pack, objects)
+  print_line("  Fetched \{objects.length()} objects")
+  // Step 6: Reload ObjectDb to pick up new packfile, then transform commits
+  let db = @gitlib.ObjectDb::load(fs, git_dir)
+  let mut parent : @git.ObjectId = upstream_base
+  for commit_id in local_commits {
+    let new_commit = transform_subdir_commit(
+      fs, db, git_dir, commit_id, parent, subdir_path,
+    ) catch { err => raise err }
+    print_line("  Transformed: \{commit_id.to_hex()} -> \{new_commit.to_hex()}")
+    parent = new_commit
+  }
+  // Step 7: Push the transformed commits (tree only, not parent history)
+  let transformed_head : @git.ObjectId = parent
+  print_line("  Pushing transformed commits...")
+  let result = @gitlib.push_http_tree_only(
+    fs, root, remote_url, transformed_head, upstream_base, refname,
+  )
+  print_line("  \{result}")
+  // Step 8: Update base commit
+  update_subdir_base(fs, git_dir, transformed_head.to_hex())
+  print_line("done.")
+}
+
+///|
+/// Find the initial commit of a subdir-clone (the "cloned from" commit)
+fn find_initial_subdir_commit(
+  fs : OsFs,
+  git_dir : String,
+) -> @git.ObjectId raise @git.GitError {
+  let db = @gitlib.ObjectDb::load_lazy(fs, git_dir)
+  // Start from HEAD and walk back to find root commit
+  let head_opt = @gitlib.rev_parse(fs, git_dir, "HEAD") catch {
+    _ => raise @git.GitError::InvalidObject("Cannot resolve HEAD")
+  }
+  guard head_opt is Some(head) else {
+    raise @git.GitError::InvalidObject("HEAD not found")
+  }
+  let mut current : @git.ObjectId = head
+  let mut prev : @git.ObjectId = current
+  while true {
+    let obj = db.get(fs, current)
+    guard obj is Some(o) else {
+      break
+    }
+    let info = @git.parse_commit(o.data) catch { _ => break }
+    if info.parents.length() == 0 {
+      // Found root commit
+      return current
+    }
+    prev = current
+    current = info.parents[0]
+  }
+  prev
+}
+
+///|
+/// Collect commits from start (exclusive) to end (inclusive)
+fn collect_commits_since(
+  fs : OsFs,
+  git_dir : String,
+  start : @git.ObjectId,
+  end : @git.ObjectId,
+) -> Array[@git.ObjectId] raise @git.GitError {
+  let result : Array[@git.ObjectId] = []
+  let db = @gitlib.ObjectDb::load_lazy(fs, git_dir)
+  let mut current : @git.ObjectId = end
+  let start_hex = start.to_hex()
+  while true {
+    let hex = current.to_hex()
+    if hex == start_hex {
+      break
+    }
+    result.push(current)
+    let obj = db.get(fs, current)
+    guard obj is Some(o) else { break }
+    let info = @git.parse_commit(o.data) catch { _ => break }
+    if info.parents.length() == 0 {
+      break
+    }
+    current = info.parents[0]
+  }
+  // Reverse to get oldest first
+  result.rev_in_place()
+  result
+}
+
+///|
+/// Transform a subdir-clone commit to fit the original repository structure
+fn transform_subdir_commit(
+  fs : OsFs,
+  db : @gitlib.ObjectDb,
+  git_dir : String,
+  local_commit : @git.ObjectId,
+  upstream_parent : @git.ObjectId,
+  subdir_path : String,
+) -> @git.ObjectId raise @git.GitError {
+  // Get local commit info
+  let local_obj = db.get(fs, local_commit)
+  guard local_obj is Some(lo) else {
+    raise @git.GitError::InvalidObject("Cannot find local commit")
+  }
+  let local_info = @git.parse_commit(lo.data) catch { err => raise err }
+  let (author, message) = parse_commit_author_message(lo.data)
+  // Get upstream parent's tree
+  let upstream_obj = db.get(fs, upstream_parent)
+  guard upstream_obj is Some(uo) else {
+    raise @git.GitError::InvalidObject("Cannot find upstream commit")
+  }
+  let upstream_info = @git.parse_commit(uo.data) catch { err => raise err }
+  // The local commit's tree IS the subdirectory content
+  let new_subdir_tree = local_info.tree
+  // Replace the subdirectory in the upstream tree
+  let new_root_tree = replace_tree_at_path(
+    fs, db, git_dir, upstream_info.tree, subdir_path, new_subdir_tree,
+  ) catch { err => raise err }
+  // Create new commit with the transformed tree
+  let timestamp = get_current_timestamp()
+  let new_commit = @subdir.create_commit_in_repo(
+    fs, git_dir, new_root_tree, upstream_parent, message, author, timestamp,
+  ) catch {
+    _ => raise @git.GitError::InvalidObject("Cannot create commit")
+  }
+  new_commit
+}
+
+///|
+/// Replace a subtree at a given path within a root tree
+fn replace_tree_at_path(
+  fs : OsFs,
+  db : @gitlib.ObjectDb,
+  git_dir : String,
+  root_tree : @git.ObjectId,
+  path : String,
+  new_subtree : @git.ObjectId,
+) -> @git.ObjectId raise @git.GitError {
+  let path_parts : Array[String] = path
+    .split("/")
+    .filter(fn(s) { s.length() > 0 })
+    .map(fn(s) { s.to_string() })
+    .collect()
+  if path_parts.length() == 0 {
+    return new_subtree
+  }
+  replace_tree_recursive_push(
+    fs, db, git_dir, root_tree, path_parts, 0, new_subtree,
+  )
+}
+
+///|
+fn replace_tree_recursive_push(
+  fs : OsFs,
+  db : @gitlib.ObjectDb,
+  git_dir : String,
+  current_tree : @git.ObjectId,
+  path_parts : Array[String],
+  depth : Int,
+  new_leaf : @git.ObjectId,
+) -> @git.ObjectId raise @git.GitError {
+  // Read current tree
+  let tree_obj = db.get(fs, current_tree)
+  guard tree_obj is Some(to) else {
+    raise @git.GitError::InvalidObject("Cannot find tree")
+  }
+  let entries = @git.parse_tree(to.data) catch { err => raise err }
+  // Build new entries
+  let new_entries : Array[@git.TreeEntry] = []
+  let target_name = path_parts[depth]
+  let is_last = depth == path_parts.length() - 1
+  for entry in entries {
+    if entry.name == target_name {
+      if is_last {
+        // Replace with new subtree
+        new_entries.push(@git.TreeEntry::new(entry.mode, entry.name, new_leaf))
+      } else {
+        // Recurse
+        let new_child = replace_tree_recursive_push(
+          fs, db, git_dir, entry.id, path_parts, depth + 1, new_leaf,
+        ) catch { err => raise err }
+        new_entries.push(@git.TreeEntry::new(entry.mode, entry.name, new_child))
+      }
+    } else {
+      new_entries.push(entry)
+    }
+  }
+  // Create new tree and write it
+  let (tree_id, tree_data) = @git.create_tree(new_entries)
+  write_object_to_repo(fs, git_dir, tree_id, tree_data) catch {
+    _ => raise @git.GitError::InvalidObject("Cannot write tree")
+  }
+  tree_id
+}
+
+///|
+/// Write an object (already compressed) to the repository
+fn write_object_to_repo(
+  fs : OsFs,
+  git_dir : String,
+  id : @git.ObjectId,
+  compressed_data : Bytes,
+) -> Unit raise @git.GitError {
+  let hex = id.to_hex()
+  let dir_name = String::unsafe_substring(hex, start=0, end=2)
+  let file_name = String::unsafe_substring(hex, start=2, end=40)
+  let dir_path = git_dir + "/objects/" + dir_name
+  let file_path = dir_path + "/" + file_name
+  // Create directory if needed
+  fs.mkdir_p(dir_path) catch { _ => () }
+  // Write already-compressed data
+  fs.write_file(file_path, compressed_data) catch {
+    _ => raise @git.GitError::IoError("Cannot write object")
   }
 }
 

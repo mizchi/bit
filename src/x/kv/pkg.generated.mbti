@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "mizchi/bit/x/bitdb"
+package "mizchi/bit/x/kv"
 
 import {
   "mizchi/bit",
-  "mizchi/bit/x/bitfs",
+  "mizchi/bit/x/fs",
 }
 
 // Values
@@ -11,50 +11,6 @@ import {
 // Errors
 
 // Types and methods
-pub struct BitDb {
-  node_id : NodeId
-  bitfs : @bitfs.BitFs
-  mut clock : VectorClock
-  mut head : @bit.ObjectId
-  peers : Map[String, PeerInfo]
-  pending_objects : Map[String, GitObject]
-}
-pub fn BitDb::add_peer(Self, PeerInfo) -> Unit
-pub fn BitDb::apply_pending_objects(Self, &@bit.FileSystem, String) -> Int raise @bit.GitError
-pub fn BitDb::clock(Self) -> VectorClock
-pub fn BitDb::commit(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64) -> @bit.ObjectId raise @bit.GitError
-pub fn BitDb::delete(Self, String) -> Unit
-pub fn BitDb::empty(NodeId, String) -> Self
-pub fn BitDb::get(Self, &@bit.RepoFileSystem, String) -> Bytes?
-pub fn BitDb::get_gossip_state(Self, Int64) -> GossipState
-pub fn BitDb::get_peers(Self) -> Array[PeerInfo]
-pub fn BitDb::handle_gossip(Self, &@bit.RepoFileSystem, GossipMessage, Int64) -> GossipMessage?
-pub fn BitDb::has(Self, &@bit.RepoFileSystem, String) -> Bool
-pub fn BitDb::has_pending_objects(Self) -> Bool
-pub fn BitDb::head(Self) -> @bit.ObjectId
-pub fn BitDb::is_dirty(Self) -> Bool
-pub fn BitDb::list(Self, &@bit.RepoFileSystem, String) -> Array[String]
-pub fn BitDb::list_recursive(Self, &@bit.RepoFileSystem, String) -> Array[String]
-pub fn BitDb::merge(Self, &@bit.FileSystem, &@bit.RepoFileSystem, @bit.ObjectId, VectorClock, MergeStrategy, Int64) -> MergeResult raise @bit.GitError
-pub fn BitDb::new(NodeId, @bitfs.BitFs, @bit.ObjectId) -> Self
-pub fn BitDb::node_id(Self) -> NodeId
-pub fn BitDb::pending_object_count(Self) -> Int
-pub fn BitDb::remove_peer(Self, NodeId) -> Bool
-pub fn BitDb::rollback(Self) -> Unit
-pub fn BitDb::select_gossip_peers(Self, Int, Int64) -> Array[PeerInfo]
-pub fn BitDb::serialize_snapshot(Self, &@bit.RepoFileSystem) -> SerializedSnapshot
-pub fn BitDb::set(Self, String, Bytes) -> Unit
-pub fn BitDb::set_string(Self, String, String) -> Unit
-
-pub(all) struct BitDbConfig {
-  node_id : NodeId
-  bitfs_config : @bitfs.BitFsConfig
-  max_peers : Int
-  gossip_interval_ms : Int
-  sync_batch_size : Int
-}
-pub fn BitDbConfig::default(NodeId) -> Self
-
 pub(all) struct GitObject {
   id : @bit.ObjectId
   obj_type : @bit.ObjectType
@@ -75,6 +31,50 @@ pub(all) struct GossipState {
   clock : VectorClock
   timestamp : Int64
 }
+
+pub struct Kv {
+  node_id : NodeId
+  bitfs : @fs.Fs
+  mut clock : VectorClock
+  mut head : @bit.ObjectId
+  peers : Map[String, PeerInfo]
+  pending_objects : Map[String, GitObject]
+}
+pub fn Kv::add_peer(Self, PeerInfo) -> Unit
+pub fn Kv::apply_pending_objects(Self, &@bit.FileSystem, String) -> Int raise @bit.GitError
+pub fn Kv::clock(Self) -> VectorClock
+pub fn Kv::commit(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64) -> @bit.ObjectId raise @bit.GitError
+pub fn Kv::delete(Self, String) -> Unit
+pub fn Kv::empty(NodeId, String) -> Self
+pub fn Kv::get(Self, &@bit.RepoFileSystem, String) -> Bytes?
+pub fn Kv::get_gossip_state(Self, Int64) -> GossipState
+pub fn Kv::get_peers(Self) -> Array[PeerInfo]
+pub fn Kv::handle_gossip(Self, &@bit.RepoFileSystem, GossipMessage, Int64) -> GossipMessage?
+pub fn Kv::has(Self, &@bit.RepoFileSystem, String) -> Bool
+pub fn Kv::has_pending_objects(Self) -> Bool
+pub fn Kv::head(Self) -> @bit.ObjectId
+pub fn Kv::is_dirty(Self) -> Bool
+pub fn Kv::list(Self, &@bit.RepoFileSystem, String) -> Array[String]
+pub fn Kv::list_recursive(Self, &@bit.RepoFileSystem, String) -> Array[String]
+pub fn Kv::merge(Self, &@bit.FileSystem, &@bit.RepoFileSystem, @bit.ObjectId, VectorClock, MergeStrategy, Int64) -> MergeResult raise @bit.GitError
+pub fn Kv::new(NodeId, @fs.Fs, @bit.ObjectId) -> Self
+pub fn Kv::node_id(Self) -> NodeId
+pub fn Kv::pending_object_count(Self) -> Int
+pub fn Kv::remove_peer(Self, NodeId) -> Bool
+pub fn Kv::rollback(Self) -> Unit
+pub fn Kv::select_gossip_peers(Self, Int, Int64) -> Array[PeerInfo]
+pub fn Kv::serialize_snapshot(Self, &@bit.RepoFileSystem) -> SerializedSnapshot
+pub fn Kv::set(Self, String, Bytes) -> Unit
+pub fn Kv::set_string(Self, String, String) -> Unit
+
+pub(all) struct KvConfig {
+  node_id : NodeId
+  bitfs_config : @fs.FsConfig
+  max_peers : Int
+  gossip_interval_ms : Int
+  sync_batch_size : Int
+}
+pub fn KvConfig::default(NodeId) -> Self
 
 pub(all) enum MergeResult {
   NoOp

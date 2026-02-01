@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "mizchi/bit/x/den"
+package "mizchi/bit/x/collab"
 
 import {
   "mizchi/bit",
@@ -31,39 +31,39 @@ pub impl Eq for PrError
 pub impl Show for PrError
 
 // Types and methods
-pub struct Den {
+pub struct Collab {
   git_dir : String
   mut next_id : Int
 }
-pub fn Den::add_comment(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, Int64, reply_to? : String?, file_path? : String?, line_number? : Int?, commit_id? : @bit.ObjectId?) -> PrComment raise @bit.GitError
-pub fn Den::add_issue_comment(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, Int64, reply_to? : String?) -> IssueComment raise @bit.GitError
-pub fn Den::add_note(Self, &@bit.FileSystem, &@bit.RepoFileSystem, @bit.ObjectId, String, String, Int64, ns? : String) -> Note raise @bit.GitError
-pub fn Den::add_note_plain(Self, &@bit.FileSystem, &@bit.RepoFileSystem, @bit.ObjectId, String, ns? : String) -> Unit raise @bit.GitError
-pub fn Den::can_merge(Self, &@bit.RepoFileSystem, String) -> Bool raise @bit.GitError
-pub fn Den::close_issue(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64) -> Unit raise @bit.GitError
-pub fn Den::close_pr(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64) -> Unit raise @bit.GitError
-pub fn Den::create_issue(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, Int64, labels? : Array[String], assignees? : Array[String]) -> Issue raise @bit.GitError
-pub fn Den::create_pr(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, String, String, Int64) -> PullRequest raise @bit.GitError
-pub async fn Den::fetch(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String) -> PrSyncResult raise @bit.GitError
-pub fn Den::get_issue(Self, &@bit.RepoFileSystem, String) -> Issue? raise @bit.GitError
-pub fn Den::get_note(Self, &@bit.RepoFileSystem, @bit.ObjectId, ns? : String) -> Note? raise @bit.GitError
-pub fn Den::get_pr(Self, &@bit.RepoFileSystem, String) -> PullRequest? raise @bit.GitError
-pub fn Den::init(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> Self raise @bit.GitError
-pub fn Den::is_approved(Self, &@bit.RepoFileSystem, String) -> Bool raise @bit.GitError
-pub fn Den::link_pr_to_issue(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, Int64) -> Unit raise @bit.GitError
-pub fn Den::list_comments(Self, &@bit.RepoFileSystem, String) -> Array[PrComment] raise @bit.GitError
-pub fn Den::list_issue_comments(Self, &@bit.RepoFileSystem, String) -> Array[IssueComment] raise @bit.GitError
-pub fn Den::list_issues(Self, &@bit.RepoFileSystem, state? : IssueState?) -> Array[Issue] raise @bit.GitError
-pub fn Den::list_notes(Self, &@bit.RepoFileSystem, ns? : String) -> Array[Note] raise @bit.GitError
-pub fn Den::list_prs(Self, &@bit.RepoFileSystem, state? : PrState?) -> Array[PullRequest] raise @bit.GitError
-pub fn Den::list_reviews(Self, &@bit.RepoFileSystem, String) -> Array[PrReview] raise @bit.GitError
-pub fn Den::load(&@bit.RepoFileSystem, String) -> Self raise @bit.GitError
-pub fn Den::merge_pr(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, Int64, strategy? : PrMergeStrategy) -> PrMergeResult raise @bit.GitError
-pub async fn Den::push(Self, &@bit.RepoFileSystem, String) -> PrSyncResult raise @bit.GitError
-pub fn Den::remove_note(Self, &@bit.FileSystem, &@bit.RepoFileSystem, @bit.ObjectId, ns? : String) -> Unit raise @bit.GitError
-pub fn Den::submit_review(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, ReviewVerdict, String, @bit.ObjectId, Int64) -> PrReview raise @bit.GitError
-pub fn Den::update_issue(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64, title? : String?, body? : String?, labels? : Array[String]?, assignees? : Array[String]?) -> Issue raise @bit.GitError
-pub fn Den::update_pr(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64, title? : String?, body? : String?, labels? : Array[String]?) -> PullRequest raise @bit.GitError
+pub fn Collab::add_comment(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, Int64, reply_to? : String?, file_path? : String?, line_number? : Int?, commit_id? : @bit.ObjectId?) -> PrComment raise @bit.GitError
+pub fn Collab::add_issue_comment(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, Int64, reply_to? : String?) -> IssueComment raise @bit.GitError
+pub fn Collab::add_note(Self, &@bit.FileSystem, &@bit.RepoFileSystem, @bit.ObjectId, String, String, Int64, ns? : String) -> Note raise @bit.GitError
+pub fn Collab::add_note_plain(Self, &@bit.FileSystem, &@bit.RepoFileSystem, @bit.ObjectId, String, ns? : String) -> Unit raise @bit.GitError
+pub fn Collab::can_merge(Self, &@bit.RepoFileSystem, String) -> Bool raise @bit.GitError
+pub fn Collab::close_issue(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64) -> Unit raise @bit.GitError
+pub fn Collab::close_pr(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64) -> Unit raise @bit.GitError
+pub fn Collab::create_issue(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, Int64, labels? : Array[String], assignees? : Array[String]) -> Issue raise @bit.GitError
+pub fn Collab::create_pr(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, String, String, Int64) -> PullRequest raise @bit.GitError
+pub async fn Collab::fetch(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String) -> PrSyncResult raise @bit.GitError
+pub fn Collab::get_issue(Self, &@bit.RepoFileSystem, String) -> Issue? raise @bit.GitError
+pub fn Collab::get_note(Self, &@bit.RepoFileSystem, @bit.ObjectId, ns? : String) -> Note? raise @bit.GitError
+pub fn Collab::get_pr(Self, &@bit.RepoFileSystem, String) -> PullRequest? raise @bit.GitError
+pub fn Collab::init(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> Self raise @bit.GitError
+pub fn Collab::is_approved(Self, &@bit.RepoFileSystem, String) -> Bool raise @bit.GitError
+pub fn Collab::link_pr_to_issue(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, Int64) -> Unit raise @bit.GitError
+pub fn Collab::list_comments(Self, &@bit.RepoFileSystem, String) -> Array[PrComment] raise @bit.GitError
+pub fn Collab::list_issue_comments(Self, &@bit.RepoFileSystem, String) -> Array[IssueComment] raise @bit.GitError
+pub fn Collab::list_issues(Self, &@bit.RepoFileSystem, state? : IssueState?) -> Array[Issue] raise @bit.GitError
+pub fn Collab::list_notes(Self, &@bit.RepoFileSystem, ns? : String) -> Array[Note] raise @bit.GitError
+pub fn Collab::list_prs(Self, &@bit.RepoFileSystem, state? : PrState?) -> Array[PullRequest] raise @bit.GitError
+pub fn Collab::list_reviews(Self, &@bit.RepoFileSystem, String) -> Array[PrReview] raise @bit.GitError
+pub fn Collab::load(&@bit.RepoFileSystem, String) -> Self raise @bit.GitError
+pub fn Collab::merge_pr(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, Int64, strategy? : PrMergeStrategy) -> PrMergeResult raise @bit.GitError
+pub async fn Collab::push(Self, &@bit.RepoFileSystem, String) -> PrSyncResult raise @bit.GitError
+pub fn Collab::remove_note(Self, &@bit.FileSystem, &@bit.RepoFileSystem, @bit.ObjectId, ns? : String) -> Unit raise @bit.GitError
+pub fn Collab::submit_review(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, ReviewVerdict, String, @bit.ObjectId, Int64) -> PrReview raise @bit.GitError
+pub fn Collab::update_issue(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64, title? : String?, body? : String?, labels? : Array[String]?, assignees? : Array[String]?) -> Issue raise @bit.GitError
+pub fn Collab::update_pr(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, Int64, title? : String?, body? : String?, labels? : Array[String]?) -> PullRequest raise @bit.GitError
 
 pub struct Issue {
   id : String

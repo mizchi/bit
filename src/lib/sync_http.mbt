@@ -126,6 +126,48 @@ pub async fn push_http(
 }
 
 ///|
+/// Push from a specific commit (not HEAD) - used for subdir-clone push
+pub async fn push_http_from_commit(
+  rfs : &@git.RepoFileSystem,
+  root : String,
+  remote_url : String,
+  commit_id : @git.ObjectId,
+  refname : String,
+) -> String raise @git.GitError {
+  let git_dir = join_path(root, ".git")
+  let db = ObjectDb::load(rfs, git_dir)
+  let objects = collect_reachable_objects(db, rfs, commit_id)
+  let pack = @git.create_packfile(objects)
+  let remote = @git.Remote::new(remote_url)
+  let refs = @git.discover_receive_refs_http(remote)
+  let old_id = sync_find_ref(refs, refname)
+  let req = @git.PushRequest::new(old_id, commit_id, refname, pack)
+  @git.push(remote, req)
+}
+
+///|
+/// Push a single commit without parent history - used for subdir-clone push
+/// where parent commits already exist on remote.
+/// Only includes objects that don't exist in the base commit.
+pub async fn push_http_tree_only(
+  rfs : &@git.RepoFileSystem,
+  root : String,
+  remote_url : String,
+  commit_id : @git.ObjectId,
+  old_commit_id : @git.ObjectId,
+  refname : String,
+) -> String raise @git.GitError {
+  let git_dir = join_path(root, ".git")
+  let db = ObjectDb::load(rfs, git_dir)
+  // Collect only the diff objects (new/modified since base)
+  let objects = collect_diff_objects(db, rfs, old_commit_id, commit_id)
+  let pack = @git.create_packfile(objects)
+  let remote = @git.Remote::new(remote_url)
+  let req = @git.PushRequest::new(old_commit_id, commit_id, refname, pack)
+  @git.push(remote, req)
+}
+
+///|
 fn sync_find_ref(
   refs : Array[(@git.ObjectId, String)],
   name : String,

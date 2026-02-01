@@ -4,11 +4,13 @@ package "mizchi/bit/x/subdir"
 import {
   "mizchi/bit",
   "mizchi/bit/lib",
-  "mizchi/bit/x/bitfs",
+  "mizchi/bit/x/fs",
 }
 
 // Values
 pub fn add_module_sparse_patterns(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, Array[String]) -> Unit raise SubdirError
+
+pub fn create_commit_in_repo(&@bit.FileSystem, String, @bit.ObjectId, @bit.ObjectId, String, String, Int64) -> @bit.ObjectId raise SubdirError
 
 pub fn deinit_module(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String) -> Unit
 
@@ -101,7 +103,7 @@ pub struct SubdirRepo {
   subdir_path : String
   current_commit : @bit.ObjectId?
   subdir_tree : @bit.ObjectId?
-  bitfs : @bitfs.BitFs
+  bitfs : @fs.Fs
   config : SubdirConfig
 }
 pub fn SubdirRepo::base_commit(Self) -> @bit.ObjectId?
@@ -110,7 +112,7 @@ pub fn SubdirRepo::diff(Self) -> Array[DiffEntry]
 pub fn SubdirRepo::from_branch(&@bit.RepoFileSystem, String, String, String, config? : SubdirConfig) -> Self raise SubdirError
 pub fn SubdirRepo::from_commit(&@bit.RepoFileSystem, String, @bit.ObjectId, String, config? : SubdirConfig) -> Self raise SubdirError
 pub fn SubdirRepo::from_head(&@bit.RepoFileSystem, String, String, config? : SubdirConfig) -> Self raise SubdirError
-pub fn SubdirRepo::fs(Self) -> @bitfs.BitFs
+pub fn SubdirRepo::fs(Self) -> @fs.Fs
 pub fn SubdirRepo::is_dirty(Self) -> Bool
 pub fn SubdirRepo::load_workdir(Self, &@bit.RepoFileSystem, String) -> Unit
 pub fn SubdirRepo::log(Self, &@bit.RepoFileSystem, max_count? : Int) -> Array[SubdirCommit] raise SubdirError

@@ -410,6 +410,20 @@ fn get_parent_dir(path : String) -> String {
 }
 
 ///|
+/// Create a commit in the repository (public API for subdir-push)
+pub fn create_commit_in_repo(
+  fs : &@git.FileSystem,
+  git_dir : String,
+  tree_id : @git.ObjectId,
+  parent_id : @git.ObjectId,
+  message : String,
+  author : String,
+  timestamp : Int64,
+) -> @git.ObjectId raise SubdirError {
+  create_commit_object(fs, git_dir, tree_id, parent_id, message, author, timestamp)
+}
+
+///|
 /// インデックスを新しいコミットに合わせて更新
 fn update_index_from_commit(
   fs : &@git.FileSystem,

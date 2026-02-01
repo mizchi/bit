@@ -16,6 +16,8 @@ pub fn get_subdir_tree_from_commit(@lib.ObjectDb, OsFs, @mizchi/bit.ObjectId, St
 
 pub fn is_subdir_clone(OsFs, String) -> Bool
 
+pub fn parse_github_shorthand(String) -> GitHubShorthand?
+
 pub fn read_subdir_attributes(OsFs, String) -> (String, String, String)?
 
 pub fn resolve_ref_for_subdir(OsFs, String, String) -> @mizchi/bit.ObjectId? raise
@@ -30,6 +32,14 @@ type BlameLine
 type BlameOptions
 
 type CherryPickResult
+
+pub(all) enum GitHubShorthand {
+  Repo(String)
+  Subdir(String, String)
+  File(String, String)
+}
+pub impl Eq for GitHubShorthand
+pub impl Show for GitHubShorthand
 
 type GlobalOptions
 

@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "mizchi/bit/x/bitfs"
+package "mizchi/bit/x/fs"
 
 import {
   "mizchi/bit",
@@ -14,73 +14,73 @@ pub fn join_path(String, String) -> String
 // Errors
 
 // Types and methods
-pub struct BitFs {
+pub struct Fs {
   git_dir : String
   mut base_tree : @bit.ObjectId
   mut base_commit : @bit.ObjectId?
   working : WorkingLayer
   layers : Array[Layer]
   cache : ObjectCache
-  config : BitFsConfig
+  config : FsConfig
   mut cached_db : @lib.ObjectDb?
   mut cached_promisor_db : @lib.PromisorDb?
   lazy_mode : Bool
 }
-pub fn BitFs::add_layer(Self, &@bit.RepoFileSystem, @bit.ObjectId, String, commit_id? : @bit.ObjectId?) -> Unit raise @bit.GitError
-pub fn BitFs::add_layer_from_commit(Self, &@bit.RepoFileSystem, @bit.ObjectId, String) -> Unit raise @bit.GitError
-pub fn BitFs::base_commit(Self) -> @bit.ObjectId?
-pub fn BitFs::base_tree(Self) -> @bit.ObjectId
-pub fn BitFs::checkout_snapshot(Self, &@bit.RepoFileSystem, @bit.ObjectId) -> Unit raise @bit.GitError
-pub fn BitFs::clear_layers(Self) -> Unit
-pub fn BitFs::collect_files_bfs(Self, &@bit.RepoFileSystem, Int) -> Array[String] raise @bit.GitError
-pub fn BitFs::discard_changes(Self) -> Unit
-pub fn BitFs::empty(String, config? : BitFsConfig) -> Self
-pub fn BitFs::exists_in_base(Self, &@bit.RepoFileSystem, String) -> Bool
-pub fn BitFs::flatten_layers(Self, &@bit.FileSystem, &@bit.RepoFileSystem) -> @bit.ObjectId raise @bit.GitError
-pub fn BitFs::from_branch(&@bit.RepoFileSystem, String, String, config? : BitFsConfig) -> Self raise @bit.GitError
-pub fn BitFs::from_commit(&@bit.RepoFileSystem, String, @bit.ObjectId, config? : BitFsConfig) -> Self raise @bit.GitError
-pub fn BitFs::from_tree(String, @bit.ObjectId, config? : BitFsConfig) -> Self
-pub fn BitFs::get_db(Self, &@bit.RepoFileSystem) -> @lib.ObjectDb raise @bit.GitError
-pub fn BitFs::get_deleted_files(Self) -> Array[String]
-pub fn BitFs::get_pending_fetches(Self, &@bit.RepoFileSystem, Int) -> Array[String] raise @bit.GitError
-pub fn BitFs::get_promisor_db(Self, &@bit.RepoFileSystem) -> @lib.PromisorDb? raise @bit.GitError
-pub fn BitFs::get_promisor_remote(Self, &@bit.RepoFileSystem) -> String?
-pub fn BitFs::get_working_files(Self) -> Array[String]
-pub fn BitFs::git_dir(Self) -> String
-pub fn BitFs::has_layer(Self, String) -> Bool
-pub fn BitFs::has_promisor(Self, &@bit.RepoFileSystem) -> Bool
-pub fn BitFs::is_dir(Self, &@bit.RepoFileSystem, String) -> Bool
-pub fn BitFs::is_dirty(Self) -> Bool
-pub fn BitFs::is_file(Self, &@bit.RepoFileSystem, String) -> Bool
-pub fn BitFs::is_lazy(Self) -> Bool
-pub fn BitFs::is_promisor_enabled(Self) -> Bool
-pub fn BitFs::list_layers(Self) -> Array[Layer]
-pub fn BitFs::list_snapshots(Self, &@bit.RepoFileSystem, max_count? : Int) -> Array[Snapshot] raise @bit.GitError
-pub fn BitFs::mkdir_p(Self, String) -> Unit
-pub fn BitFs::needs_fetch(Self, &@bit.RepoFileSystem, String) -> Bool raise @bit.GitError
-pub async fn BitFs::prefetch(Self, &@bit.RepoFileSystem, &@bit.FileSystem, Array[String]) -> Int raise @bit.GitError
-pub async fn BitFs::prefetch_bfs(Self, &@bit.RepoFileSystem, &@bit.FileSystem, Int) -> Int raise @bit.GitError
-pub async fn BitFs::prefetch_glob(Self, &@bit.RepoFileSystem, &@bit.FileSystem, String) -> Int raise @bit.GitError
-pub fn BitFs::read_file(Self, &@bit.RepoFileSystem, String) -> Bytes raise @bit.GitError
-pub async fn BitFs::read_file_async(Self, &@bit.RepoFileSystem, &@bit.FileSystem, String) -> Bytes raise @bit.GitError
-pub fn BitFs::readdir(Self, &@bit.RepoFileSystem, String) -> Array[String] raise @bit.GitError
-pub fn BitFs::remove_dir(Self, String) -> Unit
-pub fn BitFs::remove_file(Self, String) -> Unit
-pub fn BitFs::remove_layer(Self, String) -> Bool
-pub fn BitFs::rollback(Self) -> Unit
-pub fn BitFs::snapshot(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, Int64) -> Snapshot raise @bit.GitError
-pub fn BitFs::write_file(Self, String, Bytes) -> Unit
-pub fn BitFs::write_string(Self, String, String) -> Unit
+pub fn Fs::add_layer(Self, &@bit.RepoFileSystem, @bit.ObjectId, String, commit_id? : @bit.ObjectId?) -> Unit raise @bit.GitError
+pub fn Fs::add_layer_from_commit(Self, &@bit.RepoFileSystem, @bit.ObjectId, String) -> Unit raise @bit.GitError
+pub fn Fs::base_commit(Self) -> @bit.ObjectId?
+pub fn Fs::base_tree(Self) -> @bit.ObjectId
+pub fn Fs::checkout_snapshot(Self, &@bit.RepoFileSystem, @bit.ObjectId) -> Unit raise @bit.GitError
+pub fn Fs::clear_layers(Self) -> Unit
+pub fn Fs::collect_files_bfs(Self, &@bit.RepoFileSystem, Int) -> Array[String] raise @bit.GitError
+pub fn Fs::discard_changes(Self) -> Unit
+pub fn Fs::empty(String, config? : FsConfig) -> Self
+pub fn Fs::exists_in_base(Self, &@bit.RepoFileSystem, String) -> Bool
+pub fn Fs::flatten_layers(Self, &@bit.FileSystem, &@bit.RepoFileSystem) -> @bit.ObjectId raise @bit.GitError
+pub fn Fs::from_branch(&@bit.RepoFileSystem, String, String, config? : FsConfig) -> Self raise @bit.GitError
+pub fn Fs::from_commit(&@bit.RepoFileSystem, String, @bit.ObjectId, config? : FsConfig) -> Self raise @bit.GitError
+pub fn Fs::from_tree(String, @bit.ObjectId, config? : FsConfig) -> Self
+pub fn Fs::get_db(Self, &@bit.RepoFileSystem) -> @lib.ObjectDb raise @bit.GitError
+pub fn Fs::get_deleted_files(Self) -> Array[String]
+pub fn Fs::get_pending_fetches(Self, &@bit.RepoFileSystem, Int) -> Array[String] raise @bit.GitError
+pub fn Fs::get_promisor_db(Self, &@bit.RepoFileSystem) -> @lib.PromisorDb? raise @bit.GitError
+pub fn Fs::get_promisor_remote(Self, &@bit.RepoFileSystem) -> String?
+pub fn Fs::get_working_files(Self) -> Array[String]
+pub fn Fs::git_dir(Self) -> String
+pub fn Fs::has_layer(Self, String) -> Bool
+pub fn Fs::has_promisor(Self, &@bit.RepoFileSystem) -> Bool
+pub fn Fs::is_dir(Self, &@bit.RepoFileSystem, String) -> Bool
+pub fn Fs::is_dirty(Self) -> Bool
+pub fn Fs::is_file(Self, &@bit.RepoFileSystem, String) -> Bool
+pub fn Fs::is_lazy(Self) -> Bool
+pub fn Fs::is_promisor_enabled(Self) -> Bool
+pub fn Fs::list_layers(Self) -> Array[Layer]
+pub fn Fs::list_snapshots(Self, &@bit.RepoFileSystem, max_count? : Int) -> Array[Snapshot] raise @bit.GitError
+pub fn Fs::mkdir_p(Self, String) -> Unit
+pub fn Fs::needs_fetch(Self, &@bit.RepoFileSystem, String) -> Bool raise @bit.GitError
+pub async fn Fs::prefetch(Self, &@bit.RepoFileSystem, &@bit.FileSystem, Array[String]) -> Int raise @bit.GitError
+pub async fn Fs::prefetch_bfs(Self, &@bit.RepoFileSystem, &@bit.FileSystem, Int) -> Int raise @bit.GitError
+pub async fn Fs::prefetch_glob(Self, &@bit.RepoFileSystem, &@bit.FileSystem, String) -> Int raise @bit.GitError
+pub fn Fs::read_file(Self, &@bit.RepoFileSystem, String) -> Bytes raise @bit.GitError
+pub async fn Fs::read_file_async(Self, &@bit.RepoFileSystem, &@bit.FileSystem, String) -> Bytes raise @bit.GitError
+pub fn Fs::readdir(Self, &@bit.RepoFileSystem, String) -> Array[String] raise @bit.GitError
+pub fn Fs::remove_dir(Self, String) -> Unit
+pub fn Fs::remove_file(Self, String) -> Unit
+pub fn Fs::remove_layer(Self, String) -> Bool
+pub fn Fs::rollback(Self) -> Unit
+pub fn Fs::snapshot(Self, &@bit.FileSystem, &@bit.RepoFileSystem, String, String, Int64) -> Snapshot raise @bit.GitError
+pub fn Fs::write_file(Self, String, Bytes) -> Unit
+pub fn Fs::write_string(Self, String, String) -> Unit
 
-pub struct BitFsConfig {
+pub struct FsConfig {
   max_cache_bytes : Int
   max_cache_entries : Int
   lazy_load : Bool
   enable_promisor : Bool
 }
-pub fn BitFsConfig::default() -> Self
-pub fn BitFsConfig::eager() -> Self
-pub fn BitFsConfig::local_only() -> Self
+pub fn FsConfig::default() -> Self
+pub fn FsConfig::eager() -> Self
+pub fn FsConfig::local_only() -> Self
 
 pub(all) struct Layer {
   tree_id : @bit.ObjectId
