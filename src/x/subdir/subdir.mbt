@@ -174,8 +174,8 @@ pub fn SubdirRepo::from_commit(
   let tree_id = extract_subdir_tree(db, rfs, commit_id, normalized_path) catch {
     e => raise e
   }
-  // サブディレクトリのツリーをベースとした BitFs を作成
-  let bitfs = @bitfs.BitFs::from_tree(git_dir, tree_id)
+  // サブディレクトリのツリーをベースとした Fs を作成
+  let bitfs = @fs.Fs::from_tree(git_dir, tree_id)
   {
     git_dir,
     subdir_path: normalized_path,
@@ -267,8 +267,8 @@ pub fn SubdirRepo::is_dirty(self : SubdirRepo) -> Bool {
 }
 
 ///|
-/// BitFs を取得（内部アクセス用）
-pub fn SubdirRepo::fs(self : SubdirRepo) -> @bitfs.BitFs {
+/// Fs を取得（内部アクセス用）
+pub fn SubdirRepo::fs(self : SubdirRepo) -> @fs.Fs {
   self.bitfs
 }
 

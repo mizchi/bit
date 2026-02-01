@@ -8,7 +8,7 @@
 |---|---------|-------------|
 | Compatibility | - | ✅ 4,205 tests pass |
 | Use as library | ❌ | ✅ Embed in your app |
-| Virtual filesystem | ❌ | ✅ BitFs API |
+| Virtual filesystem | ❌ | ✅ Fs API |
 | Lazy loading | ❌ | ✅ Instant mount |
 | Partial clone | ✅ | ✅ + on-demand fetch API |
 | Target platforms | Native | Native, WASM, JS |
@@ -19,16 +19,16 @@
 
 ```moonbit
 // Mount and browse without checkout
-let bitfs = BitFs::from_commit(fs, ".git", commit_id)
+let fs = Fs::from_commit(fs, ".git", commit_id)
 
 // List files (instant - no blob loading)
-let files = bitfs.readdir(fs, "src")
+let files = fs.readdir(fs, "src")
 
 // Read file (fetches blob on-demand if partial clone)
-let content = bitfs.read_file(fs, "src/main.mbt")
+let content = fs.read_file(fs, "src/main.mbt")
 
 // Check what needs fetching
-let pending = bitfs.get_pending_fetches(fs, 100)
+let pending = fs.get_pending_fetches(fs, 100)
 ```
 
 ### 2. Partial Clone with Smart Prefetch
@@ -40,10 +40,10 @@ bit clone --filter=blob:none https://github.com/user/repo
 
 ```moonbit
 // Prefetch files matching pattern
-bitfs.prefetch_glob(fs, fs, "src/**/*.mbt")
+fs.prefetch_glob(fs, fs, "src/**/*.mbt")
 
 // Or prefetch in breadth-first order (shallow files first)
-bitfs.prefetch_bfs(fs, fs, limit=50)
+fs.prefetch_bfs(fs, fs, limit=50)
 ```
 
 ### 3. Full Git Compatibility
@@ -66,7 +66,7 @@ Clone from GitHub using `@user/repo` shorthand or paste browser URLs directly:
 bit clone @mizchi/bit
 
 # Clone subdirectory only
-bit clone @mizchi/bit/src/x/bitfs
+bit clone @mizchi/bit/src/x/fs
 
 # Paste GitHub browser URL directly (directory)
 bit clone https://github.com/mizchi/crater/tree/main/js
@@ -75,14 +75,14 @@ bit clone https://github.com/mizchi/crater/tree/main/js
 bit clone https://github.com/mizchi/crater/blob/main/README.md
 
 # With custom destination
-bit clone @mizchi/bit/src/x/bitfs mybitfs
+bit clone @mizchi/bit/src/x/fs myfs
 ```
 
 The `@` prefix distinguishes shorthand from local paths. Browser URLs with `/tree/` clone subdirectories, `/blob/` downloads single files.
 
 ### 5. Subdir - Work with Subdirectories as Independent Repos
 
-Treat any subdirectory as an independent git repository while keeping it in the parent repo:
+Treat any subdirectory as an indepencollabt git repository while keeping it in the parent repo:
 
 ```bash
 # Initialize subdirectory as module
@@ -154,7 +154,7 @@ bit subdir pull vendor/lib https://github.com/user/lib-repo --branch main
 ## Performance
 
 ```
-BitFs Access Pattern:
+Fs Access Pattern:
 ─────────────────────────────────────────
 Mount:        Instant (HEAD ref only)
 readdir:      Local (tree from pack)
@@ -211,14 +211,14 @@ moon add mizchi/bit
 
 Experimental features built on top of the core Git implementation.
 
-### BitFs - Virtual Filesystem
+### Fs - Virtual Filesystem
 
 Mount any commit as a filesystem with lazy blob loading:
 
 ```moonbit
-let bitfs = BitFs::from_commit(fs, ".git", commit_id)
-let files = bitfs.readdir(fs, "src")      // Instant (tree only)
-let content = bitfs.read_file(fs, "src/main.mbt")  // Fetches on-demand
+let fs = Fs::from_commit(fs, ".git", commit_id)
+let files = fs.readdir(fs, "src")      // Instant (tree only)
+let content = fs.read_file(fs, "src/main.mbt")  // Fetches on-demand
 ```
 
 ### Subdir-Clone - Clone Subdirectory as Independent Repo
@@ -239,32 +239,32 @@ bit fetch       # Fetches from original remote
 bit rebase origin/main  # Rebases only subdir changes
 ```
 
-### Den - Git-Native Collaboration (WIP)
+### Collab - Git-Native Collaboration (WIP)
 
-Pull Requests, Issues, and Notes stored as Git objects in `_den` branch:
+Pull Requests, Issues, and Notes stored as Git objects in `_collab` branch:
 
 ```moonbit
-let den = Den::init(fs, fs, git_dir)
+let collab = Collab::init(fs, fs, git_dir)
 
 // Create PR
-let pr = den.create_pr(fs, fs, "Fix bug", "Description",
+let pr = collab.create_pr(fs, fs, "Fix bug", "Description",
   "refs/heads/fix", "refs/heads/main", "alice@example.com", ts)
 
 // Add review
-den.submit_review(fs, fs, pr.id, "bob@example.com",
+collab.submit_review(fs, fs, pr.id, "bob@example.com",
   Approved, "LGTM", commit_id, ts)
 
 // Sync with remote (standard git push/fetch)
-den.push(fs, fs, remote_url)
-den.fetch(fs, fs, remote_url)
+collab.push(fs, fs, remote_url)
+collab.fetch(fs, fs, remote_url)
 ```
 
-### BitDb - Distributed KV Store (WIP)
+### Kv - Distributed KV Store (WIP)
 
 Git-backed key-value store with Gossip protocol sync:
 
 ```moonbit
-let db = BitDb::init(fs, fs, git_dir, node_id)
+let db = Kv::init(fs, fs, git_dir, node_id)
 
 // Hierarchical keys → Git tree structure
 db.set(fs, fs, "users/alice/profile", value, ts)
@@ -280,7 +280,7 @@ db.sync_with_peer(fs, fs, peer_url)
 ┌─────────────────────────────────────────────────┐
 │  Your Application                               │
 ├─────────────────────────────────────────────────┤
-│  BitFs (Virtual Filesystem)                     │
+│  Fs (Virtual Filesystem)                     │
 │  - Mount any commit as filesystem               │
 │  - Lazy blob loading                            │
 │  - Prefetch APIs (glob, BFS)                    │

@@ -1,0 +1,36 @@
+{
+  "warn-list": "-unused_value-29",
+  "import": [
+    { "path": "mizchi/bit", "alias": "git" },
+    { "path": "mizchi/bit/lib", "alias": "lib" },
+    { "path": "moonbitlang/core/encoding/utf8", "alias": "utf8" }
+  ],
+  "test-import": [
+    { "path": "mizchi/bit/lib", "alias": "lib" },
+    { "path": "mizchi/bit/osfs", "alias": "osfs" },
+    "mizchi/zlib",
+    { "path": "moonbitlang/core/bench", "alias": "bench" },
+    "moonbitlang/async"
+  ],
+  "targets": {
+    "bench_real_test.mbt": ["native"],
+    "bench_test.mbt": ["native"],
+    "cache.mbt": ["native"],
+    "fs.mbt": ["native"],
+    "fs_test.mbt": ["native"],
+    "fs_wbtest.mbt": ["native"],
+    "integration_test.mbt": ["native"],
+    "layer.mbt": ["native"],
+    "lru.mbt": ["native"],
+    "lru_test.mbt": ["native"],
+    "partial_clone_test.mbt": ["native"],
+    "path.mbt": ["native"],
+    "perf_partial_clone_test.mbt": ["native"],
+    "read_ops.mbt": ["native"],
+    "snapshot.mbt": ["native"],
+    "tree_builder.mbt": ["native"],
+    "types.mbt": ["native"],
+    "verify_lazy_test.mbt": ["native"],
+    "write_ops.mbt": ["native"]
+  }
+}

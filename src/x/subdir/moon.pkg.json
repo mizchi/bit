@@ -3,7 +3,7 @@
   "import": [
     { "path": "mizchi/bit", "alias": "git" },
     "mizchi/bit/lib",
-    "mizchi/bit/x/bitfs",
+    "mizchi/bit/x/fs",
     "mizchi/zlib"
   ],
   "targets": {

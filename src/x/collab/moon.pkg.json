@@ -1,0 +1,23 @@
+{
+  "warn-list": "-29",
+  "import": [
+    { "path": "mizchi/bit", "alias": "git" },
+    { "path": "mizchi/bit/lib", "alias": "lib" },
+    { "path": "moonbitlang/core/encoding/utf8", "alias": "utf8" }
+  ],
+  "test-import": [
+    { "path": "mizchi/bit/lib", "alias": "lib" }
+  ],
+  "targets": {
+    "collab.mbt": ["native"],
+    "collab_test.mbt": ["native"],
+    "comment.mbt": ["native"],
+    "format.mbt": ["native"],
+    "issue.mbt": ["native"],
+    "merge.mbt": ["native"],
+    "notes.mbt": ["native"],
+    "review.mbt": ["native"],
+    "sync.mbt": ["native"],
+    "types.mbt": ["native"]
+  }
+}

@@ -56,7 +56,7 @@ test "subdir: SubdirRepo::from_commit creates repo" {
 }
 
 ///|
-test "subdir: read file through BitFs" {
+test "subdir: read file through Fs" {
   let fs = @git.TestFs::new()
   @lib.init_repo(fs, "/repo") catch {
     _ => ()
