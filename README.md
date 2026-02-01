@@ -35,6 +35,8 @@ bit clone https://github.com/user/repo/tree/main/packages/core
 bit clone https://github.com/user/repo/blob/main/README.md
 ```
 
+Cloned subdirectories have their own `.git` directory. When placed inside another git repository, git automatically treats them as embedded repositories (like submodules) - the parent repo won't commit their contents.
+
 ## Standard Git Commands
 
 ```bash
