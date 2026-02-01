@@ -57,19 +57,22 @@ bit commit -m "changes"
 bit push origin feature
 ```
 
-### 4. GitHub Subdir Shorthand
+### 4. GitHub Shorthand
 
-Clone a subdirectory directly using shorthand syntax:
+Clone from GitHub using `@user/repo` shorthand:
 
 ```bash
-# Clone user/repo's src/lib directory
-bit clone user/repo/src/lib
+# Clone full repository
+bit clone @mizchi/bit
+
+# Clone subdirectory only
+bit clone @mizchi/bit/src/x/bitfs
 
 # With custom destination
-bit clone user/repo/src/lib mylib
+bit clone @mizchi/bit/src/x/bitfs mybitfs
 ```
 
-This automatically expands to `bit subdir-clone https://github.com/user/repo src/lib`.
+The `@` prefix distinguishes GitHub shorthand from local paths.
 
 ### 5. Subdir - Work with Subdirectories as Independent Repos
 
