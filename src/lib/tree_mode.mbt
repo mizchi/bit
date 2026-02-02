@@ -9,8 +9,3 @@ fn is_tree_mode(mode : String) -> Bool {
 fn is_gitlink_mode_int(mode : Int) -> Bool {
   mode == 0o160000
 }
-
-///|
-fn is_symlink_mode_int(mode : Int) -> Bool {
-  mode == 0o120000
-}

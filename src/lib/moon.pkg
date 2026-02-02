@@ -16,6 +16,8 @@ options(
   targets: {
     "promisor.mbt": [ "native" ],
     "sync_http.mbt": [ "native" ],
+    "worktree_probe_native.mbt": [ "native" ],
+    "worktree_probe_js.mbt": [ "js", "wasm", "wasm-gc" ],
     "worktree_modes.mbt": [ "native" ],
   },
 )

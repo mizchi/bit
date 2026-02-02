@@ -112,6 +112,11 @@ fn is_executable_mode_int(mode : Int) -> Bool {
 }
 
 ///|
+fn is_symlink_mode_int(mode : Int) -> Bool {
+  mode == 0o120000
+}
+
+///|
 fn is_regular_file_mode_int(mode : Int) -> Bool {
   mode == 0o100644 || mode == 0o100755
 }
