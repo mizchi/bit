@@ -98,9 +98,29 @@ pub fn parse_receive_pack_response(data : Bytes) -> Result[String, GitError] {
   let mut unpack_ok = false
   let mut ref_ok = false
   let mut error_msg = ""
+  let mut sideband = false
+  let band1_bytes : Array[Byte] = []
   for item in decoded {
     let (line_bytes, is_flush) = item
     if is_flush || line_bytes.length() == 0 {
+      continue
+    }
+    let first = line_bytes[0].to_int()
+    if first >= 1 && first <= 3 {
+      sideband = true
+      let (channel, content) = parse_sideband(line_bytes)
+      if channel == 1 {
+        for b in content {
+          band1_bytes.push(b)
+        }
+      } else if channel == 3 {
+        let msg = remote_bytes_to_string(content)
+          .trim(chars=" \n\r\t")
+          .to_string()
+        if msg.length() > 0 {
+          error_msg = msg
+        }
+      }
       continue
     }
     let line = remote_bytes_to_string(line_bytes)
@@ -112,6 +132,32 @@ pub fn parse_receive_pack_response(data : Bytes) -> Result[String, GitError] {
       ref_ok = true
     } else if line.has_prefix("ng ") {
       error_msg = line
+    }
+  }
+  if sideband {
+    if error_msg.length() > 0 {
+      return Err(GitError::ProtocolError(error_msg))
+    }
+    let band1 = remote_array_to_bytes(band1_bytes)
+    let band_decoded = pktline_decode(band1) catch { e => return Err(e) }
+    unpack_ok = false
+    ref_ok = false
+    error_msg = ""
+    for item in band_decoded {
+      let (line_bytes, is_flush) = item
+      if is_flush || line_bytes.length() == 0 {
+        continue
+      }
+      let line = remote_bytes_to_string(line_bytes)
+      if line.has_prefix("unpack ok") {
+        unpack_ok = true
+      } else if line.has_prefix("unpack ") {
+        error_msg = line
+      } else if line.has_prefix("ok ") {
+        ref_ok = true
+      } else if line.has_prefix("ng ") {
+        error_msg = line
+      }
     }
   }
   if unpack_ok && ref_ok {
