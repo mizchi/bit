@@ -20,6 +20,7 @@ repo/
 repo-git/
 repo-moongit/
 third_party/
+tmp/
 goodbye.ts
 version.ts
 xxxx
