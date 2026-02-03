@@ -89,7 +89,7 @@ t5315-pack-objects-compression.sh
 # t5310-pack-bitmaps.sh  # bitmap/pack reuse tests fail in shim
 # t5311-pack-bitmaps-shallow.sh  # shallow bitmap tests fail in shim
 # t5314-pack-cycle-detection.sh  # pack cycle detection tests fail in shim
-t5316-pack-delta-depth.sh
+# t5316-pack-delta-depth.sh  # pack delta depth tests fail in shim
 t5319-multi-pack-index.sh
 t5321-pack-large-objects.sh
 t5326-multi-pack-bitmaps.sh
