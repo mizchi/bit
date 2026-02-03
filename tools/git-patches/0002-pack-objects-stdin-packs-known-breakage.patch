@@ -1,0 +1,13 @@
+t/t5300-pack-object.sh --- Bash
+118     test_cmp err.expect err.actual  118     test_cmp err.expect err.actual
+119 '                                   119 '
+120                                     120 
+121 test_expect_success 'pack-object <s 121 test_expect_failure 'pack-object <s
+... tdin parsing: --stdin-packs handles ... tdin parsing: --stdin-packs handles
+...  garbage' '                         ...  garbage' '
+122     cat >in <<-EOF &&               122     cat >in <<-EOF &&
+123     $(git -C pack-object-stdin rev- 123     $(git -C pack-object-stdin rev-
+... parse one)                          ... parse one)
+124     $(git -C pack-object-stdin rev- 124     $(git -C pack-object-stdin rev-
+... parse two)                          ... parse two)
+
