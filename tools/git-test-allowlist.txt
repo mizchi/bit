@@ -84,6 +84,21 @@ t5307-pack-missing-commit.sh
 t5308-pack-detect-duplicates.sh
 t5313-pack-bounds-checks.sh
 t5315-pack-objects-compression.sh
+t5303-pack-corruption-resilience.sh
+t5309-pack-delta-cycles.sh
+t5310-pack-bitmaps.sh
+t5311-pack-bitmaps-shallow.sh
+t5314-pack-cycle-detection.sh
+t5316-pack-delta-depth.sh
+t5319-multi-pack-index.sh
+t5321-pack-large-objects.sh
+t5326-multi-pack-bitmaps.sh
+t5327-multi-pack-bitmaps-rev.sh
+t5329-pack-objects-cruft.sh
+t5331-pack-objects-stdin.sh
+t5332-multi-pack-reuse.sh
+t5334-incremental-multi-pack-index.sh
+t5351-unpack-large-objects.sh
 
 # fetch / push / refs (strict mode compatible)
 t5500-fetch-pack.sh
@@ -113,6 +128,8 @@ t5525-fetch-tagopt.sh
 t5527-fetch-odd-refs.sh
 t5528-push-default.sh
 t5529-push-errors.sh
+t5510-fetch.sh
+t5530-upload-pack-error.sh
 t5533-push-cas.sh
 t5535-fetch-push-symref.sh
 t5536-fetch-conflicts.sh
@@ -141,6 +158,8 @@ t5612-clone-refspec.sh
 t5700-protocol-v1.sh
 t5701-git-serve.sh
 t5702-protocol-v2.sh
+t5703-upload-pack-ref-in-want.sh
+t5704-protocol-violations.sh
 t5705-session-id-in-capabilities.sh
 t5710-promisor-remote-capability.sh
 t5730-protocol-v2-bundle-uri-file.sh

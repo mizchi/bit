@@ -11,6 +11,12 @@ priv struct PackObjectsConfig {
   filter : @git.FilterSpec
   object_format : String?
   stdin_packs : Bool
+  stdin_packs_follow : Bool
+  local_only : Bool
+  honor_pack_keep : Bool
+  incremental : Bool
+  unpacked : Bool
+  exclude_promisor_objects : Bool
   name_hash_version : Int?
   write_bitmap : Bool
   delegate_to_real_git : Bool
@@ -37,6 +43,12 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
   let mut filter = @git.FilterSpec::NoFilter
   let mut object_format : String? = None
   let mut stdin_packs = false
+  let mut stdin_packs_follow = false
+  let mut local_only = false
+  let mut honor_pack_keep = false
+  let mut incremental = false
+  let mut unpacked = false
+  let mut exclude_promisor_objects = false
   let mut name_hash_version : Int? = None
   let mut write_bitmap = false
   let mut delegate_to_real_git = false
@@ -56,15 +68,24 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
         "--stdout" => stdout = true
         "--all" => all = true
         "--delta-base-offset" => delta_mode = @git.PackDeltaMode::OfsDelta
+        "--local" => local_only = true
+        "--honor-pack-keep" => honor_pack_keep = true
+        "--incremental" => incremental = true
+        "--unpacked" => unpacked = true
         "--path-walk" => path_walk = true
         "--no-path-walk" => ()
         "--thin" => ()
         "--stdin-packs" => stdin_packs = true
+        "--stdin-packs=follow" => {
+          stdin_packs = true
+          stdin_packs_follow = true
+        }
         "--write-bitmap-index" => write_bitmap = true
         "--progress" => progress = true
         "--no-progress" => ()
         "--quiet" => ()
         "-q" => ()
+        "--exclude-promisor-objects" => exclude_promisor_objects = true
         "--stdin" =>
           return PackObjectsParse::Error(
             "fatal: disallowed abbreviated or ambiguous option 'stdin'",
@@ -84,11 +105,11 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
             return PackObjectsParse::Unsupported
           }
           let value = args[i + 1]
-          let parsed = @strconv.parse_int(value) catch {
-            _ => return PackObjectsParse::Unsupported
-          }
-          window = parsed
-          i += 1
+            let parsed = @strconv.parse_int(value) catch {
+              _ => return PackObjectsParse::Unsupported
+            }
+            window = parsed
+            i += 1
         }
         "--name-hash-version" => {
           if i + 1 >= args.length() {
@@ -184,6 +205,20 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
   if window <= 0 {
     delta_mode = @git.PackDeltaMode::NoDelta
   }
+  let has_filter = match filter {
+    @git.FilterSpec::NoFilter => false
+    _ => true
+  }
+  if stdin_packs && has_filter {
+    return PackObjectsParse::Error(
+      "fatal: options '--stdin-packs' and '--filter' cannot be used together",
+    )
+  }
+  if stdin_packs && revs {
+    return PackObjectsParse::Error(
+      "fatal: cannot use internal rev list with --stdin-packs",
+    )
+  }
   if !stdout && base_name is None {
     return PackObjectsParse::Unsupported
   }
@@ -199,6 +234,12 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
     filter,
     object_format,
     stdin_packs,
+    stdin_packs_follow,
+    local_only,
+    honor_pack_keep,
+    incremental,
+    unpacked,
+    exclude_promisor_objects,
     name_hash_version,
     write_bitmap,
     delegate_to_real_git,
@@ -376,17 +417,260 @@ fn invalid_object_line_message(line : String) -> String {
 }
 
 ///|
-fn pack_dir_has_pack_files(fs : OsFs, pack_dir : String) -> Bool {
-  if !fs.is_dir(pack_dir) {
-    return false
-  }
-  let entries = fs.readdir(pack_dir) catch { _ => [] }
-  for name in entries {
-    if name.has_suffix(".pack") {
-      return true
+fn parse_stdin_pack_lines(input : Bytes) -> (Array[String], Array[String]) {
+  let lines = split_lines_bytes(input)
+  let include_names : Array[String] = []
+  let exclude_names : Array[String] = []
+  for line in lines {
+    let trimmed = trim_line_bytes(line)
+    if trimmed.length() == 0 {
+      continue
+    }
+    let text = line_to_string(trimmed)
+    if text.has_prefix("^") {
+      exclude_names.push((try! text[1:]).to_string())
+    } else {
+      include_names.push(text)
     }
   }
-  false
+  (include_names, exclude_names)
+}
+
+///|
+fn parse_pack_index_ids(data : Bytes) -> Array[String]? {
+  if data.length() < 8 {
+    return None
+  }
+  let magic = read_u32_be_i64(data, 0)
+  if magic != 0xff744f63L {
+    return None
+  }
+  let version = read_u32_be_i64(data, 4)
+  if version != 2L {
+    return None
+  }
+  let mut offset = 8
+  let mut count64 = 0L
+  for _ in 0..<256 {
+    if offset + 4 > data.length() {
+      return None
+    }
+    count64 = read_u32_be_i64(data, offset)
+    offset += 4
+  }
+  if count64 > 2147483647L {
+    return None
+  }
+  let count = count64.to_int()
+  let ids : Array[String] = []
+  for _ in 0..<count {
+    if offset + 20 > data.length() {
+      return None
+    }
+    let bytes : FixedArray[Byte] = FixedArray::make(20, b'\x00')
+    for i = 0; i < 20; i = i + 1 {
+      bytes[i] = data[offset + i]
+    }
+    offset += 20
+    ids.push(@git.ObjectId::new(bytes).to_hex())
+  }
+  Some(ids)
+}
+
+///|
+fn collect_pack_index_ids(fs : OsFs, idx_path : String) -> Array[String] {
+  let data = fs.read_file(idx_path) catch { _ => return [] }
+  match parse_pack_index_ids(data) {
+    Some(ids) => ids
+    None => []
+  }
+}
+
+///|
+fn collect_pack_ids_from_dir(fs : OsFs, pack_dir : String) -> Map[String, Bool] {
+  let out : Map[String, Bool] = {}
+  if !fs.is_dir(pack_dir) {
+    return out
+  }
+  let entries = fs.readdir(pack_dir) catch { _ => [] }
+  for entry in entries {
+    if not(entry.has_suffix(".idx")) {
+      continue
+    }
+    let idx_path = pack_dir + "/" + entry
+    if not(fs.is_file(idx_path)) {
+      continue
+    }
+    let ids = collect_pack_index_ids(fs, idx_path)
+    for id in ids {
+      out[id] = true
+    }
+  }
+  out
+}
+
+///|
+fn collect_pack_ids_from_marker(
+  fs : OsFs,
+  pack_dir : String,
+  suffix : String,
+) -> Map[String, Bool] {
+  let out : Map[String, Bool] = {}
+  if !fs.is_dir(pack_dir) {
+    return out
+  }
+  let entries = fs.readdir(pack_dir) catch { _ => [] }
+  for entry in entries {
+    if not(entry.has_suffix(suffix)) {
+      continue
+    }
+    let base = (try! entry[:entry.length() - suffix.length()]).to_string()
+    let idx_path = pack_dir + "/" + base + ".idx"
+    if not(fs.is_file(idx_path)) {
+      continue
+    }
+    let ids = collect_pack_index_ids(fs, idx_path)
+    for id in ids {
+      out[id] = true
+    }
+  }
+  out
+}
+
+///|
+fn collect_loose_object_ids(fs : OsFs, objects_dir : String) -> Map[String, Bool] {
+  let out : Map[String, Bool] = {}
+  if !fs.is_dir(objects_dir) {
+    return out
+  }
+  let entries = fs.readdir(objects_dir) catch { _ => [] }
+  for entry in entries {
+    if entry == "info" || entry == "pack" {
+      continue
+    }
+    if entry.length() != 2 || not(is_hex_string(entry)) {
+      continue
+    }
+    let subdir = objects_dir + "/" + entry
+    if !fs.is_dir(subdir) {
+      continue
+    }
+    let files = fs.readdir(subdir) catch { _ => [] }
+    for file in files {
+      if file.length() != 38 || not(is_hex_string(file)) {
+        continue
+      }
+      out[entry + file] = true
+    }
+  }
+  out
+}
+
+///|
+fn read_alternate_object_dirs(fs : OsFs, git_dir : String) -> Array[String] {
+  let out : Array[String] = []
+  let alt_path = git_dir + "/objects/info/alternates"
+  if not(fs.is_file(alt_path)) {
+    return out
+  }
+  let data = fs.read_file(alt_path) catch { _ => return out }
+  let base_dir = parent_dir(alt_path)
+  let lines = split_lines_bytes(data)
+  for line in lines {
+    let trimmed = trim_line_bytes(line)
+    if trimmed.length() == 0 {
+      continue
+    }
+    let text = line_to_string(trimmed)
+    if text.has_prefix("#") {
+      continue
+    }
+    let resolved = if text.has_prefix("/") {
+      text
+    } else {
+      normalize_path(base_dir + "/" + text)
+    }
+    if fs.is_dir(resolved) {
+      out.push(resolved)
+    }
+  }
+  out
+}
+
+///|
+fn resolve_pack_path(
+  fs : OsFs,
+  pack_dir : String,
+  alt_objects_dirs : Array[String],
+  name : String,
+) -> String? {
+  let mut pack_name = name
+  if pack_name.has_suffix(".idx") {
+    pack_name = (try! pack_name[:pack_name.length() - 4]).to_string() + ".pack"
+  }
+  if pack_name.has_prefix("/") || pack_name.contains("/") {
+    let path = resolve_in_cwd(pack_name)
+    if fs.is_file(path) {
+      return Some(path)
+    }
+  }
+  let local_path = pack_dir + "/" + pack_name
+  if fs.is_file(local_path) {
+    return Some(local_path)
+  }
+  for alt_dir in alt_objects_dirs {
+    let alt_pack_dir = alt_dir + "/pack"
+    let alt_path = alt_pack_dir + "/" + pack_name
+    if fs.is_file(alt_path) {
+      return Some(alt_path)
+    }
+  }
+  None
+}
+
+///|
+fn read_pack_objects(fs : OsFs, pack_path : String) -> Array[@git.PackObject] {
+  let data = fs.read_file(pack_path) catch {
+    _ => return []
+  }
+  @git.parse_packfile(data) catch { _ => [] }
+}
+
+///|
+fn object_hex(obj : @git.PackObject) -> String {
+  @git.hash_object_content(obj.obj_type, obj.data).to_hex()
+}
+
+///|
+fn dedup_objects(objects : Array[@git.PackObject]) -> Array[@git.PackObject] {
+  let seen : Map[String, Bool] = {}
+  let out : Array[@git.PackObject] = []
+  for obj in objects {
+    let hex = object_hex(obj)
+    if not(seen.contains(hex)) {
+      seen[hex] = true
+      out.push(obj)
+    }
+  }
+  out
+}
+
+///|
+fn filter_objects(
+  objects : Array[@git.PackObject],
+  exclude : Map[String, Bool],
+) -> Array[@git.PackObject] {
+  if exclude.length() == 0 {
+    return objects
+  }
+  let out : Array[@git.PackObject] = []
+  for obj in objects {
+    let hex = object_hex(obj)
+    if not(exclude.contains(hex)) {
+      out.push(obj)
+    }
+  }
+  out
 }
 
 ///|
@@ -404,6 +688,320 @@ async fn run_real_git_pack_objects_with_input(
   let code = @process.run(real_git, args, stdin~)
   fs.remove_file(tmp_path)
   @sys.exit(code)
+}
+
+///|
+fn pack_idx_path(pack_path : String) -> String {
+  if pack_path.has_suffix(".pack") {
+    let base = (try! pack_path[:pack_path.length() - 5]).to_string()
+    base + ".idx"
+  } else {
+    pack_path + ".idx"
+  }
+}
+
+///|
+fn is_promisor_pack(fs : OsFs, pack_path : String) -> Bool {
+  let base = if pack_path.has_suffix(".pack") {
+    (try! pack_path[:pack_path.length() - 5]).to_string()
+  } else {
+    pack_path
+  }
+  let promisor_path = base + ".promisor"
+  fs.is_file(promisor_path)
+}
+
+///|
+fn collect_loose_objects(
+  fs : OsFs,
+  db : @gitlib.ObjectDb,
+  objects_dir : String,
+) -> Array[@git.PackObject] {
+  let out : Array[@git.PackObject] = []
+  let ids = collect_loose_object_ids(fs, objects_dir)
+  for item in ids {
+    let (hex, _v) = item
+    let id = @git.ObjectId::from_hex(hex) catch { _ => continue }
+    try db.get(fs, id) catch { _ => () } noraise { value =>
+      match value {
+        Some(obj) => out.push(obj)
+        None => ()
+      }
+    }
+  }
+  out
+}
+
+///|
+fn append_commit_ids_from_objects(
+  objects : Array[@git.PackObject],
+  out : Array[@git.ObjectId],
+) -> Unit {
+  for obj in objects {
+    if obj.obj_type == @git.ObjectType::Commit {
+      out.push(@git.hash_object_content(obj.obj_type, obj.data))
+    }
+  }
+}
+
+///|
+fn collect_reachable_objects_from_commits_allow_missing(
+  db : @gitlib.ObjectDb,
+  fs : OsFs,
+  commits : Array[@git.ObjectId],
+  blocked : Map[String, Bool],
+) -> Array[@git.PackObject] {
+  let seen : Map[String, Bool] = {}
+  let out : Array[@git.PackObject] = []
+  for commit_id in commits {
+    collect_commit_objects_allow_missing(db, fs, commit_id, blocked, seen, out)
+  }
+  out
+}
+
+///|
+fn collect_commit_objects_allow_missing(
+  db : @gitlib.ObjectDb,
+  fs : OsFs,
+  commit_id : @git.ObjectId,
+  blocked : Map[String, Bool],
+  seen : Map[String, Bool],
+  out : Array[@git.PackObject],
+) -> Unit {
+  let hex = commit_id.to_hex()
+  if blocked.contains(hex) {
+    return ()
+  }
+  if seen.contains(hex) {
+    return ()
+  }
+  seen[hex] = true
+  let obj = try db.get(fs, commit_id) catch { _ => None } noraise { value =>
+    value
+  }
+  match obj {
+    Some(o) if o.obj_type == @git.ObjectType::Commit => {
+      out.push(o)
+      let info = @git.parse_commit(o.data) catch { _ => return () }
+      collect_tree_objects_allow_missing(db, fs, info.tree, blocked, seen, out)
+      for parent in info.parents {
+        collect_commit_objects_allow_missing(db, fs, parent, blocked, seen, out)
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn collect_tree_objects_allow_missing(
+  db : @gitlib.ObjectDb,
+  fs : OsFs,
+  tree_id : @git.ObjectId,
+  blocked : Map[String, Bool],
+  seen : Map[String, Bool],
+  out : Array[@git.PackObject],
+) -> Unit {
+  let hex = tree_id.to_hex()
+  if blocked.contains(hex) {
+    return ()
+  }
+  if seen.contains(hex) {
+    return ()
+  }
+  seen[hex] = true
+  let obj = try db.get(fs, tree_id) catch { _ => None } noraise { value => value }
+  match obj {
+    Some(o) if o.obj_type == @git.ObjectType::Tree => {
+      out.push(o)
+      let entries = @git.parse_tree(o.data) catch { _ => return () }
+      for entry in entries {
+        if entry.mode.has_prefix("40") {
+          collect_tree_objects_allow_missing(
+            db,
+            fs,
+            entry.id,
+            blocked,
+            seen,
+            out,
+          )
+        } else {
+          collect_blob_object_allow_missing(db, fs, entry.id, blocked, seen, out)
+        }
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn collect_blob_object_allow_missing(
+  db : @gitlib.ObjectDb,
+  fs : OsFs,
+  blob_id : @git.ObjectId,
+  blocked : Map[String, Bool],
+  seen : Map[String, Bool],
+  out : Array[@git.PackObject],
+) -> Unit {
+  let hex = blob_id.to_hex()
+  if blocked.contains(hex) {
+    return ()
+  }
+  if seen.contains(hex) {
+    return ()
+  }
+  seen[hex] = true
+  try db.get(fs, blob_id) catch { _ => () } noraise { value =>
+    match value {
+      Some(o) if o.obj_type == @git.ObjectType::Blob => out.push(o)
+      _ => ()
+    }
+  }
+}
+
+///|
+async fn collect_objects_from_stdin_packs(
+  fs : OsFs,
+  git_dir : String,
+  db : @gitlib.ObjectDb,
+  cfg : PackObjectsConfig,
+  include_names : Array[String],
+  exclude_names : Array[String],
+) -> Array[@git.PackObject] {
+  let pack_dir = git_dir + "/objects/pack"
+  let alt_dirs = read_alternate_object_dirs(fs, git_dir)
+  let include_paths : Array[String] = []
+  let exclude_paths : Array[String] = []
+  for name in include_names {
+    match resolve_pack_path(fs, pack_dir, alt_dirs, name) {
+      Some(path) => include_paths.push(path)
+      None => {
+        @stdio.stderr.write("fatal: cannot find packfile '" + name + "'\n")
+        @sys.exit(1)
+      }
+    }
+  }
+  for name in exclude_names {
+    match resolve_pack_path(fs, pack_dir, alt_dirs, name) {
+      Some(path) => exclude_paths.push(path)
+      None => ()
+    }
+  }
+  if cfg.exclude_promisor_objects {
+    for path in include_paths {
+      if is_promisor_pack(fs, path) {
+        @stdio.stderr.write(
+          "fatal: packfile '" + path + "' is a promisor but --exclude-promisor-objects was given\n",
+        )
+        @sys.exit(1)
+      }
+    }
+  }
+  let include_objects : Array[@git.PackObject] = []
+  let seed_commits : Array[@git.ObjectId] = []
+  for path in include_paths {
+    let objs = read_pack_objects(fs, path)
+    for obj in objs {
+      include_objects.push(obj)
+    }
+  }
+  if cfg.stdin_packs_follow {
+    append_commit_ids_from_objects(include_objects, seed_commits)
+  }
+  let exclude_ids : Map[String, Bool] = {}
+  for path in exclude_paths {
+    let idx_path = pack_idx_path(path)
+    let ids = collect_pack_index_ids(fs, idx_path)
+    for id in ids {
+      exclude_ids[id] = true
+    }
+  }
+  let mut promisor_ids : Map[String, Bool] = {}
+  if cfg.exclude_promisor_objects {
+    promisor_ids = collect_pack_ids_from_marker(fs, pack_dir, ".promisor")
+    for alt_dir in alt_dirs {
+      let alt_pack_dir = alt_dir + "/pack"
+      let ids = collect_pack_ids_from_marker(fs, alt_pack_dir, ".promisor")
+      for item in ids {
+        let (hex, _v) = item
+        promisor_ids[hex] = true
+      }
+    }
+  }
+  let mut objects : Array[@git.PackObject] = include_objects
+  if cfg.unpacked {
+    let objects_dir = git_dir + "/objects"
+    let loose = collect_loose_objects(fs, db, objects_dir)
+    objects.append(loose)
+    if cfg.stdin_packs_follow {
+      append_commit_ids_from_objects(loose, seed_commits)
+    }
+  }
+  if cfg.stdin_packs_follow && seed_commits.length() > 0 {
+    let reachable = collect_reachable_objects_from_commits_allow_missing(
+      db,
+      fs,
+      seed_commits,
+      promisor_ids,
+    )
+    objects.append(reachable)
+  }
+  objects = dedup_objects(objects)
+  objects = filter_objects(objects, exclude_ids)
+  if cfg.exclude_promisor_objects {
+    objects = filter_objects(objects, promisor_ids)
+  }
+  objects
+}
+
+///|
+async fn try_reuse_single_stdin_pack(
+  fs : OsFs,
+  git_dir : String,
+  cfg : PackObjectsConfig,
+  include_names : Array[String],
+  exclude_names : Array[String],
+) -> Bool {
+  if include_names.length() != 1 || exclude_names.length() != 0 {
+    return false
+  }
+  if cfg.stdin_packs_follow ||
+    cfg.unpacked ||
+    cfg.local_only ||
+    cfg.honor_pack_keep ||
+    cfg.incremental ||
+    cfg.exclude_promisor_objects {
+    return false
+  }
+  let pack_dir = git_dir + "/objects/pack"
+  let alt_dirs = read_alternate_object_dirs(fs, git_dir)
+  let name = include_names[0]
+  let pack_path = match resolve_pack_path(fs, pack_dir, alt_dirs, name) {
+    Some(path) => path
+    None => return false
+  }
+  let pack = fs.read_file(pack_path) catch { _ => return false }
+  if cfg.stdout {
+    @stdio.stdout.write(pack)
+    return true
+  }
+  let idx_path = pack_idx_path(pack_path)
+  let idx = fs.read_file(idx_path) catch { _ => return false }
+  let hash_hex = pack_hash_hex(pack)
+  let base_name = match cfg.base_name {
+    Some(name) => name
+    None => {
+      @stdio.stderr.write("fatal: missing base-name\n")
+      @sys.exit(1)
+      ""
+    }
+  }
+  let base_name = resolve_in_cwd(base_name)
+  let pack_out = base_name + "-" + hash_hex + ".pack"
+  let idx_out = base_name + "-" + hash_hex + ".idx"
+  fs.write_file(pack_out, pack)
+  fs.write_file(idx_out, idx)
+  @stdio.stdout.write(hash_hex + "\n")
+  true
 }
 
 ///|
@@ -447,24 +1045,14 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
         }
       }
       let pack_dir = git_dir + "/objects/pack"
-      let has_pack_files = pack_dir_has_pack_files(fs, pack_dir)
-      if cfg.delegate_to_real_git || cfg.stdin_packs || has_pack_files {
+      if cfg.delegate_to_real_git {
         match real_git_path() {
           Some(real_git) => {
             let real_args = real_git_args_from_cli()
-            if cfg.stdin_packs {
-              let input = read_all_stdin()
-              run_real_git_pack_objects_with_input(real_git, real_args, input)
-            } else {
-              let code = @process.run(real_git, real_args)
-              @sys.exit(code)
-            }
+            let code = @process.run(real_git, real_args)
+            @sys.exit(code)
           }
           None => {
-            if cfg.stdin_packs {
-              @stdio.stderr.write("fatal: --stdin-packs is not supported\n")
-              @sys.exit(1)
-            }
             if cfg.delegate_to_real_git {
               @stdio.stderr.write("bit: unsupported pack-objects options\n")
               @sys.exit(1)
@@ -493,7 +1081,27 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
       }
       let db = @gitlib.ObjectDb::load(fs, git_dir)
       let mut objects : Array[@git.PackObject] = []
-      if cfg.all {
+      if cfg.stdin_packs {
+        let input = read_all_stdin()
+        let (include_names, exclude_names) = parse_stdin_pack_lines(input)
+        if try_reuse_single_stdin_pack(
+          fs,
+          git_dir,
+          cfg,
+          include_names,
+          exclude_names,
+        ) {
+          return ()
+        }
+        objects = collect_objects_from_stdin_packs(
+          fs,
+          git_dir,
+          db,
+          cfg,
+          include_names,
+          exclude_names,
+        )
+      } else if cfg.all {
         let refs = @gitlib.show_ref(fs, git_dir)
         let commits : Array[@git.ObjectId] = []
         for pair in refs {
@@ -520,17 +1128,52 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
           } else {
             (false, text)
           }
-          match @gitlib.rev_parse(fs, git_dir, spec) {
-            None => {
-              @stdio.stderr.write("fatal: bad revision '" + spec + "'\n")
-              @sys.exit(1)
-            }
-            Some(id) =>
-              if negated {
-                exclude_commits.push(id)
-              } else {
-                include_commits.push(id)
+          let mut handled = false
+          if !negated {
+            match spec.find("..") {
+              Some(pos) => {
+                let left = (try! spec[:pos]).to_string()
+                let right = (try! spec[pos + 2:]).to_string()
+                if right.length() > 0 {
+                  match @gitlib.rev_parse(fs, git_dir, right) {
+                    None => {
+                      @stdio.stderr.write(
+                        "fatal: bad revision '" + right + "'\n",
+                      )
+                      @sys.exit(1)
+                    }
+                    Some(id) => include_commits.push(id)
+                  }
+                }
+                if left.length() > 0 {
+                  match @gitlib.rev_parse(fs, git_dir, left) {
+                    None => {
+                      @stdio.stderr.write(
+                        "fatal: bad revision '" + left + "'\n",
+                      )
+                      @sys.exit(1)
+                    }
+                    Some(id) => exclude_commits.push(id)
+                  }
+                }
+                handled = true
               }
+              None => ()
+            }
+          }
+          if !handled {
+            match @gitlib.rev_parse(fs, git_dir, spec) {
+              None => {
+                @stdio.stderr.write("fatal: bad revision '" + spec + "'\n")
+                @sys.exit(1)
+              }
+              Some(id) =>
+                if negated {
+                  exclude_commits.push(id)
+                } else {
+                  include_commits.push(id)
+                }
+            }
           }
         }
         let include_objects = @gitlib.collect_reachable_objects_from_commits(
@@ -614,7 +1257,54 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
         @stdio.stderr.write("Compressing objects by path\n")
       }
       // Apply filter specification (e.g., blob:none for partial clone)
-      let objects = apply_pack_filter_spec(objects, cfg.filter)
+      let mut objects = apply_pack_filter_spec(objects, cfg.filter)
+      if cfg.local_only {
+        let objects_dir = git_dir + "/objects"
+        let local_pack_ids = collect_pack_ids_from_dir(fs, pack_dir)
+        let local_loose_ids = collect_loose_object_ids(fs, objects_dir)
+        let local_ids : Map[String, Bool] = {}
+        for item in local_pack_ids {
+          let (hex, _v) = item
+          local_ids[hex] = true
+        }
+        for item in local_loose_ids {
+          let (hex, _v) = item
+          local_ids[hex] = true
+        }
+        let alt_dirs = read_alternate_object_dirs(fs, git_dir)
+        let non_local_ids : Map[String, Bool] = {}
+        for alt_dir in alt_dirs {
+          let alt_pack_dir = alt_dir + "/pack"
+          let alt_pack_ids = collect_pack_ids_from_dir(fs, alt_pack_dir)
+          for item in alt_pack_ids {
+            let (hex, _v) = item
+            if not(local_ids.contains(hex)) {
+              non_local_ids[hex] = true
+            }
+          }
+          let alt_loose_ids = collect_loose_object_ids(fs, alt_dir)
+          for item in alt_loose_ids {
+            let (hex, _v) = item
+            if not(local_ids.contains(hex)) {
+              non_local_ids[hex] = true
+            }
+          }
+        }
+        objects = filter_objects(objects, non_local_ids)
+      }
+      if cfg.honor_pack_keep {
+        let keep_ids = collect_pack_ids_from_marker(fs, pack_dir, ".keep")
+        objects = filter_objects(objects, keep_ids)
+      }
+      if (cfg.incremental || cfg.unpacked) && !cfg.stdin_packs {
+        let packed_ids = collect_pack_ids_from_dir(fs, pack_dir)
+        objects = filter_objects(objects, packed_ids)
+      }
+      if cfg.exclude_promisor_objects {
+        let promisor_ids = collect_pack_ids_from_marker(fs, pack_dir, ".promisor")
+        objects = filter_objects(objects, promisor_ids)
+      }
+      objects = dedup_objects(objects)
       // Split objects into groups based on packSizeLimit (only for file output, not stdout)
       let effective_limit = if cfg.stdout { None } else { pack_size_limit }
       let object_groups = split_objects_by_size_limit(objects, effective_limit)

@@ -162,6 +162,26 @@ git-t-one test_file:
     CPATH="$prefix/include" LDFLAGS="-L$prefix/lib" LIBRARY_PATH="$prefix/lib" \
     make -C third_party/git test T="{{test_file}}"
 
+# Run a single test file in strict shim mode with remote intercepted
+git-t-one-remote test_file:
+    @tools/apply-git-test-patches.sh
+    @prefix=$(brew --prefix gettext); \
+    real_git="$(pwd)/third_party/git/git"; \
+    if [ -x "$real_git" ]; then \
+      exec_path="$(pwd)/third_party/git"; \
+    else \
+      real_git=$(/usr/bin/which git); \
+      exec_path=$($real_git --exec-path); \
+    fi; \
+    shim_dir="$(pwd)/tools/git-shim/bin"; \
+    echo "$real_git" > tools/git-shim/real-git-path; \
+    SHIM_REAL_GIT="$real_git" SHIM_EXEC_PATH="$exec_path" \
+    SHIM_CMDS="receive-pack upload-pack pack-objects index-pack remote" SHIM_STRICT=1 \
+    GIT_TEST_INSTALLED="$shim_dir" GIT_TEST_EXEC_PATH="$exec_path" \
+    GIT_TEST_DEFAULT_HASH=sha1 \
+    CPATH="$prefix/include" LDFLAGS="-L$prefix/lib" LIBRARY_PATH="$prefix/lib" \
+    make -C third_party/git test T="{{test_file}}"
+
 # Compare bit vs real git performance
 compare-real-git:
     bash tools/compare-real-git.sh
