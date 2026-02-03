@@ -13,13 +13,13 @@ test "merge: file-level merge without conflicts" {
   fs.write_string("/repo/a.txt", "base\n")
   add_paths(fs, fs, "/repo", ["a.txt"])
   ignore(commit(fs, fs, "/repo", "base\n", "Test <t@example.com>", 1700000000L))
-  switch_branch(fs, fs, "/repo", "feature", create=true, checkout=true)
+  switch_branch(fs, fs, "/repo", "feature", create=true, checkout_files=true)
   fs.write_string("/repo/b.txt", "feature\n")
   add_paths(fs, fs, "/repo", ["b.txt"])
   let feature_commit = commit(
     fs, fs, "/repo", "feature\n", "Test <t@example.com>", 1700000001L,
   )
-  switch_branch(fs, fs, "/repo", "main", checkout=true)
+  switch_branch(fs, fs, "/repo", "main", checkout_files=true)
   fs.write_string("/repo/a.txt", "main\n")
   add_paths(fs, fs, "/repo", ["a.txt"])
   let main_commit = commit(

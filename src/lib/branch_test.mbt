@@ -61,7 +61,7 @@ test "branch: switch branch updates head" {
   fs.write_string(
     "/repo/.git/refs/heads/main", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n",
   )
-  switch_branch(fs, fs, "/repo", "feature", create=true, checkout=false)
+  switch_branch(fs, fs, "/repo", "feature", create=true, checkout_files=false)
   let head = fs.read_string("/repo/.git/HEAD")
   assert_true(head.has_prefix("ref: refs/heads/feature"))
   let feature = fs.read_string("/repo/.git/refs/heads/feature")

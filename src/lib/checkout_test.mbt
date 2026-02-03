@@ -15,7 +15,7 @@ test "checkout: switch back to main" {
   let first = commit(
     fs, fs, "/repo", "first\n", "Test <t@example.com>", 1700000000L,
   )
-  switch_branch(fs, fs, "/repo", "feature", create=true, checkout=true)
+  switch_branch(fs, fs, "/repo", "feature", create=true, checkout_files=true)
   fs.write_string("/repo/a.txt", "two\n")
   add_paths(fs, fs, "/repo", ["a.txt"])
   ignore(

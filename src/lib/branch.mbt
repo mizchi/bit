@@ -338,7 +338,7 @@ pub fn switch_branch(
   root : String,
   name : String,
   create? : Bool = false,
-  checkout? : Bool = true,
+  checkout_files? : Bool = true,
 ) -> Unit raise @git.GitError {
   let git_dir = join_path(root, ".git")
   let refname = branch_ref_name(name)
@@ -351,16 +351,11 @@ pub fn switch_branch(
       Some(_) => ()
     }
   }
-  let head_path = join_path(git_dir, "HEAD")
-  fs.write_string(head_path, "ref: \{refname}\n")
-  if checkout {
-    match resolve_ref(rfs, git_dir, refname) {
-      None => ()
-      Some(id) => {
-        let store = load_object_store_from_fs(rfs, git_dir)
-        @git.checkout_commit_to_fs(store, id, fs, root)
-      }
-    }
+  if checkout_files {
+    ignore(checkout(fs, rfs, root, name))
+  } else {
+    let head_path = join_path(git_dir, "HEAD")
+    fs.write_string(head_path, "ref: \{refname}\n")
   }
 }
 

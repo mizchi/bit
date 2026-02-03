@@ -228,7 +228,7 @@ pub fn status_porcelain_from(Status) -> Array[String]
 
 pub async fn status_text(&@bit.RepoFileSystem, String) -> String raise @bit.GitError
 
-pub fn switch_branch(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, create? : Bool, checkout? : Bool) -> Unit raise @bit.GitError
+pub fn switch_branch(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, create? : Bool, checkout_files? : Bool) -> Unit raise @bit.GitError
 
 pub fn tree_files_to_index(ObjectDb, &@bit.RepoFileSystem, Map[String, TreeFileEntry]) -> Array[IndexEntry] raise @bit.GitError
 
