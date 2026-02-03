@@ -12,6 +12,8 @@ pub async fn add_paths_async(&@bit.FileSystem, &@bit.RepoFileSystem, String, Arr
 
 pub fn append_reflog(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, @bit.ObjectId, @bit.ObjectId, String, String, Int64, String, String) -> Unit raise @bit.GitError
 
+pub fn apply_config_overrides(Map[String, RemoteConfig], Map[String, BranchConfig], Array[(String, String)]) -> Unit
+
 pub fn apply_receive_pack(&@bit.FileSystem, &@bit.RepoFileSystem, String, ReceivePackRequest) -> ReceivePackResult raise @bit.GitError
 
 pub fn apply_template(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> Unit raise @bit.GitError
@@ -21,6 +23,8 @@ pub async fn apply_worktree_modes_from_commit(&@bit.FileSystem, &@bit.RepoFileSy
 pub fn build_receive_pack_advertisement(&@bit.RepoFileSystem, String, agent? : String) -> Bytes raise @bit.GitError
 
 pub fn build_upload_pack_advertisement(&@bit.RepoFileSystem, String, agent? : String) -> Bytes raise @bit.GitError
+
+pub fn build_upload_pack_config_with_overrides(&@bit.RepoFileSystem, String, Map[String, String]) -> UploadPackConfig
 
 pub fn check_shorthand_ambiguity(String, (String) -> Bool) -> String?
 
@@ -36,6 +40,12 @@ pub fn collect_commit_tree_only(ObjectDb, &@bit.RepoFileSystem, @bit.ObjectId) -
 
 pub fn collect_diff_objects(ObjectDb, &@bit.RepoFileSystem, @bit.ObjectId, @bit.ObjectId) -> Array[@bit.PackObject] raise @bit.GitError
 
+pub fn collect_local_branches(&@bit.RepoFileSystem, String) -> Array[String]
+
+pub fn collect_loose_ref_ids(&@bit.RepoFileSystem, String, String, Map[String, @bit.ObjectId], String?) -> Unit
+
+pub fn collect_packed_ref_ids(&@bit.RepoFileSystem, String, Map[String, @bit.ObjectId], String?) -> Unit
+
 pub fn collect_reachable_objects(ObjectDb, &@bit.RepoFileSystem, @bit.ObjectId) -> Array[@bit.PackObject] raise @bit.GitError
 
 pub fn collect_reachable_objects_from_commits(ObjectDb, &@bit.RepoFileSystem, Array[@bit.ObjectId]) -> Array[@bit.PackObject] raise @bit.GitError
@@ -49,6 +59,12 @@ pub fn collect_tree_files_from_commit(ObjectDb, &@bit.RepoFileSystem, @bit.Objec
 pub fn commit(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, Int64, committer? : String, committer_timestamp? : Int64) -> @bit.ObjectId raise @bit.GitError
 
 pub fn commit_amend(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, Int64, committer? : String, committer_timestamp? : Int64) -> @bit.ObjectId raise @bit.GitError
+
+pub fn config_has_remote_section(Array[ConfigBlock], String) -> Bool
+
+pub fn config_strip_quotes(String) -> String
+
+pub fn copy_tree(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> Unit raise @bit.GitError
 
 pub fn create_annotated_tag(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, @bit.ObjectId, String, String, Int64) -> Unit raise @bit.GitError
 
@@ -68,6 +84,8 @@ pub fn delete_reflog(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> 
 
 pub fn delete_tag(&@bit.FileSystem, String, String) -> Unit raise @bit.GitError
 
+pub fn detect_git_dir(&@bit.RepoFileSystem, String) -> (String, Bool)?
+
 pub fn detect_protocol_version(Bytes) -> Int
 
 pub fn diff_index(&@bit.RepoFileSystem, String) -> Array[DiffFile] raise @bit.GitError
@@ -82,11 +100,17 @@ pub fn fast_forward_to(&@bit.FileSystem, &@bit.RepoFileSystem, String, @bit.Obje
 
 pub fn find_tree_entry(ObjectDb, &@bit.RepoFileSystem, @bit.ObjectId, String) -> @bit.TreeEntry? raise @bit.GitError
 
+pub fn format_remove_warning(Array[String]) -> String
+
 pub fn gc_repo(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> GcResult raise @bit.GitError
 
 pub fn get_effective_remote_url(&@bit.RepoFileSystem, String) -> String?
 
+pub fn get_protocol_version() -> Int
+
 pub fn get_reflog_path(String, String) -> String
+
+pub fn get_remote_url(&@bit.RepoFileSystem, String, String) -> String?
 
 pub fn get_subdir_info(&@bit.RepoFileSystem, String) -> (String, String, String)?
 
@@ -100,17 +124,27 @@ pub fn init_repo(&@bit.FileSystem, String, default_branch? : String, bare? : Boo
 
 pub fn init_repo_with_options(&@bit.FileSystem, String, InitOptions) -> Unit raise @bit.GitError
 
+pub fn is_bare_git_dir(String) -> Bool
+
 pub fn is_branch_checked_out(&@bit.RepoFileSystem, String, String) -> String? raise @bit.GitError
 
 pub fn is_ignored_path(&@bit.RepoFileSystem, String, String, Bool) -> Bool raise @bit.GitError
+
+pub fn is_mirror_fetch_config(RemoteConfig) -> Bool
 
 pub fn is_partial_clone(&@bit.RepoFileSystem, String) -> Bool
 
 pub fn is_rebase_in_progress(&@bit.RepoFileSystem, String) -> Bool
 
+pub fn is_remote_namespace(String, String) -> Bool
+
 pub fn is_sparse_checkout_enabled(&@bit.RepoFileSystem, String) -> Bool
 
 pub fn is_subdir_clone(&@bit.RepoFileSystem, String) -> Bool
+
+pub fn is_valid_remote_name(String) -> Bool
+
+pub fn legacy_remote_exists(&@bit.RepoFileSystem, String, String) -> Bool
 
 pub fn list_branches(&@bit.RepoFileSystem, String) -> (HeadRef, Array[BranchInfo]) raise @bit.GitError
 
@@ -118,7 +152,15 @@ pub fn list_branches_text(&@bit.RepoFileSystem, String) -> Array[String] raise @
 
 pub fn list_branches_verbose(&@bit.RepoFileSystem, String) -> Array[String] raise @bit.GitError
 
+pub fn list_refs_with_ids(&@bit.RepoFileSystem, String, String?) -> Map[String, @bit.ObjectId]
+
 pub fn list_remote_branches(&@bit.RepoFileSystem, String) -> Array[String]
+
+pub fn list_remote_tracking_refs(&@bit.RepoFileSystem, String, String) -> Map[String, @bit.ObjectId]
+
+pub fn list_remotes(&@bit.RepoFileSystem, String) -> Array[String]
+
+pub fn list_remotes_verbose(&@bit.RepoFileSystem, String) -> Array[(String, String)]
 
 pub fn list_tags(&@bit.RepoFileSystem, String) -> Array[String]
 
@@ -138,21 +180,49 @@ pub fn log_head(&@bit.RepoFileSystem, String, max_count? : Int) -> Array[LogEntr
 
 pub fn log_head_oneline(&@bit.RepoFileSystem, String, max_count? : Int) -> Array[String] raise @bit.GitError
 
+pub fn match_url_pattern(String, String) -> Bool
+
 pub fn matches_sparse_pattern(String, Array[String]) -> Bool
 
 pub fn merge(&@bit.FileSystem, &@bit.RepoFileSystem, String, @bit.ObjectId, String, String, Int64) -> MergeResult raise @bit.GitError
 
 pub fn move_directory(&@bit.RepoFileSystem, &@bit.FileSystem, String, String) -> Unit
 
+pub fn move_tree(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> Unit raise @bit.GitError
+
+pub fn move_tree_safe(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> Unit raise @bit.GitError
+
 pub fn move_worktree(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, force? : Bool) -> Unit raise @bit.GitError
 
 pub fn mv_path(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, force? : Bool) -> Unit raise @bit.GitError
 
+pub fn normalize_remote_branch_name(String) -> String
+
 pub fn normalize_repo_path(String) -> String raise @bit.GitError
+
+pub fn normalize_track_ref(String) -> String
+
+pub fn parse_config_blocks(String) -> Array[ConfigBlock]
+
+pub fn parse_config_kv(String) -> (String, String)?
+
+pub fn parse_config_override_pairs() -> Array[(String, String)]
+
+pub fn parse_config_overrides() -> Map[String, String]
+
+pub fn parse_fetch_refspecs(Array[String]) -> Array[FetchRefspec]
 
 pub fn parse_github_shorthand(String) -> GitHubShorthand?
 
+pub fn parse_push_refspecs(Array[String]) -> Array[PushRefspec]
+
 pub fn parse_receive_pack_request(Bytes) -> ReceivePackRequest raise @bit.GitError
+
+pub fn parse_refspec_pair(String) -> (String, String)
+
+pub fn parse_remote_config(String) -> (Map[String, RemoteConfig], Map[String, BranchConfig])
+
+pub fn parse_section_header(String) -> (String, String?)
 
 pub fn parse_upload_pack_request(Bytes) -> UploadPackRequest raise @bit.GitError
 
@@ -170,13 +240,25 @@ pub async fn push_http_from_commit(&@bit.RepoFileSystem, String, String, @bit.Ob
 
 pub async fn push_http_tree_only(&@bit.RepoFileSystem, String, String, @bit.ObjectId, @bit.ObjectId, String) -> String raise @bit.GitError
 
+pub fn read_config_bool(&@bit.RepoFileSystem, String, String, String) -> Bool?
+
+pub fn read_config_content(&@bit.RepoFileSystem, String) -> String
+
+pub fn read_config_value(&@bit.RepoFileSystem, String, String, String) -> String?
+
 pub fn read_head_ref(&@bit.RepoFileSystem, String) -> HeadRef raise @bit.GitError
 
 pub fn read_index_entries(&@bit.RepoFileSystem, String) -> Array[IndexEntry] raise @bit.GitError
 
+pub fn read_local_remote_head_state(&@bit.RepoFileSystem, String, String) -> RemoteHeadState
+
 pub fn read_promisor_remote(&@bit.RepoFileSystem, String) -> String?
 
 pub fn read_reflog(&@bit.RepoFileSystem, String, String) -> Array[ReflogEntry] raise @bit.GitError
+
+pub fn read_remote_head_branch(&@bit.RepoFileSystem, String) -> String?
+
+pub fn read_repo_config(&@bit.RepoFileSystem, String) -> (Map[String, RemoteConfig], Map[String, BranchConfig])
 
 pub fn read_sparse_patterns(&@bit.RepoFileSystem, String) -> Array[String] raise @bit.GitError
 
@@ -200,9 +282,31 @@ pub fn receive_pack_response(&@bit.FileSystem, &@bit.RepoFileSystem, String, Str
 
 pub fn reflog_exists(&@bit.RepoFileSystem, String, String) -> Bool
 
+pub fn refspec_capture(String, String) -> String?
+
+pub fn refspec_map_dst(String, String, String) -> String?
+
+pub fn remote_set_branches(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, Array[String], Bool) -> Unit raise @bit.GitError
+
+pub fn remote_skip_default_update(Array[ConfigBlock], String) -> Bool
+
+pub fn remove_packed_ref(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> Unit raise @bit.GitError
+
+pub fn remove_packed_refs_with_prefix(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String) -> Unit raise @bit.GitError
+
+pub fn remove_ref_path(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> Unit
+
+pub fn remove_remote_refs(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> Unit
+
+pub fn remove_tree(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> Unit
+
 pub fn remove_worktree(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, force? : Bool) -> Unit raise @bit.GitError
 
 pub fn rename_branch(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, force? : Bool) -> Unit raise @bit.GitError
+
+pub fn rename_packed_refs_prefix(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, String, String) -> Unit raise @bit.GitError
+
+pub fn render_config_blocks(Array[ConfigBlock]) -> String
 
 pub fn repack_repo(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> RepackResult? raise @bit.GitError
 
@@ -210,7 +314,11 @@ pub fn repair_worktree(&@bit.FileSystem, &@bit.RepoFileSystem, String, worktree_
 
 pub fn reset(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, ResetMode) -> @bit.ObjectId raise @bit.GitError
 
+pub fn resolve_gitdir(&@bit.RepoFileSystem, String) -> String
+
 pub fn resolve_head_commit(&@bit.RepoFileSystem, String) -> @bit.ObjectId? raise @bit.GitError
+
+pub fn resolve_local_repo_path(&@bit.RepoFileSystem, String, String) -> String?
 
 pub fn resolve_ref(&@bit.RepoFileSystem, String, String) -> @bit.ObjectId? raise @bit.GitError
 
@@ -222,13 +330,21 @@ pub fn restore_paths(&@bit.FileSystem, &@bit.RepoFileSystem, String, Array[Strin
 
 pub fn rev_parse(&@bit.RepoFileSystem, String, String) -> @bit.ObjectId? raise @bit.GitError
 
+pub fn rewrite_packed_refs(&@bit.FileSystem, &@bit.RepoFileSystem, String, (String) -> String?) -> Unit raise @bit.GitError
+
 pub fn rm_paths(&@bit.FileSystem, &@bit.RepoFileSystem, String, Array[String], cached? : Bool, force? : Bool, recursive? : Bool) -> Unit raise @bit.GitError
+
+pub fn set_config_key(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, String, String) -> Unit raise @bit.GitError
 
 pub fn should_log_ref(&@bit.RepoFileSystem, String, String, Bool) -> (Bool, Bool) raise @bit.GitError
 
 pub fn show_ref(&@bit.RepoFileSystem, String) -> Array[(String, @bit.ObjectId)] raise @bit.GitError
 
 pub fn show_ref_text(&@bit.RepoFileSystem, String) -> Array[String] raise @bit.GitError
+
+pub fn sort_branch_configs_by_name(Array[BranchConfig]) -> Unit
+
+pub fn sort_strings_lex(Array[String]) -> Unit
 
 pub fn sparse_checkout_add(&@bit.FileSystem, &@bit.RepoFileSystem, String, Array[String]) -> Unit raise @bit.GitError
 
@@ -237,6 +353,10 @@ pub fn sparse_checkout_disable(&@bit.FileSystem, &@bit.RepoFileSystem, String) -
 pub fn sparse_checkout_init(&@bit.FileSystem, &@bit.RepoFileSystem, String, cone? : Bool) -> Unit raise @bit.GitError
 
 pub fn sparse_checkout_set(&@bit.FileSystem, &@bit.RepoFileSystem, String, Array[String]) -> Unit raise @bit.GitError
+
+pub fn split_config_key(String, String) -> (String, String)?
+
+pub fn split_whitespace_all(String) -> Array[String]
 
 pub fn stash_apply(&@bit.FileSystem, &@bit.RepoFileSystem, String, Int, Bool) -> Unit raise @bit.GitError
 
@@ -261,6 +381,10 @@ pub fn switch_branch(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, cre
 pub fn tree_files_to_index(ObjectDb, &@bit.RepoFileSystem, Map[String, TreeFileEntry]) -> Array[IndexEntry] raise @bit.GitError
 
 pub fn unlock_worktree(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> Unit raise @bit.GitError
+
+pub fn update_fetch_refspec(String, String, String) -> String
+
+pub fn update_follow_remote_head(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> Unit raise @bit.GitError
 
 pub fn update_head_ref(&@bit.FileSystem, &@bit.RepoFileSystem, String, @bit.ObjectId) -> Unit raise @bit.GitError
 
@@ -291,6 +415,13 @@ pub fn write_worktree_from_files(ObjectDb, &@bit.FileSystem, &@bit.RepoFileSyste
 // Errors
 
 // Types and methods
+pub(all) struct BranchConfig {
+  name : String
+  mut remote : String?
+  mut merges : Array[String]
+  mut rebase : Bool?
+}
+
 pub struct BranchInfo {
   name : String
   id : @bit.ObjectId
@@ -308,6 +439,13 @@ pub enum CherryPickStatus {
   Conflict
 }
 
+pub(all) struct ConfigBlock {
+  mut header : String?
+  mut section : String?
+  mut name : String?
+  mut lines : Array[String]
+}
+
 pub struct DiffFile {
   path : String
   kind : DiffKind
@@ -321,6 +459,12 @@ pub enum DiffKind {
   Added
   Modified
   Deleted
+}
+
+pub(all) struct FetchRefspec {
+  negative : Bool
+  src : String
+  dst : String
 }
 
 pub struct GcResult {
@@ -432,6 +576,12 @@ pub struct PruneResult {
   pruned : Array[@bit.ObjectId]
 }
 
+pub(all) struct PushRefspec {
+  force : Bool
+  src : String
+  dst : String
+}
+
 pub struct RebaseResult {
   status : RebaseStatus
   commit_id : @bit.ObjectId?
@@ -482,6 +632,24 @@ pub struct ReflogEntry {
   timestamp : Int64
   timezone : String
   message : String
+}
+
+pub(all) struct RemoteConfig {
+  mut urls : Array[String]
+  mut pushurls : Array[String]
+  mut fetch : Array[String]
+  mut push : Array[String]
+  mut promisor : Bool
+  mut partial_clone_filter : String?
+  mut mirror : Bool
+  mut tagopt : String?
+}
+
+pub enum RemoteHeadState {
+  Missing
+  Detached(String)
+  Symref(String)
+  Other(String)
 }
 
 pub struct RepackResult {

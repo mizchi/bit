@@ -1364,7 +1364,7 @@ async fn handle_ls_files(args : Array[String]) -> Unit raise Error {
     for submod in submodules {
       let sub_git_dir = root + "/" + submod.path + "/.git"
       if fs.is_dir(sub_git_dir) || fs.is_file(sub_git_dir) {
-        let actual_git_dir = resolve_gitdir(fs, sub_git_dir)
+        let actual_git_dir = @gitlib.resolve_gitdir(fs, sub_git_dir)
         let sub_entries = @gitlib.read_index_entries(fs, actual_git_dir)
         for se in sub_entries {
           let mode = format_mode(se.mode)
@@ -1385,7 +1385,7 @@ async fn handle_ls_files(args : Array[String]) -> Unit raise Error {
     for submod in submodules {
       let sub_git_dir = root + "/" + submod.path + "/.git"
       if fs.is_dir(sub_git_dir) || fs.is_file(sub_git_dir) {
-        let actual_git_dir = resolve_gitdir(fs, sub_git_dir)
+        let actual_git_dir = @gitlib.resolve_gitdir(fs, sub_git_dir)
         let sub_entries = @gitlib.read_index_entries(fs, actual_git_dir)
         for se in sub_entries {
           let full_path = submod.path + "/" + se.path
@@ -1460,36 +1460,6 @@ fn parse_gitmodules(
     result.push({ name: current_name, path: current_path, url: current_url })
   }
   result
-}
-
-///|
-/// Resolve .git file to actual git directory (for submodules)
-fn resolve_gitdir(fs : &@git.RepoFileSystem, git_path : String) -> String {
-  if fs.is_dir(git_path) {
-    return git_path
-  }
-  // It's a file with "gitdir: <path>" content
-  let content = decode_bytes(fs.read_file(git_path)) catch {
-    _ => return git_path
-  }
-  let trimmed = trim_string(content)
-  if trimmed.has_prefix("gitdir: ") {
-    let target = String::unsafe_substring(
-      trimmed,
-      start=8,
-      end=trimmed.length(),
-    )
-    // If relative path, resolve relative to parent of .git file
-    if not(target.has_prefix("/")) {
-      let parent = match git_path.rev_find("/") {
-        Some(i) => String::unsafe_substring(git_path, start=0, end=i)
-        None => "."
-      }
-      return parent + "/" + target
-    }
-    return target
-  }
-  git_path
 }
 
 ///|
@@ -1879,7 +1849,7 @@ async fn print_tree_entries(
       if found_submod {
         // Resolve the submodule's git directory
         let sub_git_path = root + "/" + path + "/.git"
-        let sub_git_dir = resolve_gitdir(fs, sub_git_path)
+        let sub_git_dir = @gitlib.resolve_gitdir(fs, sub_git_path)
         // Load the submodule's object database
         let sub_db = @gitlib.ObjectDb::load(fs, sub_git_dir)
         // entry.id is the commit SHA in the submodule
@@ -2734,7 +2704,7 @@ async fn handle_submodule_status(
       continue
     }
     // Get HEAD of submodule
-    let sub_git_dir = resolve_gitdir(rfs, sub_git)
+    let sub_git_dir = @gitlib.resolve_gitdir(rfs, sub_git)
     let head_id = @gitlib.resolve_head_commit(rfs, sub_git_dir) catch {
       _ => {
         print_line("-\{String::make(40, '0')} \{sub.path}")
@@ -2883,7 +2853,7 @@ async fn handle_submodule_update(
       ensure_submodule_gitdir_config(fs, modules_dir, sub_path)
     }
     // Checkout target commit
-    let sub_git_dir = resolve_gitdir(rfs, sub_git)
+    let sub_git_dir = @gitlib.resolve_gitdir(rfs, sub_git)
     print_line(
       "Submodule path '\{sub.path}': checked out '\{target_id.to_hex()}'",
     )
@@ -3058,7 +3028,7 @@ async fn handle_submodule_deinit(
     let sub_path = root + "/" + sub.path
     // Check for local modifications
     if not(force) && rfs.is_dir(sub_path) {
-      let sub_git_dir = resolve_gitdir(rfs, sub_path + "/.git")
+      let sub_git_dir = @gitlib.resolve_gitdir(rfs, sub_path + "/.git")
       if rfs.is_dir(sub_git_dir) {
         let status = @gitlib.status(rfs, sub_path) catch { _ => continue }
         if status.unstaged_modified.length() > 0 {
@@ -3154,7 +3124,7 @@ async fn handle_submodule_sync(
     }
     // Update submodule's origin URL
     let sub_path = root + "/" + sub.path
-    let sub_git_dir = resolve_gitdir(rfs, sub_path + "/.git")
+    let sub_git_dir = @gitlib.resolve_gitdir(rfs, sub_path + "/.git")
     let sub_config = sub_git_dir + "/config"
     if rfs.is_file(sub_config) {
       let content = decode_bytes(rfs.read_file(sub_config))

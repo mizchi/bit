@@ -48,13 +48,7 @@ type BlameLine
 
 type BlameOptions
 
-type BranchConfig
-
 type CherryPickResult
-
-type ConfigBlock
-
-type FetchRefspec
 
 type GlobalOptions
 
@@ -67,13 +61,7 @@ pub fn OsFs::new() -> Self
 pub impl @mizchi/bit.FileSystem for OsFs
 pub impl @mizchi/bit.RepoFileSystem for OsFs
 
-type PushRefspec
-
 type RebaseTodoEntry
-
-type RemoteConfig
-
-type RemoteHeadState
 
 type SubdirChangeInfo
 

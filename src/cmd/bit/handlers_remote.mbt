@@ -78,14 +78,14 @@ fn emit_trace_region(category : String, label : String) -> Unit raise @git.GitEr
 async fn handle_remote(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
   let fs = OsFs::new()
-  let (git_dir, is_bare_repo) = match detect_git_dir(fs, root) {
+  let (git_dir, is_bare_repo) = match @gitlib.detect_git_dir(fs, root) {
     Some((dir, bare)) => (dir, bare)
     None => (root + "/.git", false)
   }
   ignore(is_bare_repo)
   if args.length() == 0 {
     // List remotes
-    let remotes = list_remotes(fs, git_dir)
+    let remotes = @gitlib.list_remotes(fs, git_dir)
     for name in remotes {
       print_line(name)
     }
@@ -139,12 +139,12 @@ async fn handle_remote(args : Array[String]) -> Unit raise Error {
       }
       let name = positional[0]
       let url = positional[1]
-      if not(is_valid_remote_name(name)) {
+      if not(@gitlib.is_valid_remote_name(name)) {
         die_remote(1, "fatal: '\{name}' is not a valid remote name")
       }
-      let blocks = parse_config_blocks(read_config_content(fs, git_dir))
-      if config_has_remote_section(blocks, name) ||
-        legacy_remote_exists(fs, git_dir, name) {
+      let blocks = @gitlib.parse_config_blocks(@gitlib.read_config_content(fs, git_dir))
+      if @gitlib.config_has_remote_section(blocks, name) ||
+        @gitlib.legacy_remote_exists(fs, git_dir, name) {
         die_remote(3, "error: remote \{name} already exists.")
       }
       let existing_remotes : Array[String] = []
@@ -179,7 +179,7 @@ async fn handle_remote(args : Array[String]) -> Unit raise Error {
       if mirror_fetch {
         if track_branches.length() > 0 {
           for t in track_branches {
-            let src_ref = normalize_track_ref(t)
+            let src_ref = @gitlib.normalize_track_ref(t)
             fetch_specs.push("+" + src_ref + ":" + src_ref)
           }
         } else {
@@ -188,8 +188,8 @@ async fn handle_remote(args : Array[String]) -> Unit raise Error {
       } else {
         if track_branches.length() > 0 {
           for t in track_branches {
-            let src_ref = normalize_track_ref(t)
-            let short = normalize_remote_branch_name(src_ref)
+            let src_ref = @gitlib.normalize_track_ref(t)
+            let short = @gitlib.normalize_remote_branch_name(src_ref)
             fetch_specs.push(
               "+\{src_ref}:refs/remotes/\{name}/\{short}",
             )
@@ -217,9 +217,9 @@ async fn handle_remote(args : Array[String]) -> Unit raise Error {
         die_remote(129, "usage: git remote remove <name>")
       }
       let name = args[1]
-      let blocks = parse_config_blocks(read_config_content(fs, git_dir))
-      if not(config_has_remote_section(blocks, name)) &&
-        not(legacy_remote_exists(fs, git_dir, name)) {
+      let blocks = @gitlib.parse_config_blocks(@gitlib.read_config_content(fs, git_dir))
+      if not(@gitlib.config_has_remote_section(blocks, name)) &&
+        not(@gitlib.legacy_remote_exists(fs, git_dir, name)) {
         die_remote(2, "error: No such remote: '\{name}'")
       }
       remote_remove(fs, fs, git_dir, name)
@@ -241,17 +241,17 @@ async fn handle_remote(args : Array[String]) -> Unit raise Error {
       }
       let old_name = positional[0]
       let new_name = positional[1]
-      if not(is_valid_remote_name(new_name)) {
+      if not(@gitlib.is_valid_remote_name(new_name)) {
         die_remote(1, "fatal: '\{new_name}' is not a valid remote name")
       }
-      let blocks = parse_config_blocks(read_config_content(fs, git_dir))
-      let old_exists = config_has_remote_section(blocks, old_name) ||
-        legacy_remote_exists(fs, git_dir, old_name)
+      let blocks = @gitlib.parse_config_blocks(@gitlib.read_config_content(fs, git_dir))
+      let old_exists = @gitlib.config_has_remote_section(blocks, old_name) ||
+        @gitlib.legacy_remote_exists(fs, git_dir, old_name)
       if not(old_exists) {
         die_remote(2, "error: No such remote: '\{old_name}'")
       }
-      let new_exists = config_has_remote_section(blocks, new_name) ||
-        legacy_remote_exists(fs, git_dir, new_name)
+      let new_exists = @gitlib.config_has_remote_section(blocks, new_name) ||
+        @gitlib.legacy_remote_exists(fs, git_dir, new_name)
       if old_name != new_name && new_exists {
         die_remote(3, "error: remote \{new_name} already exists.")
       }
@@ -264,7 +264,7 @@ async fn handle_remote(args : Array[String]) -> Unit raise Error {
     }
     "-v" | "--verbose" => {
       // List remotes with URLs
-      let remotes = list_remotes_verbose(fs, git_dir)
+      let remotes = @gitlib.list_remotes_verbose(fs, git_dir)
       for item in remotes {
         let (name, line) = item
         print_line("\{name}\t\{line}")
@@ -284,7 +284,7 @@ async fn handle_remote(args : Array[String]) -> Unit raise Error {
       let names = if targets.length() > 0 {
         targets
       } else {
-        list_remotes(fs, git_dir)
+        @gitlib.list_remotes(fs, git_dir)
       }
       for i in 0..<names.length() {
         remote_show(fs, git_dir, root, names[i], no_query)
@@ -308,7 +308,7 @@ async fn handle_remote(args : Array[String]) -> Unit raise Error {
         die_remote(129, "usage: git remote get-url [--push] [--all] <name>")
       }
       let name = positional[0]
-      let (remotes, _) = read_repo_config(fs, git_dir)
+      let (remotes, _) = @gitlib.read_repo_config(fs, git_dir)
       match remotes.get(name) {
         Some(rc) => {
           let urls = if push {
@@ -481,7 +481,7 @@ async fn handle_remote(args : Array[String]) -> Unit raise Error {
           "usage: git remote set-branches [--add] <name> <branch>...",
         )
       }
-      remote_set_branches(fs, fs, git_dir, name, branches, add)
+      @gitlib.remote_set_branches(fs, fs, git_dir, name, branches, add)
     }
     "set-head" => {
       let mut mode : String? = None
@@ -526,944 +526,6 @@ async fn handle_remote(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-struct RemoteConfig {
-  mut urls : Array[String]
-  mut pushurls : Array[String]
-  mut fetch : Array[String]
-  mut push : Array[String]
-  mut promisor : Bool
-  mut partial_clone_filter : String?
-  mut mirror : Bool
-  mut tagopt : String?
-}
-
-///|
-struct BranchConfig {
-  name : String
-  mut remote : String?
-  mut merges : Array[String]
-  mut rebase : Bool?
-}
-
-///|
-struct FetchRefspec {
-  negative : Bool
-  src : String
-  dst : String
-}
-
-///|
-struct PushRefspec {
-  force : Bool
-  src : String
-  dst : String
-}
-
-///|
-fn config_strip_quotes(s : String) -> String {
-  let t = s.trim().to_string()
-  if t.length() >= 2 && t.has_prefix("\"") && t.has_suffix("\"") {
-    String::unsafe_substring(t, start=1, end=t.length() - 1)
-  } else {
-    t
-  }
-}
-
-///|
-struct ConfigBlock {
-  mut header : String?
-  section : String?
-  name : String?
-  mut lines : Array[String]
-}
-
-///|
-fn parse_section_header(line : String) -> (String, String?) {
-  let body = String::unsafe_substring(line, start=1, end=line.length() - 1)
-  match body.find(" ") {
-    Some(idx) => {
-      let sec = String::unsafe_substring(body, start=0, end=idx).to_lower()
-      let name_part = String::unsafe_substring(
-        body,
-        start=idx + 1,
-        end=body.length(),
-      )
-      (sec, Some(config_strip_quotes(name_part)))
-    }
-    None => (body.to_lower(), None)
-  }
-}
-
-///|
-fn parse_config_kv(line : String) -> (String, String)? {
-  let trimmed = trim_string(line)
-  if trimmed.length() == 0 || trimmed.has_prefix("#") || trimmed.has_prefix(";") {
-    return None
-  }
-  match trimmed.find("=") {
-    Some(eq_idx) => {
-      let key = trim_string(
-        String::unsafe_substring(trimmed, start=0, end=eq_idx),
-      ).to_lower()
-      let value = trim_string(
-        String::unsafe_substring(
-          trimmed,
-          start=eq_idx + 1,
-          end=trimmed.length(),
-        ),
-      )
-      Some((key, value))
-    }
-    None => None
-  }
-}
-
-///|
-fn parse_config_blocks(content : String) -> Array[ConfigBlock] {
-  let blocks : Array[ConfigBlock] = []
-  let mut current : ConfigBlock = {
-    header: None,
-    section: None,
-    name: None,
-    lines: [],
-  }
-  for line_view in content.split("\n") {
-    let line = line_view.to_string()
-    let trimmed = trim_string(line)
-    if trimmed.has_prefix("[") && trimmed.has_suffix("]") {
-      if current.header is Some(_) || current.lines.length() > 0 {
-        blocks.push(current)
-      }
-      let (section, name) = parse_section_header(trimmed)
-      current = {
-        header: Some(trimmed),
-        section: Some(section),
-        name,
-        lines: [],
-      }
-      continue
-    }
-    current.lines.push(line)
-  }
-  if current.header is Some(_) || current.lines.length() > 0 {
-    blocks.push(current)
-  }
-  blocks
-}
-
-///|
-fn render_config_blocks(blocks : Array[ConfigBlock]) -> String {
-  let lines : Array[String] = []
-  for block in blocks {
-    match block.header {
-      Some(h) => lines.push(h)
-      None => ()
-    }
-    for line in block.lines {
-      lines.push(line)
-    }
-  }
-  let mut content = lines.join("\n")
-  if content.length() > 0 && not(content.has_suffix("\n")) {
-    content = content + "\n"
-  }
-  content
-}
-
-///|
-fn config_has_remote_section(
-  blocks : Array[ConfigBlock],
-  name : String,
-) -> Bool {
-  for block in blocks {
-    if block.section == Some("remote") && block.name == Some(name) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn read_config_content(rfs : &@git.RepoFileSystem, git_dir : String) -> String {
-  let config_path = git_dir + "/config"
-  if rfs.is_file(config_path) {
-    let content = try? rfs.read_file(config_path)
-    match content {
-      Ok(data) => decode_bytes(data)
-      Err(_) => ""
-    }
-  } else {
-    ""
-  }
-}
-
-///|
-fn is_valid_remote_name(name : String) -> Bool {
-  if name.length() == 0 {
-    return false
-  }
-  if name.has_suffix("/") || name.has_suffix(".lock") {
-    return false
-  }
-  if name.contains("..") || name.contains("@{") {
-    return false
-  }
-  let invalid = [" ", "\t", "\n", "\r", "~", "^", ":", "?", "*", "[", "\\"]
-  for bad in invalid {
-    if name.contains(bad) {
-      return false
-    }
-  }
-  true
-}
-
-///|
-fn legacy_remote_exists(fs : OsFs, git_dir : String, name : String) -> Bool {
-  fs.is_file(git_dir + "/remotes/" + name) ||
-  fs.is_file(git_dir + "/branches/" + name)
-}
-
-///|
-fn update_fetch_refspec(
-  spec : String,
-  old_name : String,
-  new_name : String,
-) -> String {
-  let mut prefix = ""
-  let mut body = spec
-  if body.has_prefix("^") {
-    prefix = prefix + "^"
-    body = String::unsafe_substring(body, start=1, end=body.length())
-  }
-  if body.has_prefix("+") {
-    prefix = prefix + "+"
-    body = String::unsafe_substring(body, start=1, end=body.length())
-  }
-  let has_colon = body.find(":") is Some(_)
-  let (src, dst) = parse_refspec_pair(body)
-  let old_prefix = "refs/remotes/" + old_name + "/"
-  if dst.has_prefix(old_prefix) {
-    let suffix = String::unsafe_substring(
-      dst,
-      start=old_prefix.length(),
-      end=dst.length(),
-    )
-    let new_dst = "refs/remotes/" + new_name + "/" + suffix
-    let new_body = if has_colon { src + ":" + new_dst } else { new_dst }
-    prefix + new_body
-  } else {
-    spec
-  }
-}
-
-///|
-///|
-fn collect_loose_ref_ids(
-  fs : OsFs,
-  dir : String,
-  prefix : String,
-  out : Map[String, @git.ObjectId],
-  filter_prefix : String?,
-) -> Unit {
-  if not(fs.is_dir(dir)) {
-    return ()
-  }
-  let entries = fs.readdir(dir) catch { _ => [] }
-  for entry in entries {
-    if entry == "." || entry == ".." {
-      continue
-    }
-    let path = dir + "/" + entry
-    let name = if prefix.length() == 0 { entry } else { prefix + "/" + entry }
-    if fs.is_dir(path) {
-      collect_loose_ref_ids(fs, path, name, out, filter_prefix)
-    } else if fs.is_file(path) {
-      if filter_prefix is Some(pfx) && not(name.has_prefix(pfx)) {
-        continue
-      }
-      let content = decode_bytes(fs.read_file(path) catch { _ => continue })
-      let hex = trim_string(content)
-      if hex.length() == 0 {
-        continue
-      }
-      let id = @git.ObjectId::from_hex(hex) catch { _ => continue }
-      out[name] = id
-    }
-  }
-}
-
-///|
-fn collect_packed_ref_ids(
-  fs : OsFs,
-  git_dir : String,
-  out : Map[String, @git.ObjectId],
-  filter_prefix : String?,
-) -> Unit {
-  let packed_path = git_dir + "/packed-refs"
-  if not(fs.is_file(packed_path)) {
-    return ()
-  }
-  let packed = fs.read_file(packed_path) catch { _ => Bytes::default() }
-  let text = @utf8.decode_lossy(packed[:])
-  for line_view in text.split("\n") {
-    let line = trim_string(line_view.to_string())
-    if line.length() == 0 {
-      continue
-    }
-    if line.has_prefix("#") || line.has_prefix("^") {
-      continue
-    }
-    let space = line.find(" ")
-    match space {
-      None => continue
-      Some(idx) => {
-        if idx + 1 >= line.length() {
-          continue
-        }
-        let id_hex = String::unsafe_substring(line, start=0, end=idx)
-        let refname = String::unsafe_substring(
-          line,
-          start=idx + 1,
-          end=line.length(),
-        )
-        if filter_prefix is Some(pfx) && not(refname.has_prefix(pfx)) {
-          continue
-        }
-        if out.contains(refname) {
-          continue
-        }
-        let id = @git.ObjectId::from_hex(id_hex) catch { _ => continue }
-        out[refname] = id
-      }
-    }
-  }
-}
-
-///|
-fn list_refs_with_ids(
-  fs : OsFs,
-  git_dir : String,
-  filter_prefix : String?,
-) -> Map[String, @git.ObjectId] {
-  let out : Map[String, @git.ObjectId] = {}
-  let refs_dir = git_dir + "/refs"
-  collect_loose_ref_ids(fs, refs_dir, "refs", out, filter_prefix)
-  collect_packed_ref_ids(fs, git_dir, out, filter_prefix)
-  out
-}
-
-///|
-fn rewrite_packed_refs(
-  fs : OsFs,
-  git_dir : String,
-  transform : (String) -> String?,
-) -> Unit raise @git.GitError {
-  let packed_path = git_dir + "/packed-refs"
-  if not(fs.is_file(packed_path)) {
-    return ()
-  }
-  let data = fs.read_file(packed_path) catch { _ => Bytes::default() }
-  let text = @utf8.decode_lossy(data[:])
-  let lines : Array[String] = []
-  let mut skip_peeled = false
-  for line_view in text.split("\n") {
-    let line = line_view.to_string()
-    if line.length() == 0 {
-      continue
-    }
-    if line.has_prefix("#") {
-      lines.push(line)
-      skip_peeled = false
-      continue
-    }
-    if line.has_prefix("^") {
-      if not(skip_peeled) {
-        lines.push(line)
-      }
-      continue
-    }
-    let space = line.find(" ")
-    match space {
-      None => {
-        lines.push(line)
-        skip_peeled = false
-      }
-      Some(idx) => {
-        if idx + 1 >= line.length() {
-          lines.push(line)
-          skip_peeled = false
-          continue
-        }
-        let oid = String::unsafe_substring(line, start=0, end=idx)
-        let refname = String::unsafe_substring(
-          line,
-          start=idx + 1,
-          end=line.length(),
-        )
-        match transform(refname) {
-          Some(new_ref) => {
-            lines.push(oid + " " + new_ref)
-            skip_peeled = false
-          }
-          None => {
-            skip_peeled = true
-          }
-        }
-      }
-    }
-  }
-  if lines.length() == 0 {
-    fs.remove_file(packed_path) catch {
-      _ => ()
-    }
-  } else {
-    fs.write_string(packed_path, lines.join("\n") + "\n")
-  }
-}
-
-///|
-fn remove_packed_ref(
-  fs : OsFs,
-  git_dir : String,
-  refname : String,
-) -> Unit raise @git.GitError {
-  rewrite_packed_refs(
-    fs,
-    git_dir,
-    fn(name) { if name == refname { None } else { Some(name) } },
-  )
-}
-
-///|
-fn remove_packed_refs_with_prefix(
-  fs : OsFs,
-  git_dir : String,
-  prefix : String,
-  exact : String,
-) -> Unit raise @git.GitError {
-  rewrite_packed_refs(
-    fs,
-    git_dir,
-    fn(name) {
-      if name == exact || name.has_prefix(prefix) {
-        None
-      } else {
-        Some(name)
-      }
-    },
-  )
-}
-
-///|
-fn rename_packed_refs_prefix(
-  fs : OsFs,
-  git_dir : String,
-  old_prefix : String,
-  new_prefix : String,
-  old_exact : String,
-  new_exact : String,
-) -> Unit raise @git.GitError {
-  rewrite_packed_refs(
-    fs,
-    git_dir,
-    fn(name) {
-      if name == old_exact {
-        Some(new_exact)
-      } else if name.has_prefix(old_prefix) {
-        let suffix = String::unsafe_substring(
-          name,
-          start=old_prefix.length(),
-          end=name.length(),
-        )
-        Some(new_prefix + suffix)
-      } else {
-        Some(name)
-      }
-    },
-  )
-}
-
-///|
-fn compare_strings_lex(a : String, b : String) -> Int {
-  if a == b {
-    return 0
-  }
-  let a_chars : Array[Char] = []
-  for c in a {
-    a_chars.push(c)
-  }
-  let b_chars : Array[Char] = []
-  for c in b {
-    b_chars.push(c)
-  }
-  let mut i = 0
-  let alen = a_chars.length()
-  let blen = b_chars.length()
-  while i < alen && i < blen {
-    let ac = a_chars[i]
-    let bc = b_chars[i]
-    if ac < bc {
-      return -1
-    }
-    if ac > bc {
-      return 1
-    }
-    i += 1
-  }
-  if alen < blen {
-    -1
-  } else if alen > blen {
-    1
-  } else {
-    0
-  }
-}
-
-///|
-fn sort_strings_lex(items : Array[String]) -> Unit {
-  let n = items.length()
-  if n < 2 {
-    return ()
-  }
-  for i in 0..<n {
-    for j in (i + 1)..<n {
-      if compare_strings_lex(items[i], items[j]) > 0 {
-        let tmp = items[i]
-        items[i] = items[j]
-        items[j] = tmp
-      }
-    }
-  }
-}
-
-///|
-fn sort_branch_configs_by_name(items : Array[BranchConfig]) -> Unit {
-  let n = items.length()
-  if n < 2 {
-    return ()
-  }
-  for i in 0..<n {
-    for j in (i + 1)..<n {
-      if compare_strings_lex(items[i].name, items[j].name) > 0 {
-        let tmp = items[i]
-        items[i] = items[j]
-        items[j] = tmp
-      }
-    }
-  }
-}
-
-///|
-fn collect_local_branches(fs : OsFs, git_dir : String) -> Array[String] {
-  let out : Array[String] = []
-  let refs = list_refs_with_ids(fs, git_dir, Some("refs/heads/"))
-  for name, _ in refs {
-    let short = String::unsafe_substring(name, start=11, end=name.length())
-    out.push(short)
-  }
-  out.sort()
-  out
-}
-
-///|
-fn is_remote_namespace(dst : String, remote_name : String) -> Bool {
-  let prefix = "refs/remotes/" + remote_name + "/"
-  dst.has_prefix(prefix) || dst == "refs/remotes/" + remote_name
-}
-
-///|
-fn format_remove_warning(branches : Array[String]) -> String {
-  if branches.length() == 0 {
-    return ""
-  }
-  let lines : Array[String] = []
-  if branches.length() == 1 {
-    lines.push(
-      "Note: A branch outside the refs/remotes/ hierarchy was not removed;",
-    )
-    lines.push("to delete it, use:")
-  } else {
-    lines.push(
-      "Note: Some branches outside the refs/remotes/ hierarchy were not removed;",
-    )
-    lines.push("to delete them, use:")
-  }
-  for name in branches {
-    lines.push("  git branch -d " + name)
-  }
-  lines.join("\n") + "\n"
-}
-
-///|
-fn parse_remote_config(
-  content : String,
-) -> (Map[String, RemoteConfig], Map[String, BranchConfig]) {
-  let remotes : Map[String, RemoteConfig] = {}
-  let branches : Map[String, BranchConfig] = {}
-  let mut current_section : String? = None
-  let mut current_name : String? = None
-  for line_view in content.split("\n") {
-    let line = trim_string(line_view.to_string())
-    if line.length() == 0 || line.has_prefix("#") || line.has_prefix(";") {
-      continue
-    }
-    if line.has_prefix("[") && line.has_suffix("]") {
-      let body = String::unsafe_substring(line, start=1, end=line.length() - 1)
-      match body.find(" ") {
-        Some(idx) => {
-          let sec = String::unsafe_substring(body, start=0, end=idx).to_lower()
-          let name_part = String::unsafe_substring(
-            body,
-            start=idx + 1,
-            end=body.length(),
-          )
-          let name = config_strip_quotes(name_part)
-          current_section = Some(sec)
-          current_name = Some(name)
-        }
-        None => {
-          current_section = Some(body.to_lower())
-          current_name = None
-        }
-      }
-      continue
-    }
-    match line.find("=") {
-      Some(eq_idx) => {
-        let key = trim_string(
-          String::unsafe_substring(line, start=0, end=eq_idx),
-        ).to_lower()
-        let value = trim_string(
-          String::unsafe_substring(line, start=eq_idx + 1, end=line.length()),
-        )
-        match (current_section, current_name) {
-          (Some("remote"), Some(name)) => {
-            let rc = remotes
-              .get(name)
-              .unwrap_or({
-                urls: [],
-                pushurls: [],
-                fetch: [],
-                push: [],
-                promisor: false,
-                partial_clone_filter: None,
-                mirror: false,
-                tagopt: None,
-              })
-            match key {
-              "url" => rc.urls.push(value)
-              "pushurl" => rc.pushurls.push(value)
-              "fetch" => rc.fetch.push(value)
-              "push" => rc.push.push(value)
-              "promisor" => {
-                let v = value.to_lower()
-                rc.promisor = v == "true" || v == "1" || v == "yes"
-              }
-              "partialclonefilter" => rc.partial_clone_filter = Some(value)
-              "mirror" => {
-                let v = value.to_lower()
-                rc.mirror = v == "true" || v == "1" || v == "yes"
-              }
-              "tagopt" => rc.tagopt = Some(value)
-              _ => ()
-            }
-            remotes[name] = rc
-          }
-          (Some("branch"), Some(name)) => {
-            let bc = branches
-              .get(name)
-              .unwrap_or({ name, remote: None, merges: [], rebase: None })
-            match key {
-              "remote" => bc.remote = Some(value)
-              "merge" => {
-                let parts = value.split(" ").collect()
-                for p_view in parts {
-                  let p = p_view.to_string().trim().to_string()
-                  if p.length() > 0 {
-                    bc.merges.push(p)
-                  }
-                }
-              }
-              "rebase" => {
-                let v = value.to_lower()
-                if v == "true" || v == "1" || v == "yes" {
-                  bc.rebase = Some(true)
-                } else if v == "false" || v == "0" || v == "no" {
-                  bc.rebase = Some(false)
-                }
-              }
-              _ => ()
-            }
-            branches[name] = bc
-          }
-          _ => ()
-        }
-      }
-      None => ()
-    }
-  }
-  (remotes, branches)
-}
-
-///|
-fn split_config_key(
-  full_key : String,
-  section : String,
-) -> (String, String)? {
-  let prefix = section + "."
-  if not(full_key.has_prefix(prefix)) {
-    return None
-  }
-  let rest = String::unsafe_substring(
-    full_key,
-    start=prefix.length(),
-    end=full_key.length(),
-  )
-  match rest.rev_find(".") {
-    None => None
-    Some(idx) => {
-      let name = String::unsafe_substring(rest, start=0, end=idx)
-      let key = String::unsafe_substring(rest, start=idx + 1, end=rest.length())
-      Some((name, key))
-    }
-  }
-}
-
-///|
-fn parse_config_override_pairs() -> Array[(String, String)] {
-  let out : Array[(String, String)] = []
-  let overrides = @sys.get_env_var("GIT_CONFIG_OVERRIDES")
-  guard overrides is Some(env_value) else { return out }
-  for line in split_by_newline(env_value) {
-    if line.length() == 0 {
-      continue
-    }
-    match line.find("=") {
-      Some(idx) => {
-        let key = String::unsafe_substring(line, start=0, end=idx).to_lower()
-        let value = String::unsafe_substring(
-          line,
-          start=idx + 1,
-          end=line.length(),
-        )
-        out.push((key, value))
-      }
-      None => out.push((line.to_lower(), ""))
-    }
-  }
-  out
-}
-
-///|
-fn apply_config_overrides(
-  remotes : Map[String, RemoteConfig],
-  branches : Map[String, BranchConfig],
-  overrides : Array[(String, String)],
-) -> Unit {
-  for pair in overrides {
-    let (raw_key, value) = pair
-    let mut handled = false
-    match split_config_key(raw_key, "remote") {
-      Some((name, key)) => {
-        let rc = remotes
-          .get(name)
-          .unwrap_or({
-            urls: [],
-            pushurls: [],
-            fetch: [],
-            push: [],
-            promisor: false,
-            partial_clone_filter: None,
-            mirror: false,
-            tagopt: None,
-          })
-        match key {
-          "url" =>
-            if value.length() == 0 {
-              rc.urls = []
-            } else {
-              rc.urls.push(value)
-            }
-          "pushurl" =>
-            if value.length() == 0 {
-              rc.pushurls = []
-            } else {
-              rc.pushurls.push(value)
-            }
-          "fetch" =>
-            if value.length() == 0 {
-              rc.fetch = []
-            } else {
-              rc.fetch.push(value)
-            }
-          "push" =>
-            if value.length() == 0 {
-              rc.push = []
-            } else {
-              rc.push.push(value)
-            }
-          "promisor" =>
-            if value.length() > 0 {
-              let v = value.to_lower()
-              rc.promisor = v == "true" || v == "1" || v == "yes"
-            }
-          "partialclonefilter" =>
-            rc.partial_clone_filter = if value.length() == 0 {
-              None
-            } else {
-              Some(value)
-            }
-          "mirror" =>
-            if value.length() > 0 {
-              let v = value.to_lower()
-              rc.mirror = v == "true" || v == "1" || v == "yes"
-            }
-          "tagopt" =>
-            rc.tagopt = if value.length() == 0 { None } else { Some(value) }
-          _ => ()
-        }
-        remotes[name] = rc
-        handled = true
-      }
-      None => ()
-    }
-    if handled {
-      continue
-    }
-    match split_config_key(raw_key, "branch") {
-      Some((name, key)) => {
-        let bc = branches
-          .get(name)
-          .unwrap_or({ name, remote: None, merges: [], rebase: None })
-        match key {
-          "remote" => bc.remote = if value.length() == 0 { None } else { Some(value) }
-          "merge" =>
-            if value.length() == 0 {
-              bc.merges = []
-            } else {
-              bc.merges.push(value)
-            }
-          "rebase" =>
-            if value.length() > 0 {
-              let v = value.to_lower()
-              if v == "true" || v == "1" || v == "yes" {
-                bc.rebase = Some(true)
-              } else if v == "false" || v == "0" || v == "no" {
-                bc.rebase = Some(false)
-              }
-            }
-          _ => ()
-        }
-        branches[name] = bc
-      }
-      None => ()
-    }
-  }
-}
-
-///|
-fn read_repo_config(
-  fs : &@git.RepoFileSystem,
-  git_dir : String,
-) -> (Map[String, RemoteConfig], Map[String, BranchConfig]) {
-  let config_path = git_dir + "/config"
-  if not(fs.is_file(config_path)) {
-    return ({}, {})
-  }
-  let content = decode_bytes(
-    fs.read_file(config_path) catch {
-      _ => return ({}, {})
-    },
-  )
-  let (remotes, branches) = parse_remote_config(content)
-  let overrides = parse_config_override_pairs()
-  if overrides.length() > 0 {
-    apply_config_overrides(remotes, branches, overrides)
-  }
-  (remotes, branches)
-}
-
-///|
-fn list_remotes(fs : &@git.RepoFileSystem, git_dir : String) -> Array[String] {
-  let (remotes, _) = read_repo_config(fs, git_dir)
-  let out : Array[String] = []
-  for name, _ in remotes {
-    out.push(name)
-  }
-  out.sort()
-  out
-}
-
-///|
-fn list_remotes_verbose(
-  fs : &@git.RepoFileSystem,
-  git_dir : String,
-) -> Array[(String, String)] {
-  let (remotes, _) = read_repo_config(fs, git_dir)
-  let out : Array[(String, String)] = []
-  let names = list_remotes(fs, git_dir)
-  for name in names {
-    match remotes.get(name) {
-      Some(rc) => {
-        if rc.urls.length() == 0 {
-          continue
-        }
-        let url = rc.urls[0]
-        let filter = if rc.promisor && rc.partial_clone_filter is Some(f) {
-          " [" + f + "]"
-        } else {
-          ""
-        }
-        out.push((name, url + " (fetch)" + filter))
-        let push_urls = if rc.pushurls.length() > 0 {
-          rc.pushurls
-        } else {
-          rc.urls
-        }
-        for pu in push_urls {
-          out.push((name, pu + " (push)"))
-        }
-      }
-      None => ()
-    }
-  }
-  out
-}
-
-///|
-fn get_remote_url(
-  fs : &@git.RepoFileSystem,
-  git_dir : String,
-  name : String,
-) -> String? {
-  let config_path = git_dir + "/config"
-  if not(fs.is_file(config_path)) {
-    return None
-  }
-  let content = decode_bytes(
-    fs.read_file(config_path) catch {
-      _ => return None
-    },
-  )
-  let target_section = "[remote \"\{name}\"]"
-  let mut in_section = false
-  for line_view in content.split("\n") {
-    let line = trim_string(line_view.to_string())
-    if line == target_section {
-      in_section = true
-      continue
-    }
-    if line.has_prefix("[") {
-      in_section = false
-      continue
-    }
-    if in_section && line.has_prefix("url = ") {
-      return Some(String::unsafe_substring(line, start=6, end=line.length()))
-    }
-  }
-  None
-}
-
 ///|
 fn remote_add(
   fs : &@git.FileSystem,
@@ -1484,9 +546,9 @@ fn remote_add(
   } else {
     ""
   }
-  let blocks = parse_config_blocks(existing)
-  if config_has_remote_section(blocks, name) ||
-    legacy_remote_exists(OsFs::new(), git_dir, name) {
+  let blocks = @gitlib.parse_config_blocks(existing)
+  if @gitlib.config_has_remote_section(blocks, name) ||
+    @gitlib.legacy_remote_exists(rfs, git_dir, name) {
     raise @git.GitError::InvalidObject("remote '\{name}' already exists")
   }
   let lines : Array[String] = []
@@ -1508,7 +570,7 @@ fn remote_add(
     name: Some(name),
     lines,
   })
-  fs.write_string(config_path, render_config_blocks(new_blocks))
+  fs.write_string(config_path, @gitlib.render_config_blocks(new_blocks))
 }
 
 ///|
@@ -1523,13 +585,13 @@ async fn remote_remove(
     raise @git.GitError::InvalidObject("No such remote '\{name}'")
   }
   let content = decode_bytes(rfs.read_file(config_path))
-  let (remotes, _) = parse_remote_config(content)
+  let (remotes, _) = @gitlib.parse_remote_config(content)
   let warn_branches : Array[String] = []
   match remotes.get(name) {
     Some(rc) => {
-      let fetch_specs = parse_fetch_refspecs(rc.fetch)
+      let fetch_specs = @gitlib.parse_fetch_refspecs(rc.fetch)
       if fetch_specs.length() > 0 {
-        let branches = collect_local_branches(OsFs::new(), git_dir)
+        let branches = @gitlib.collect_local_branches(OsFs::new(), git_dir)
         for branch in branches {
           let refname = "refs/heads/" + branch
           let mut matched = false
@@ -1538,10 +600,10 @@ async fn remote_remove(
               continue
             }
             let dst = spec.dst
-            if dst.length() == 0 || is_remote_namespace(dst, name) {
+            if dst.length() == 0 || @gitlib.is_remote_namespace(dst, name) {
               continue
             }
-            if refspec_capture(dst, refname) is Some(_) {
+            if @gitlib.refspec_capture(dst, refname) is Some(_) {
               matched = true
               break
             }
@@ -1554,8 +616,8 @@ async fn remote_remove(
     }
     None => ()
   }
-  let blocks = parse_config_blocks(content)
-  let new_blocks : Array[ConfigBlock] = []
+  let blocks = @gitlib.parse_config_blocks(content)
+  let new_blocks : Array[@gitlib.ConfigBlock] = []
   let mut found = false
   for block in blocks {
     match (block.section, block.name) {
@@ -1567,7 +629,7 @@ async fn remote_remove(
         let updated = block
         let lines : Array[String] = []
         for line in updated.lines {
-          match parse_config_kv(line) {
+          match @gitlib.parse_config_kv(line) {
             Some((key, value)) if key == "pushdefault" && value == name => ()
             _ => lines.push(line)
           }
@@ -1579,7 +641,7 @@ async fn remote_remove(
         let updated = block
         let mut branch_remote : String? = None
         for line in updated.lines {
-          match parse_config_kv(line) {
+          match @gitlib.parse_config_kv(line) {
             Some((key, value)) if key == "remote" => branch_remote = Some(value)
             _ => ()
           }
@@ -1587,7 +649,7 @@ async fn remote_remove(
         let remove_merge = branch_remote == Some(name)
         let lines : Array[String] = []
         for line in updated.lines {
-          match parse_config_kv(line) {
+          match @gitlib.parse_config_kv(line) {
             Some((key, value)) if key == "remote" && value == name => ()
             Some((key, value)) if key == "pushremote" && value == name => ()
             Some((key, _)) if remove_merge && key == "merge" => ()
@@ -1603,14 +665,20 @@ async fn remote_remove(
   if not(found) {
     raise @git.GitError::InvalidObject("No such remote '\{name}'")
   }
-  fs.write_string(config_path, render_config_blocks(new_blocks))
-  remove_remote_refs(OsFs::new(), git_dir, name)
+  fs.write_string(config_path, @gitlib.render_config_blocks(new_blocks))
+  @gitlib.remove_remote_refs(fs, rfs, git_dir, name)
   let packed_prefix = "refs/remotes/" + name + "/"
   let packed_exact = "refs/remotes/" + name
-  remove_packed_refs_with_prefix(OsFs::new(), git_dir, packed_prefix, packed_exact)
+  @gitlib.remove_packed_refs_with_prefix(
+    fs,
+    rfs,
+    git_dir,
+    packed_prefix,
+    packed_exact,
+  )
   if warn_branches.length() > 0 {
-    sort_strings_lex(warn_branches)
-    let msg = format_remove_warning(warn_branches)
+    @gitlib.sort_strings_lex(warn_branches)
+    let msg = @gitlib.format_remove_warning(warn_branches)
     @stdio.stderr.write(str_to_bytes(msg)) catch {
       _ => ()
     }
@@ -1637,10 +705,10 @@ fn remote_set_url(
     raise @git.GitError::InvalidObject("No such remote '\{name}'")
   }
   let content = decode_bytes(rfs.read_file(config_path))
-  let blocks = parse_config_blocks(content)
+  let blocks = @gitlib.parse_config_blocks(content)
   let mut found = false
   let target_key = if push { "pushurl" } else { "url" }
-  let new_blocks : Array[ConfigBlock] = []
+  let new_blocks : Array[@gitlib.ConfigBlock] = []
   for block in blocks {
     if block.section == Some("remote") && block.name == Some(name) {
       found = true
@@ -1648,7 +716,7 @@ fn remote_set_url(
       let urls : Array[String] = []
       let other_lines : Array[String] = []
       for line in updated.lines {
-        match parse_config_kv(line) {
+        match @gitlib.parse_config_kv(line) {
           Some((key, value)) if key == target_key => urls.push(value)
           _ => other_lines.push(line)
         }
@@ -1659,7 +727,7 @@ fn remote_set_url(
           Some(old) => {
             let filtered : Array[String] = []
             for u in changed_urls {
-              if not(match_url_pattern(old, u)) {
+              if not(@gitlib.match_url_pattern(old, u)) {
                 filtered.push(u)
               }
             }
@@ -1686,7 +754,7 @@ fn remote_set_url(
                 let mut replaced = false
                 let updated_list : Array[String] = []
                 for u in changed_urls {
-                  if not(replaced) && match_url_pattern(old, u) {
+                  if not(replaced) && @gitlib.match_url_pattern(old, u) {
                     updated_list.push(nu)
                     replaced = true
                   } else {
@@ -1724,322 +792,7 @@ fn remote_set_url(
   if not(found) {
     raise @git.GitError::InvalidObject("No such remote '\{name}'")
   }
-  fs.write_string(config_path, render_config_blocks(new_blocks))
-}
-
-///|
-fn match_url_pattern(pattern : String, value : String) -> Bool {
-  if pattern == value {
-    return true
-  }
-  let value_chars : Array[Char] = []
-  for c in value {
-    value_chars.push(c)
-  }
-  let tokens : Array[(Char, Bool)] = []
-  for c in pattern {
-    if c == '+' && tokens.length() > 0 {
-      let (ch, _repeat) = tokens.pop().unwrap_or(('.', false))
-      tokens.push((ch, true))
-    } else {
-      tokens.push((c, false))
-    }
-  }
-  let mut vi = 0
-  for token in tokens {
-    let (ch, repeat) = token
-    if repeat {
-      if vi >= value_chars.length() {
-        return false
-      }
-      let mut matched = false
-      while vi < value_chars.length() {
-        let vc = value_chars[vi]
-        if vc != ch {
-          break
-        }
-        matched = true
-        vi += 1
-      }
-      if not(matched) {
-        return false
-      }
-    } else {
-      if vi >= value_chars.length() || value_chars[vi] != ch {
-        return false
-      }
-      vi += 1
-    }
-  }
-  vi == value_chars.length()
-}
-
-///|
-fn is_mirror_fetch_config(rc : RemoteConfig) -> Bool {
-  for raw in rc.fetch {
-    let mut spec = raw
-    if spec.has_prefix("^") {
-      spec = String::unsafe_substring(spec, start=1, end=spec.length())
-    }
-    if spec.has_prefix("+") {
-      spec = String::unsafe_substring(spec, start=1, end=spec.length())
-    }
-    let (_src, dst) = parse_refspec_pair(spec)
-    if dst == "refs/*" {
-      return true
-    }
-    if dst.has_prefix("refs/") && not(dst.has_prefix("refs/remotes/")) {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn remote_set_branches(
-  fs : &@git.FileSystem,
-  rfs : &@git.RepoFileSystem,
-  git_dir : String,
-  name : String,
-  branches : Array[String],
-  add : Bool,
-) -> Unit raise @git.GitError {
-  let config_path = git_dir + "/config"
-  if not(rfs.is_file(config_path)) {
-    raise @git.GitError::InvalidObject("No such remote '\{name}'")
-  }
-  let content = decode_bytes(rfs.read_file(config_path))
-  let (remotes, _) = parse_remote_config(content)
-  let rc = match remotes.get(name) {
-    Some(cfg) => cfg
-    None => raise @git.GitError::InvalidObject("No such remote '\{name}'")
-  }
-  let mirror_fetch = is_mirror_fetch_config(rc)
-  let updated_specs : Array[String] = []
-  if add {
-    for spec in rc.fetch {
-      updated_specs.push(spec)
-    }
-  }
-  for branch in branches {
-    let src_ref = normalize_track_ref(branch)
-    let short = normalize_remote_branch_name(src_ref)
-    let dst_ref = if mirror_fetch {
-      src_ref
-    } else {
-      "refs/remotes/" + name + "/" + short
-    }
-    let spec = "+" + src_ref + ":" + dst_ref
-    let mut exists = false
-    for existing in updated_specs {
-      if existing == spec {
-        exists = true
-        break
-      }
-    }
-    if not(exists) {
-      updated_specs.push(spec)
-    }
-  }
-  let blocks = parse_config_blocks(content)
-  let new_blocks : Array[ConfigBlock] = []
-  let mut found = false
-  for block in blocks {
-    if block.section == Some("remote") && block.name == Some(name) {
-      found = true
-      let updated = block
-      let other_lines : Array[String] = []
-      for line in updated.lines {
-        match parse_config_kv(line) {
-          Some((key, _)) if key == "fetch" => ()
-          _ => other_lines.push(line)
-        }
-      }
-      let final_lines : Array[String] = []
-      for line in other_lines {
-        final_lines.push(line)
-      }
-      for spec in updated_specs {
-        final_lines.push("\tfetch = " + spec)
-      }
-      updated.lines = final_lines
-      new_blocks.push(updated)
-    } else {
-      new_blocks.push(block)
-    }
-  }
-  if not(found) {
-    raise @git.GitError::InvalidObject("No such remote '\{name}'")
-  }
-  fs.write_string(config_path, render_config_blocks(new_blocks))
-}
-
-///|
-fn set_config_key(
-  fs : &@git.FileSystem,
-  rfs : &@git.RepoFileSystem,
-  git_dir : String,
-  section : String,
-  name : String,
-  key : String,
-  value : String,
-) -> Unit raise @git.GitError {
-  let config_path = git_dir + "/config"
-  let target_section = "[\{section} \"\{name}\"]"
-  let content = if rfs.is_file(config_path) {
-    decode_bytes(rfs.read_file(config_path))
-  } else {
-    ""
-  }
-  let lines : Array[String] = []
-  let mut in_section = false
-  let mut found_section = false
-  let mut key_set = false
-  for line_view in content.split("\n") {
-    let line = line_view.to_string()
-    let trimmed = trim_string(line)
-    if trimmed == target_section {
-      in_section = true
-      found_section = true
-      lines.push(line)
-      continue
-    }
-    if in_section && trimmed.has_prefix("[") {
-      if not(key_set) {
-        lines.push("\t\{key} = \{value}")
-        key_set = true
-      }
-      in_section = false
-    }
-    if in_section && trimmed.has_prefix("\{key} = ") {
-      lines.push("\t\{key} = \{value}")
-      key_set = true
-      continue
-    }
-    lines.push(line)
-  }
-  if found_section {
-    if in_section && not(key_set) {
-      lines.push("\t\{key} = \{value}")
-    }
-  } else {
-    if lines.length() > 0 && trim_string(lines[lines.length() - 1]) != "" {
-      lines.push("")
-    }
-    lines.push(target_section)
-    lines.push("\t\{key} = \{value}")
-  }
-  let new_content = lines
-    .iter()
-    .fold(init="", fn(acc, line) {
-      if acc == "" {
-        line
-      } else {
-        acc + "\n" + line
-      }
-    })
-  fs.write_string(config_path, new_content)
-}
-
-///|
-fn copy_tree(
-  fs : OsFs,
-  src : String,
-  dest : String,
-) -> Unit raise @git.GitError {
-  let is_dir = fs.is_dir(src)
-  if is_dir {
-    ensure_dir(dest)
-    let entries = fs.readdir(src) catch { _ => return () }
-    for entry in entries {
-      if entry == "." || entry == ".." {
-        continue
-      }
-      let src_path = src + "/" + entry
-      let dest_path = dest + "/" + entry
-      copy_tree(fs, src_path, dest_path)
-    }
-    return ()
-  }
-  let is_file = fs.is_file(src)
-  if is_file {
-    let data = fs.read_file(src)
-    if fs.is_file(dest) {
-      return ()
-    }
-    let parent = parent_dir(dest)
-    if parent.length() > 0 {
-      ensure_dir(parent)
-    }
-    fs.write_file(dest, data)
-  }
-}
-
-///|
-fn remove_tree(fs : OsFs, path : String) -> Unit {
-  let is_dir = fs.is_dir(path)
-  if is_dir {
-    let entries = fs.readdir(path) catch { _ => [] }
-    for entry in entries {
-      if entry == "." || entry == ".." {
-        continue
-      }
-      remove_tree(fs, path + "/" + entry)
-    }
-    fs.remove_dir(path) catch {
-      _ => ()
-    }
-    return ()
-  }
-  let is_file = fs.is_file(path)
-  if is_file {
-    fs.remove_file(path) catch {
-      _ => ()
-    }
-  }
-}
-
-///|
-fn move_tree(
-  fs : OsFs,
-  src : String,
-  dest : String,
-) -> Unit raise @git.GitError {
-  copy_tree(fs, src, dest)
-  remove_tree(fs, src)
-}
-
-///|
-fn move_tree_safe(
-  fs : OsFs,
-  src : String,
-  dest : String,
-) -> Unit raise @git.GitError {
-  if not(fs.is_dir(src)) {
-    return ()
-  }
-  if dest.has_prefix(src + "/") {
-    let tmp = src + ".rename_tmp"
-    if fs.is_dir(tmp) {
-      remove_tree(fs, tmp)
-    }
-    move_tree(fs, src, tmp)
-    move_tree(fs, tmp, dest)
-  } else {
-    move_tree(fs, src, dest)
-  }
-}
-
-///|
-fn remove_remote_refs(fs : OsFs, git_dir : String, name : String) -> Unit {
-  let refs_dir = git_dir + "/refs/remotes/" + name
-  if fs.is_dir(refs_dir) || fs.is_file(refs_dir) {
-    remove_tree(fs, refs_dir)
-  }
-  let logs_dir = git_dir + "/logs/refs/remotes/" + name
-  if fs.is_dir(logs_dir) || fs.is_file(logs_dir) {
-    remove_tree(fs, logs_dir)
-  }
+  fs.write_string(config_path, @gitlib.render_config_blocks(new_blocks))
 }
 
 ///|
@@ -2051,12 +804,12 @@ async fn remote_rename(
   new_name : String,
 ) -> Unit raise @git.GitError {
   let config_path = git_dir + "/config"
-  let content = read_config_content(rfs, git_dir)
-  let blocks = parse_config_blocks(content)
+  let content = @gitlib.read_config_content(rfs, git_dir)
+  let blocks = @gitlib.parse_config_blocks(content)
   let mut found_remote = false
   let mut refspecs_need_update = false
   let mut rename_failed = false
-  let new_blocks : Array[ConfigBlock] = []
+  let new_blocks : Array[@gitlib.ConfigBlock] = []
   for block in blocks {
     match (block.section, block.name) {
       (Some("remote"), Some(remote_name)) if remote_name == old_name => {
@@ -2064,12 +817,12 @@ async fn remote_rename(
         updated.header = Some("[remote \"\{new_name}\"]")
         let lines : Array[String] = []
         for line in updated.lines {
-          match parse_config_kv(line) {
+          match @gitlib.parse_config_kv(line) {
             Some((key, value)) if key == "fetch" => {
               if value.contains(":refs/remotes/" + old_name + "/") {
                 refspecs_need_update = true
               }
-              let updated_value = update_fetch_refspec(
+              let updated_value = @gitlib.update_fetch_refspec(
                 value, old_name, new_name,
               )
               lines.push("\tfetch = " + updated_value)
@@ -2085,7 +838,7 @@ async fn remote_rename(
         let updated = block
         let lines : Array[String] = []
         for line in updated.lines {
-          match parse_config_kv(line) {
+          match @gitlib.parse_config_kv(line) {
             Some((key, value)) if key == "remote" && value == old_name =>
               lines.push("\tremote = " + new_name)
             Some((key, value)) if key == "pushremote" && value == old_name =>
@@ -2100,7 +853,7 @@ async fn remote_rename(
         let updated = block
         let lines : Array[String] = []
         for line in updated.lines {
-          match parse_config_kv(line) {
+          match @gitlib.parse_config_kv(line) {
             Some((key, value)) if key == "pushdefault" && value == old_name =>
               lines.push("\tpushDefault = " + new_name)
             _ => lines.push(line)
@@ -2212,7 +965,7 @@ async fn remote_rename(
     let old_prefix = "refs/remotes/" + old_name + "/"
     let old_exact = "refs/remotes/" + old_name
     let new_prefix = "refs/remotes/" + new_name
-    let conflict_refs = list_refs_with_ids(fs, git_dir, Some(new_prefix))
+    let conflict_refs = @gitlib.list_refs_with_ids(fs, git_dir, Some(new_prefix))
     let mut has_conflict = false
     for refname, _ in conflict_refs {
       if refname == new_prefix {
@@ -2239,15 +992,16 @@ async fn remote_rename(
       }
       rename_failed = true
     } else {
-      let old_ref_ids = list_refs_with_ids(fs, git_dir, Some(old_prefix))
-      move_tree_safe(fs, old_refs, new_refs)
-      move_tree_safe(fs, old_logs, new_logs)
+      let old_ref_ids = @gitlib.list_refs_with_ids(fs, git_dir, Some(old_prefix))
+      @gitlib.move_tree_safe(fs, rfs, old_refs, new_refs)
+      @gitlib.move_tree_safe(fs, rfs, old_logs, new_logs)
       let packed_old_prefix = "refs/remotes/" + old_name + "/"
       let packed_new_prefix = "refs/remotes/" + new_name + "/"
       let packed_old_exact = "refs/remotes/" + old_name
       let packed_new_exact = "refs/remotes/" + new_name
-      rename_packed_refs_prefix(
+      @gitlib.rename_packed_refs_prefix(
         fs,
+        rfs,
         git_dir,
         packed_old_prefix,
         packed_new_prefix,
@@ -2271,7 +1025,7 @@ async fn remote_rename(
         }
       }
       let (author, email, timestamp, timezone) = get_committer_identity()
-      let is_bare = is_bare_git_dir(git_dir)
+      let is_bare = @gitlib.is_bare_git_dir(git_dir)
       for refname, id in old_ref_ids {
         let suffix = String::unsafe_substring(
           refname,
@@ -2298,182 +1052,9 @@ async fn remote_rename(
       }
     }
   }
-  fs.write_string(config_path, render_config_blocks(new_blocks))
+  fs.write_string(config_path, @gitlib.render_config_blocks(new_blocks))
   if rename_failed {
     @sys.exit(1)
-  }
-}
-
-///|
-enum RemoteHeadState {
-  Missing
-  Symref(String)
-  Detached(String)
-  Other(String)
-}
-
-///|
-fn split_whitespace_all(s : String) -> Array[String] {
-  let result : Array[String] = []
-  let current = StringBuilder::new()
-  let mut in_word = false
-  for c in s {
-    if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
-      if in_word {
-        result.push(current.to_string())
-        current.reset()
-        in_word = false
-      }
-    } else {
-      current.write_char(c)
-      in_word = true
-    }
-  }
-  if in_word {
-    result.push(current.to_string())
-  }
-  result
-}
-
-///|
-fn parse_bool_value(value : String) -> Bool? {
-  let lower = value.to_lower()
-  if lower == "true" || lower == "1" || lower == "yes" {
-    Some(true)
-  } else if lower == "false" || lower == "0" || lower == "no" {
-    Some(false)
-  } else {
-    None
-  }
-}
-
-///|
-fn remote_skip_default_update(
-  blocks : Array[ConfigBlock],
-  name : String,
-) -> Bool {
-  for block in blocks {
-    if block.section == Some("remote") && block.name == Some(name) {
-      for line in block.lines {
-        match parse_config_kv(line) {
-          Some((key, value)) if key == "skipdefaultupdate" =>
-            return parse_bool_value(value).unwrap_or(false)
-          _ => ()
-        }
-      }
-    }
-  }
-  false
-}
-
-///|
-fn read_local_remote_head_state(
-  fs : OsFs,
-  head_path : String,
-  remote_name : String,
-) -> RemoteHeadState {
-  if not(fs.is_file(head_path)) {
-    return RemoteHeadState::Missing
-  }
-  let content = try? fs.read_file(head_path)
-  match content {
-    Err(_) => RemoteHeadState::Missing
-    Ok(data) => {
-      let line = trim_string(decode_bytes(data))
-      if line.has_prefix("ref: ") {
-        let target = String::unsafe_substring(line, start=5, end=line.length())
-        let prefix = "refs/remotes/" + remote_name + "/"
-        if target.has_prefix(prefix) {
-          let branch = String::unsafe_substring(
-            target,
-            start=prefix.length(),
-            end=target.length(),
-          )
-          RemoteHeadState::Symref(branch)
-        } else {
-          RemoteHeadState::Other(target)
-        }
-      } else {
-        RemoteHeadState::Detached(line)
-      }
-    }
-  }
-}
-
-///|
-fn read_remote_head_branch(fs : OsFs, remote_git_dir : String) -> String? {
-  let head_path = remote_git_dir + "/HEAD"
-  if not(fs.is_file(head_path)) {
-    return None
-  }
-  let content = try? fs.read_file(head_path)
-  match content {
-    Err(_) => None
-    Ok(data) => {
-      let line = trim_string(decode_bytes(data))
-      if line.has_prefix("ref: ") {
-        let refname = String::unsafe_substring(line, start=5, end=line.length())
-        if refname.has_prefix("refs/heads/") {
-          Some(
-            String::unsafe_substring(refname, start=11, end=refname.length()),
-          )
-        } else {
-          None
-        }
-      } else {
-        None
-      }
-    }
-  }
-}
-
-///|
-fn update_follow_remote_head(
-  fs : OsFs,
-  git_dir : String,
-  name : String,
-) -> Unit raise @git.GitError {
-  let config_path = git_dir + "/config"
-  guard fs.is_file(config_path) else { return () }
-  let content = decode_bytes(fs.read_file(config_path))
-  let blocks = parse_config_blocks(content)
-  let new_blocks : Array[ConfigBlock] = []
-  let mut changed = false
-  for block in blocks {
-    if block.section == Some("remote") && block.name == Some(name) {
-      let updated = block
-      let lines : Array[String] = []
-      for line in updated.lines {
-        match parse_config_kv(line) {
-          Some((key, value)) if key == "followremotehead" =>
-            if value.to_lower() == "always" {
-              lines.push("\tfollowRemoteHEAD = warn")
-              changed = true
-            } else {
-              lines.push(line)
-            }
-          _ => lines.push(line)
-        }
-      }
-      updated.lines = lines
-      new_blocks.push(updated)
-    } else {
-      new_blocks.push(block)
-    }
-  }
-  if changed {
-    fs.write_string(config_path, render_config_blocks(new_blocks))
-  }
-}
-
-///|
-fn remove_ref_path(fs : OsFs, path : String) -> Unit {
-  if fs.is_dir(path) {
-    remove_tree(fs, path)
-  } else if fs.is_file(path) {
-    fs.remove_file(path) catch {
-      _ => ()
-    }
   }
 }
 
@@ -2485,7 +1066,7 @@ async fn remote_prune(
   name : String,
   dry_run : Bool,
 ) -> Unit raise Error {
-  let (remotes, _) = read_repo_config(fs, git_dir)
+  let (remotes, _) = @gitlib.read_repo_config(fs, git_dir)
   let rc = match remotes.get(name) {
     Some(r) => r
     None => raise @git.GitError::InvalidObject("No such remote '\{name}'")
@@ -2500,12 +1081,12 @@ async fn remote_prune(
     Some(dir) => dir
     None => root
   }
-  let remote_path = resolve_local_repo_path(fs, local_root, url)
+  let remote_path = @gitlib.resolve_local_repo_path(fs, local_root, url)
   guard remote_path is Some(path) else { return () }
-  let remote_git_dir = detect_git_dir(fs, path).map(fn(pair) { pair.0 })
+  let remote_git_dir = @gitlib.detect_git_dir(fs, path).map(fn(pair) { pair.0 })
   guard remote_git_dir is Some(rgd) else { return () }
-  let remote_refs = list_refs_with_ids(fs, rgd, Some("refs/"))
-  let fetch_specs = parse_fetch_refspecs(rc.fetch)
+  let remote_refs = @gitlib.list_refs_with_ids(fs, rgd, Some("refs/"))
+  let fetch_specs = @gitlib.parse_fetch_refspecs(rc.fetch)
   if fetch_specs.length() == 0 {
     fetch_specs.push({
       negative: false,
@@ -2513,7 +1094,7 @@ async fn remote_prune(
       dst: "refs/remotes/" + name + "/*",
     })
   }
-  let local_map = list_refs_with_ids(fs, git_dir, Some("refs/"))
+  let local_map = @gitlib.list_refs_with_ids(fs, git_dir, Some("refs/"))
   let local_refs : Array[String] = []
   for rname, _ in local_map {
     local_refs.push(rname)
@@ -2533,9 +1114,9 @@ async fn remote_prune(
       if spec.dst.length() == 0 {
         continue
       }
-      if refspec_capture(spec.dst, local_ref) is Some(_) {
+      if @gitlib.refspec_capture(spec.dst, local_ref) is Some(_) {
         matched = true
-        remote_ref = refspec_map_dst(spec.dst, spec.src, local_ref)
+        remote_ref = @gitlib.refspec_map_dst(spec.dst, spec.src, local_ref)
         break
       }
     }
@@ -2549,9 +1130,9 @@ async fn remote_prune(
           if dry_run {
             print_line(" * [would prune] \{display}")
           } else {
-            remove_ref_path(fs, git_dir + "/" + local_ref)
-            remove_ref_path(fs, git_dir + "/logs/" + local_ref)
-            remove_packed_ref(fs, git_dir, local_ref)
+            @gitlib.remove_ref_path(fs, fs, git_dir + "/" + local_ref)
+            @gitlib.remove_ref_path(fs, fs, git_dir + "/logs/" + local_ref)
+            @gitlib.remove_packed_ref(fs, fs, git_dir, local_ref)
             print_line(" * [pruned] \{display}")
             pruned.push(local_ref)
           }
@@ -2562,9 +1143,9 @@ async fn remote_prune(
   if not(dry_run) {
     let head_path = git_dir + "/refs/remotes/" + name + "/HEAD"
     if fs.is_file(head_path) {
-      let state = read_local_remote_head_state(fs, head_path, name)
+      let state = @gitlib.read_local_remote_head_state(fs, head_path, name)
       match state {
-        RemoteHeadState::Symref(branch) => {
+        @gitlib.RemoteHeadState::Symref(branch) => {
           let ref_path = git_dir + "/refs/remotes/" + name + "/" + branch
           if not(fs.is_file(ref_path)) {
             print_line("warning: refs/remotes/\{name}/HEAD has become dangling")
@@ -2584,18 +1165,18 @@ async fn remote_update(
   targets : Array[String],
   prune : Bool,
 ) -> Unit raise Error {
-  let (remotes, _) = read_repo_config(fs, git_dir)
+  let (remotes, _) = @gitlib.read_repo_config(fs, git_dir)
   let config_path = git_dir + "/config"
-  let blocks = parse_config_blocks(read_config_content(fs, git_dir))
+  let blocks = @gitlib.parse_config_blocks(@gitlib.read_config_content(fs, git_dir))
   let names : Array[String] = []
   let seen : Map[String, Bool] = {}
   let mut default_update = false
   if targets.length() == 0 {
-    let group = read_config_value(fs, config_path, "remotes", "default")
+    let group = @gitlib.read_config_value(fs, config_path, "remotes", "default")
     match group {
       Some(value) => {
         default_update = false
-        let items = split_whitespace_all(value)
+        let items = @gitlib.split_whitespace_all(value)
         for name in items {
           if not(seen.contains(name)) {
             seen[name] = true
@@ -2616,10 +1197,10 @@ async fn remote_update(
   } else {
     for target in targets {
       if target == "default" {
-        let group = read_config_value(fs, config_path, "remotes", "default")
+        let group = @gitlib.read_config_value(fs, config_path, "remotes", "default")
         match group {
           Some(value) => {
-            let items = split_whitespace_all(value)
+            let items = @gitlib.split_whitespace_all(value)
             for name in items {
               if not(seen.contains(name)) {
                 seen[name] = true
@@ -2639,10 +1220,10 @@ async fn remote_update(
         }
         continue
       }
-      let group = read_config_value(fs, config_path, "remotes", target)
+      let group = @gitlib.read_config_value(fs, config_path, "remotes", target)
       match group {
         Some(value) => {
-          let items = split_whitespace_all(value)
+          let items = @gitlib.split_whitespace_all(value)
           for name in items {
             if not(seen.contains(name)) {
               seen[name] = true
@@ -2659,7 +1240,7 @@ async fn remote_update(
     }
   }
   for name in names {
-    if default_update && remote_skip_default_update(blocks, name) {
+    if default_update && @gitlib.remote_skip_default_update(blocks, name) {
       continue
     }
     match remotes.get(name) {
@@ -2714,7 +1295,7 @@ async fn remote_set_head_auto(
   if fs.is_file(head_path + ".lock") {
     die_remote(1, "error: Could not set up refs/remotes/\{name}/HEAD")
   }
-  let url = get_remote_url(fs, git_dir, name).unwrap_or("")
+  let url = @gitlib.get_remote_url(fs, git_dir, name).unwrap_or("")
   if url.length() == 0 {
     raise @git.GitError::InvalidObject("No remote configured")
   }
@@ -2722,15 +1303,15 @@ async fn remote_set_head_auto(
     Some(dir) => dir
     None => root
   }
-  let remote_path = resolve_local_repo_path(fs, local_root, url)
+  let remote_path = @gitlib.resolve_local_repo_path(fs, local_root, url)
   guard remote_path is Some(path) else { return () }
-  let remote_git_dir = detect_git_dir(fs, path).map(fn(pair) { pair.0 })
+  let remote_git_dir = @gitlib.detect_git_dir(fs, path).map(fn(pair) { pair.0 })
   guard remote_git_dir is Some(rgd) else { return () }
-  let new_branch = read_remote_head_branch(fs, rgd).unwrap_or("")
+  let new_branch = @gitlib.read_remote_head_branch(fs, rgd).unwrap_or("")
   if new_branch.length() == 0 {
     return ()
   }
-  let state = read_local_remote_head_state(fs, head_path, name)
+  let state = @gitlib.read_local_remote_head_state(fs, head_path, name)
   let parent = parent_dir(head_path)
   if parent.length() > 0 {
     ensure_dir(parent)
@@ -2741,17 +1322,17 @@ async fn remote_set_head_auto(
   )
   let quoted = "'\{name}/HEAD'"
   match state {
-    RemoteHeadState::Missing =>
+    @gitlib.RemoteHeadState::Missing =>
       print_line("\{quoted} is now created and points to '\{new_branch}'")
-    RemoteHeadState::Detached(old) =>
+    @gitlib.RemoteHeadState::Detached(old) =>
       print_line(
         "\{quoted} was detached at '\{old}' and now points to '\{new_branch}'",
       )
-    RemoteHeadState::Other(old) =>
+    @gitlib.RemoteHeadState::Other(old) =>
       print_line(
         "\{quoted} used to point to '\{old}' (which is not a remote branch), but now points to '\{new_branch}'",
       )
-    RemoteHeadState::Symref(old) =>
+    @gitlib.RemoteHeadState::Symref(old) =>
       if old == new_branch {
         print_line("\{quoted} is unchanged and points to '\{new_branch}'")
       } else {
@@ -2760,90 +1341,7 @@ async fn remote_set_head_auto(
         )
       }
   }
-  update_follow_remote_head(fs, git_dir, name)
-}
-
-///|
-fn is_http_url(url : String) -> Bool {
-  url.has_prefix("http://") || url.has_prefix("https://")
-}
-
-///|
-fn strip_file_scheme(url : String) -> String? {
-  if url.has_prefix("file://") {
-    Some(String::unsafe_substring(url, start=7, end=url.length()))
-  } else {
-    None
-  }
-}
-
-///|
-fn resolve_local_repo_path(fs : OsFs, root : String, url : String) -> String? {
-  let raw = match strip_file_scheme(url) {
-    Some(path) => path
-    None => url
-  }
-  if is_http_url(raw) || raw.has_prefix("git@") {
-    return None
-  }
-  if raw.has_prefix("/") {
-    if fs.is_dir(raw) {
-      return Some(raw)
-    }
-    return None
-  }
-  if fs.is_dir(raw) {
-    return Some(normalize_path(raw))
-  }
-  let candidate = normalize_path(root + "/" + raw)
-  if fs.is_dir(candidate) {
-    return Some(candidate)
-  }
-  {
-    let base = match @env.current_dir() {
-      Some(dir) => dir
-      None =>
-        match @sys.get_env_var("PWD") {
-          Some(dir) => dir
-          None =>
-            match @sys.get_env_var("GIT_SHIM_PWD") {
-              Some(dir) => dir
-              None => "."
-            }
-        }
-    }
-    let alt = normalize_path(base + "/" + raw)
-    if fs.is_dir(alt) {
-      return Some(alt)
-    }
-  }
-  None
-}
-
-///|
-fn detect_git_dir(fs : OsFs, path : String) -> (String, Bool)? {
-  let bare_head = fs.is_file(path + "/HEAD")
-  let bare_objs = fs.is_dir(path + "/objects")
-  if bare_head && bare_objs {
-    return Some((path, true))
-  }
-  let git_path = path + "/.git"
-  if fs.is_dir(git_path) || fs.is_file(git_path) {
-    let resolved = resolve_gitdir(fs, git_path)
-    return Some((resolved, false))
-  }
-  None
-}
-
-///|
-fn is_bare_git_dir(git_dir : String) -> Bool {
-  if git_dir == ".git" {
-    return false
-  }
-  if git_dir.has_suffix("/.git") {
-    return false
-  }
-  true
+  @gitlib.update_follow_remote_head(fs, fs, git_dir, name)
 }
 
 ///|
@@ -2868,7 +1366,7 @@ fn get_committer_identity() -> (String, String, Int64, String) {
   let mut timezone = "+0000"
   match @sys.get_env_var("GIT_COMMITTER_DATE") {
     Some(raw) => {
-      let parts = split_whitespace_all(raw)
+      let parts = @gitlib.split_whitespace_all(raw)
       if parts.length() > 0 {
         timestamp = @strconv.parse_int64(parts[0]) catch { _ => timestamp }
       }
@@ -2920,7 +1418,7 @@ fn clone_local_repo(
   bare : Bool,
   filter : @git.FilterSpec,
 ) -> Unit raise Error {
-  guard detect_git_dir(fs, src_path) is Some((src_git_dir, _)) else {
+  guard @gitlib.detect_git_dir(fs, src_path) is Some((src_git_dir, _)) else {
     raise @git.GitError::InvalidObject("Not a git repository: \{src_path}")
   }
   let (head_ref, branches) = @gitlib.list_branches(fs, src_git_dir)
@@ -2939,7 +1437,7 @@ fn clone_local_repo(
   @gitlib.init_repo(fs, dest_path, default_branch~, bare~)
   let dest_git_dir = if bare { dest_path } else { dest_path + "/.git" }
   // Copy object database
-  copy_tree(fs, src_git_dir + "/objects", dest_git_dir + "/objects")
+  @gitlib.copy_tree(fs, fs, src_git_dir + "/objects", dest_git_dir + "/objects")
   // Set local HEAD branch to source HEAD
   write_ref_file(fs, dest_git_dir, "refs/heads/" + default_branch, head_id)
   // Configure origin
@@ -2954,10 +1452,10 @@ fn clone_local_repo(
     None,
   )
   if not(bare) {
-    set_config_key(
+    @gitlib.set_config_key(
       fs, fs, dest_git_dir, "branch", default_branch, "remote", "origin",
     )
-    set_config_key(
+    @gitlib.set_config_key(
       fs,
       fs,
       dest_git_dir,
@@ -2979,8 +1477,16 @@ fn clone_local_repo(
   )
   // Partial clone markers
   if filter.is_partial() {
-    set_config_key(fs, fs, dest_git_dir, "remote", "origin", "promisor", "true")
-    set_config_key(
+    @gitlib.set_config_key(
+      fs,
+      fs,
+      dest_git_dir,
+      "remote",
+      "origin",
+      "promisor",
+      "true",
+    )
+    @gitlib.set_config_key(
       fs,
       fs,
       dest_git_dir,
@@ -2999,7 +1505,7 @@ fn clone_local_repo(
       if entry == ".git" {
         continue
       }
-      copy_tree(fs, src_path + "/" + entry, dest_path + "/" + entry)
+      @gitlib.copy_tree(fs, fs, src_path + "/" + entry, dest_path + "/" + entry)
     }
     let db = @gitlib.ObjectDb::load(fs, dest_git_dir)
     let files = @gitlib.collect_tree_files_from_commit(db, fs, head_id)
@@ -3015,11 +1521,11 @@ fn fetch_local_repo(
   git_dir : String,
   remote_name : String,
 ) -> Unit raise Error {
-  guard detect_git_dir(fs, src_path) is Some((src_git_dir, _)) else {
+  guard @gitlib.detect_git_dir(fs, src_path) is Some((src_git_dir, _)) else {
     raise @git.GitError::InvalidObject("Not a git repository: \{src_path}")
   }
-  copy_tree(fs, src_git_dir + "/objects", git_dir + "/objects")
-  let (remotes, _) = read_repo_config(fs, git_dir)
+  @gitlib.copy_tree(fs, fs, src_git_dir + "/objects", git_dir + "/objects")
+  let (remotes, _) = @gitlib.read_repo_config(fs, git_dir)
   let rc = remotes
     .get(remote_name)
     .unwrap_or({
@@ -3032,7 +1538,7 @@ fn fetch_local_repo(
       mirror: false,
       tagopt: None,
     })
-  let fetch_specs = parse_fetch_refspecs(rc.fetch)
+  let fetch_specs = @gitlib.parse_fetch_refspecs(rc.fetch)
   if fetch_specs.length() == 0 {
     fetch_specs.push({
       negative: false,
@@ -3040,8 +1546,8 @@ fn fetch_local_repo(
       dst: "refs/remotes/" + remote_name + "/*",
     })
   }
-  let negative_specs : Array[FetchRefspec] = []
-  let positive_specs : Array[FetchRefspec] = []
+  let negative_specs : Array[@gitlib.FetchRefspec] = []
+  let positive_specs : Array[@gitlib.FetchRefspec] = []
   for spec in fetch_specs {
     if spec.negative {
       negative_specs.push(spec)
@@ -3049,8 +1555,8 @@ fn fetch_local_repo(
       positive_specs.push(spec)
     }
   }
-  let remote_refs = list_refs_with_ids(fs, src_git_dir, Some("refs/"))
-  let mut mirror_fetch = is_mirror_fetch_config(rc)
+  let remote_refs = @gitlib.list_refs_with_ids(fs, src_git_dir, Some("refs/"))
+  let mut mirror_fetch = @gitlib.is_mirror_fetch_config(rc)
   let mut fetches_tags = false
   for spec in positive_specs {
     if spec.src.has_prefix("refs/tags/") || spec.src == "refs/*" {
@@ -3065,7 +1571,7 @@ fn fetch_local_repo(
   for refname, id in remote_refs {
     let mut excluded = false
     for spec in negative_specs {
-      if refspec_capture(spec.src, refname) is Some(_) {
+      if @gitlib.refspec_capture(spec.src, refname) is Some(_) {
         excluded = true
         break
       }
@@ -3077,7 +1583,7 @@ fn fetch_local_repo(
       if spec.dst.length() == 0 {
         continue
       }
-      match refspec_map_dst(spec.src, spec.dst, refname) {
+      match @gitlib.refspec_map_dst(spec.src, spec.dst, refname) {
         Some(dst) => {
           mapped_refs[dst] = id
           if refname.has_prefix("refs/heads/") {
@@ -3092,7 +1598,7 @@ fn fetch_local_repo(
     write_ref_file(fs, git_dir, dst, id)
   }
   if not(mirror_fetch) {
-    match read_remote_head_branch(fs, src_git_dir) {
+    match @gitlib.read_remote_head_branch(fs, src_git_dir) {
       Some(name) =>
         write_symref_file(
           fs,
@@ -3138,8 +1644,8 @@ fn fetch_local_repo(
       }
     }
   }
-  if mirror_fetch && is_bare_git_dir(git_dir) {
-    match read_remote_head_branch(fs, src_git_dir) {
+  if mirror_fetch && @gitlib.is_bare_git_dir(git_dir) {
+    match @gitlib.read_remote_head_branch(fs, src_git_dir) {
       Some(name) =>
         fs.write_string(git_dir + "/HEAD", "ref: refs/heads/" + name + "\n")
       None => ()
@@ -3159,7 +1665,7 @@ async fn fetch_from_remote(
     Some(dir) => dir
     None => root
   }
-  match resolve_local_repo_path(fs, local_root, remote_url) {
+  match @gitlib.resolve_local_repo_path(fs, local_root, remote_url) {
     Some(src_path) => {
       fetch_local_repo(fs, src_path, git_dir, remote_name)
       return ()
@@ -3228,218 +1734,7 @@ async fn fetch_from_remote(
 }
 
 ///|
-fn normalize_track_ref(track : String) -> String {
-  if track.has_prefix("refs/") {
-    return track
-  }
-  if track.has_prefix("heads/") {
-    return "refs/heads/" +
-      String::unsafe_substring(track, start=6, end=track.length())
-  }
-  "refs/heads/" + track
-}
-
 ///|
-fn parse_refspec_pair(spec : String) -> (String, String) {
-  match spec.find(":") {
-    Some(idx) => {
-      let src = if idx == 0 {
-        ""
-      } else {
-        String::unsafe_substring(spec, start=0, end=idx)
-      }
-      let dst = if idx + 1 >= spec.length() {
-        ""
-      } else {
-        String::unsafe_substring(spec, start=idx + 1, end=spec.length())
-      }
-      (src, dst)
-    }
-    None => (spec, spec)
-  }
-}
-
-///|
-fn parse_fetch_refspecs(specs : Array[String]) -> Array[FetchRefspec] {
-  let out : Array[FetchRefspec] = []
-  for raw in specs {
-    let mut negative = false
-    let mut s = raw
-    if s.has_prefix("^") {
-      negative = true
-      s = String::unsafe_substring(s, start=1, end=s.length())
-    }
-    if s.has_prefix("+") {
-      s = String::unsafe_substring(s, start=1, end=s.length())
-    }
-    let (src, dst) = parse_refspec_pair(s)
-    out.push({ negative, src, dst })
-  }
-  out
-}
-
-///|
-fn parse_push_refspecs(specs : Array[String]) -> Array[PushRefspec] {
-  let out : Array[PushRefspec] = []
-  for raw in specs {
-    let mut force = false
-    let mut s = raw
-    if s.has_prefix("+") {
-      force = true
-      s = String::unsafe_substring(s, start=1, end=s.length())
-    }
-    let (src, dst) = parse_refspec_pair(s)
-    out.push({ force, src, dst })
-  }
-  out
-}
-
-///|
-fn refspec_capture(pattern : String, refname : String) -> String? {
-  match pattern.find("*") {
-    None => if pattern == refname { Some("") } else { None }
-    Some(idx) => {
-      let prefix = String::unsafe_substring(pattern, start=0, end=idx)
-      let suffix = String::unsafe_substring(
-        pattern,
-        start=idx + 1,
-        end=pattern.length(),
-      )
-      if refname.has_prefix(prefix) &&
-        refname.has_suffix(suffix) &&
-        refname.length() >= prefix.length() + suffix.length() {
-        let mid = String::unsafe_substring(
-          refname,
-          start=prefix.length(),
-          end=refname.length() - suffix.length(),
-        )
-        Some(mid)
-      } else {
-        None
-      }
-    }
-  }
-}
-
-///|
-fn refspec_map_dst(
-  src_pat : String,
-  dst_pat : String,
-  refname : String,
-) -> String? {
-  match refspec_capture(src_pat, refname) {
-    None => None
-    Some(mid) =>
-      match dst_pat.find("*") {
-        Some(idx) => {
-          let prefix = String::unsafe_substring(dst_pat, start=0, end=idx)
-          let suffix = String::unsafe_substring(
-            dst_pat,
-            start=idx + 1,
-            end=dst_pat.length(),
-          )
-          Some(prefix + mid + suffix)
-        }
-        None => Some(dst_pat)
-      }
-  }
-}
-
-///|
-fn list_remote_tracking_refs(
-  fs : OsFs,
-  git_dir : String,
-  remote_name : String,
-) -> Map[String, @git.ObjectId] {
-  let refs_dir = git_dir + "/refs/remotes/" + remote_name
-  let out : Map[String, @git.ObjectId] = {}
-  if fs.is_dir(refs_dir) {
-    let stack : Array[(String, String)] = [(refs_dir, "")]
-    while stack.length() > 0 {
-      let (dir, prefix) = stack.pop().unwrap_or(("", ""))
-      if dir.length() == 0 {
-        continue
-      }
-      let entries = fs.readdir(dir) catch { _ => [] }
-      for entry in entries {
-        if entry == "." || entry == ".." {
-          continue
-        }
-        let path = dir + "/" + entry
-        let name = if prefix.length() == 0 { entry } else { prefix + "/" + entry }
-        if fs.is_dir(path) {
-          stack.push((path, name))
-        } else if fs.is_file(path) {
-          if name == "HEAD" {
-            continue
-          }
-          let content = decode_bytes(fs.read_file(path) catch { _ => continue })
-          let hex = trim_string(content)
-          if hex.length() > 0 {
-            let id = @git.ObjectId::from_hex(hex) catch { _ => continue }
-            out[name] = id
-          }
-        }
-      }
-    }
-  }
-  let packed_path = git_dir + "/packed-refs"
-  if fs.is_file(packed_path) {
-    let packed = fs.read_file(packed_path) catch { _ => Bytes::default() }
-    let text = @utf8.decode_lossy(packed[:])
-    let prefix = "refs/remotes/" + remote_name + "/"
-    for line_view in text.split("\n") {
-      let line = trim_string(line_view.to_string())
-      if line.length() == 0 {
-        continue
-      }
-      if line.has_prefix("#") || line.has_prefix("^") {
-        continue
-      }
-      let space = line.find(" ")
-      match space {
-        None => continue
-        Some(idx) => {
-          if idx + 1 >= line.length() {
-            continue
-          }
-          let id_hex = String::unsafe_substring(line, start=0, end=idx)
-          let refname = String::unsafe_substring(
-            line,
-            start=idx + 1,
-            end=line.length(),
-          )
-          if not(refname.has_prefix(prefix)) {
-            continue
-          }
-          let name = String::unsafe_substring(
-            refname,
-            start=prefix.length(),
-            end=refname.length(),
-          )
-          if name == "HEAD" || name.length() == 0 {
-            continue
-          }
-          if not(out.contains(name)) {
-            let id = @git.ObjectId::from_hex(id_hex) catch { _ => continue }
-            out[name] = id
-          }
-        }
-      }
-    }
-  }
-  out
-}
-
-///|
-fn normalize_remote_branch_name(refname : String) -> String {
-  if refname.has_prefix("refs/heads/") {
-    String::unsafe_substring(refname, start=11, end=refname.length())
-  } else {
-    refname
-  }
-}
-
 ///|
 fn is_ancestor_commit(
   db : @gitlib.ObjectDb,
@@ -3562,7 +1857,7 @@ async fn remote_show(
   name : String,
   no_query : Bool,
 ) -> Unit raise Error {
-  let (remotes, branches) = read_repo_config(fs, git_dir)
+  let (remotes, branches) = @gitlib.read_repo_config(fs, git_dir)
   guard remotes.get(name) is Some(rc) else {
     raise @git.GitError::InvalidObject("No such remote '\{name}'")
   }
@@ -3585,10 +1880,10 @@ async fn remote_show(
   let remote_path = if no_query {
     None
   } else {
-    resolve_local_repo_path(fs, local_root, fetch_url)
+    @gitlib.resolve_local_repo_path(fs, local_root, fetch_url)
   }
   let remote_git_dir = match remote_path {
-    Some(p) => detect_git_dir(fs, p).map(fn(pair) { pair.0 })
+    Some(p) => @gitlib.detect_git_dir(fs, p).map(fn(pair) { pair.0 })
     None => None
   }
   let head_branch = match remote_git_dir {
@@ -3602,7 +1897,7 @@ async fn remote_show(
   print_line("  HEAD branch: \{head_branch}")
   if no_query || remote_git_dir is None {
     print_line("  Remote branches: (status not queried)")
-    let local_refs = list_remote_tracking_refs(fs, git_dir, name)
+    let local_refs = @gitlib.list_remote_tracking_refs(fs, git_dir, name)
     let names : Map[String, Bool] = {}
     for k, _ in local_refs {
       names[k] = true
@@ -3610,7 +1905,7 @@ async fn remote_show(
     for _, bc in branches {
       if bc.remote == Some(name) {
         for merge in bc.merges {
-          let short = normalize_remote_branch_name(merge)
+          let short = @gitlib.normalize_remote_branch_name(merge)
           if short.length() > 0 {
             names[short] = true
           }
@@ -3621,7 +1916,7 @@ async fn remote_show(
     for k, _ in names {
       keys.push(k)
     }
-    sort_strings_lex(keys)
+    @gitlib.sort_strings_lex(keys)
     for k in keys {
       print_line("    \{k}")
     }
@@ -3632,12 +1927,12 @@ async fn remote_show(
     for b in remote_branches {
       remote_map[b.name] = b.id
     }
-    let fetch_specs = parse_fetch_refspecs(rc.fetch)
+    let fetch_specs = @gitlib.parse_fetch_refspecs(rc.fetch)
     if fetch_specs.length() > 0 {
       print_line("  Remote branches:")
-      let local_refs = list_remote_tracking_refs(fs, git_dir, name)
-      let negative_specs : Array[FetchRefspec] = []
-      let positive_specs : Array[FetchRefspec] = []
+      let local_refs = @gitlib.list_remote_tracking_refs(fs, git_dir, name)
+      let negative_specs : Array[@gitlib.FetchRefspec] = []
+      let positive_specs : Array[@gitlib.FetchRefspec] = []
       for s in fetch_specs {
         if s.negative {
           negative_specs.push(s)
@@ -3649,13 +1944,13 @@ async fn remote_show(
       for rname, _ in remote_map {
         remote_names.push(rname)
       }
-      sort_strings_lex(remote_names)
+      @gitlib.sort_strings_lex(remote_names)
       let emitted : Map[String, Bool] = {}
       for rname in remote_names {
         let full_ref = "refs/heads/" + rname
         let mut excluded = false
         for s in negative_specs {
-          if refspec_capture(s.src, full_ref) is Some(_) {
+          if @gitlib.refspec_capture(s.src, full_ref) is Some(_) {
             excluded = true
             break
           }
@@ -3671,7 +1966,7 @@ async fn remote_show(
         }
         let mut dest_ok = false
         for s in positive_specs {
-          if refspec_map_dst(s.src, s.dst, full_ref) is Some(_) {
+          if @gitlib.refspec_map_dst(s.src, s.dst, full_ref) is Some(_) {
             dest_ok = true
             break
           }
@@ -3695,7 +1990,7 @@ async fn remote_show(
       }
     }
   }
-  let pull_branches : Array[BranchConfig] = []
+  let pull_branches : Array[@gitlib.BranchConfig] = []
   for _, bc in branches {
     if bc.remote is Some(rn) && rn == name && bc.merges.length() > 0 {
       pull_branches.push(bc)
@@ -3713,10 +2008,10 @@ async fn remote_show(
         any_rebase = true
       }
     }
-    sort_branch_configs_by_name(pull_branches)
+    @gitlib.sort_branch_configs_by_name(pull_branches)
     for bc in pull_branches {
       let branch = bc.name
-      let merge_target = normalize_remote_branch_name(bc.merges[0])
+      let merge_target = @gitlib.normalize_remote_branch_name(bc.merges[0])
       let padded = pad_right(branch, max_len)
       let base = "    " + padded + " "
       match bc.rebase {
@@ -3739,7 +2034,7 @@ async fn remote_show(
               pad = pad + " "
             }
             for i in 1..<bc.merges.length() {
-              let m = normalize_remote_branch_name(bc.merges[i])
+              let m = @gitlib.normalize_remote_branch_name(bc.merges[i])
               print_line(pad + "and with remote " + m)
             }
           }
@@ -3754,7 +2049,7 @@ async fn remote_show(
     } else {
       print_line("  Local refs configured for 'git push' (status not queried):")
     }
-    let push_specs = parse_push_refspecs(rc.push)
+    let push_specs = @gitlib.parse_push_refspecs(rc.push)
     if push_specs.length() == 0 {
       push_specs.push({ force: false, src: "", dst: "" })
     }
@@ -3807,14 +2102,14 @@ async fn remote_show(
       let src_display = if spec.src.length() == 0 {
         "(matching)"
       } else if status_query {
-        normalize_remote_branch_name(spec.src)
+        @gitlib.normalize_remote_branch_name(spec.src)
       } else {
         spec.src
       }
       let dst_display = if spec.dst.length() == 0 {
         "(matching)"
       } else if status_query {
-        normalize_remote_branch_name(spec.dst)
+        @gitlib.normalize_remote_branch_name(spec.dst)
       } else {
         spec.dst
       }
@@ -3894,7 +2189,7 @@ async fn handle_upload_pack(args : Array[String]) -> Unit {
     }
   }
   // Parse config overrides from environment variable
-  let cmdline_config = parse_config_overrides()
+  let cmdline_config = @gitlib.parse_config_overrides()
   guard parse_pack_args(args) is Some((advertise, repo_path)) else {
     raise @git.GitError::ProtocolError("missing repository path")
   }
@@ -3929,11 +2224,11 @@ async fn handle_upload_pack(args : Array[String]) -> Unit {
   } else {
     let input = read_all_stdin()
     // Check protocol version from GIT_PROTOCOL environment variable
-    let protocol_version = get_protocol_version()
+    let protocol_version = @gitlib.get_protocol_version()
     if protocol_version == 2 {
       // Protocol v2: parse and handle v2 request
       let req = @gitlib.parse_upload_pack_request_v2(input)
-      let config = build_upload_pack_config_with_overrides(
+      let config = @gitlib.build_upload_pack_config_with_overrides(
         fs, root, cmdline_config,
       )
       let out = @gitlib.upload_pack_v2(fs, root, req, config)
@@ -3944,189 +2239,6 @@ async fn handle_upload_pack(args : Array[String]) -> Unit {
       let out = @gitlib.upload_pack(fs, root, req)
       @stdio.stdout.write(out)
     }
-  }
-}
-
-///|
-/// Parse config overrides from GIT_CONFIG_OVERRIDES environment variable
-fn parse_config_overrides() -> Map[String, String] {
-  let config : Map[String, String] = {}
-  let overrides = @sys.get_env_var("GIT_CONFIG_OVERRIDES")
-  guard overrides is Some(env_value) else { return config }
-  // Parse key=value pairs separated by newlines
-  for line in split_by_newline(env_value) {
-    if line.length() == 0 {
-      continue
-    }
-    match line.find("=") {
-      Some(idx) => {
-        let key = String::unsafe_substring(line, start=0, end=idx).to_lower()
-        let value = String::unsafe_substring(
-          line,
-          start=idx + 1,
-          end=line.length(),
-        )
-        config[key] = value
-      }
-      None =>
-        // Key without = means the key is present but with no value
-        config[line.to_lower()] = ""
-    }
-  }
-  config
-}
-
-///|
-fn get_protocol_version() -> Int {
-  // Check GIT_PROTOCOL environment variable for version=2
-  let git_protocol = @sys.get_env_var("GIT_PROTOCOL")
-  match git_protocol {
-    Some(val) => if val.contains("version=2") { 2 } else { 1 }
-    None => 1
-  }
-}
-
-///|
-fn build_upload_pack_config_with_overrides(
-  fs : &@git.RepoFileSystem,
-  root : String,
-  overrides : Map[String, String],
-) -> @gitlib.UploadPackConfig {
-  let git_dir = if root.has_suffix(".git") { root } else { root + "/.git" }
-  let config_path = git_dir + "/config"
-
-  // Read allow_filter from file, then check cmdline override
-  let allow_filter = match overrides.get("uploadpack.allowfilter") {
-    Some(v) => {
-      let lower = v.to_lower()
-      lower == "true" || lower == "1" || lower == "yes"
-    }
-    None =>
-      read_config_bool(fs, config_path, "uploadpack", "allowfilter").unwrap_or(
-        true,
-      )
-  }
-
-  // Read blobpackfileuri from cmdline first, then file
-  // Note: -c uploadpack.blobpackfileuri (without =) means key is present but empty
-  // -c uploadpack.blobpackfileuri=anything means key has value
-  let blob_packfile_uri = match overrides.get("uploadpack.blobpackfileuri") {
-    Some(v) =>
-      if v.length() > 0 {
-        Some(v)
-      } else {
-        // Empty value means key was present but no value - still enable the feature
-        // Actually git requires a non-empty value, so empty means disabled
-        None
-      }
-    None => read_config_value(fs, config_path, "uploadpack", "blobpackfileuri")
-  }
-  @gitlib.UploadPackConfig::new(allow_filter, blob_packfile_uri)
-}
-
-///|
-fn read_config_value(
-  fs : &@git.RepoFileSystem,
-  config_path : String,
-  section : String,
-  name : String,
-) -> String? {
-  guard fs.is_file(config_path) else { return None }
-  let content = try? fs.read_file(config_path)
-  guard content is Ok(content) else { return None }
-  let content_str = @utf8.decode_lossy(content[:])
-  // Simple config parsing - look for key = value in section
-  let section_lower = section.to_lower()
-  let name_lower = name.to_lower()
-  let mut in_section = false
-  let lines = split_by_newline(content_str)
-  for line in lines {
-    let trimmed = trim_whitespace(line)
-    if trimmed.has_prefix("[") && trimmed.has_suffix("]") {
-      let sec = String::unsafe_substring(
-        trimmed,
-        start=1,
-        end=trimmed.length() - 1,
-      )
-      in_section = sec.to_lower() == section_lower
-    } else if in_section {
-      match trimmed.find("=") {
-        Some(idx) => {
-          let k = trim_whitespace(
-            String::unsafe_substring(trimmed, start=0, end=idx),
-          )
-          let v = trim_whitespace(
-            String::unsafe_substring(
-              trimmed,
-              start=idx + 1,
-              end=trimmed.length(),
-            ),
-          )
-          if k.to_lower() == name_lower {
-            return Some(v)
-          }
-        }
-        None => ()
-      }
-    }
-  }
-  None
-}
-
-///|
-fn split_by_newline(s : String) -> Array[String] {
-  let result : Array[String] = []
-  let mut start = 0
-  let len = s.length()
-  for i in 0..<len {
-    if s[i] == '\n' {
-      result.push(String::unsafe_substring(s, start~, end=i))
-      start = i + 1
-    }
-  }
-  if start < len {
-    result.push(String::unsafe_substring(s, start~, end=len))
-  }
-  result
-}
-
-///|
-fn trim_whitespace(s : String) -> String {
-  let mut start = 0
-  let mut end = s.length()
-  while start < end && (s[start] == ' ' || s[start] == '\t' || s[start] == '\r') {
-    start += 1
-  }
-  while end > start &&
-        (s[end - 1] == ' ' || s[end - 1] == '\t' || s[end - 1] == '\r') {
-    end -= 1
-  }
-  if start == 0 && end == s.length() {
-    s
-  } else {
-    String::unsafe_substring(s, start~, end~)
-  }
-}
-
-///|
-fn read_config_bool(
-  fs : &@git.RepoFileSystem,
-  config_path : String,
-  section : String,
-  name : String,
-) -> Bool? {
-  match read_config_value(fs, config_path, section, name) {
-    Some(v) => {
-      let lower = v.to_lower()
-      if lower == "true" || lower == "1" || lower == "yes" {
-        Some(true)
-      } else if lower == "false" || lower == "0" || lower == "no" {
-        Some(false)
-      } else {
-        None
-      }
-    }
-    None => None
   }
 }
 
@@ -4328,7 +2440,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
     Some(dir) => dir
     None => root
   }
-  match resolve_local_repo_path(fs, local_root, remote_url) {
+  match @gitlib.resolve_local_repo_path(fs, local_root, remote_url) {
     Some(src_path) => {
       let remote_display = if remote_url.has_prefix("file://") {
         remote_url
@@ -4422,7 +2534,7 @@ async fn handle_fetch(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
   let git_dir = root + "/.git"
   let fs = OsFs::new()
-  let (remotes, _) = read_repo_config(fs, git_dir)
+  let (remotes, _) = @gitlib.read_repo_config(fs, git_dir)
   // Read remote URL - prefer subdir-clone remote, then config
   let mut remote_name = "origin"
   let mut remote_url : String? = get_effective_remote_url(fs, git_dir)
@@ -4504,7 +2616,7 @@ async fn handle_push(args : Array[String]) -> Unit raise Error {
         if refspec is None {
           // First non-option is either remote or refspec
           // Check if it's a known remote
-          let url = get_remote_url(fs, git_dir, arg)
+          let url = @gitlib.get_remote_url(fs, git_dir, arg)
           if url is Some(_) {
             remote_name = arg
           } else {
@@ -4519,7 +2631,7 @@ async fn handle_push(args : Array[String]) -> Unit raise Error {
   // Get remote URL - prefer subdir-clone remote
   let remote_url = match subdir_remote {
     Some(url) => Some(url)
-    None => get_remote_url(fs, git_dir, remote_name)
+    None => @gitlib.get_remote_url(fs, git_dir, remote_name)
   }
   guard remote_url is Some(url) else {
     raise @git.GitError::InvalidObject("No such remote: \{remote_name}")

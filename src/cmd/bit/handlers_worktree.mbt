@@ -272,7 +272,7 @@ async fn handle_worktree_add(args : Array[String]) -> Unit raise Error {
   }
   let gitmodules_path = abs_wt_path + "/.gitmodules"
   if fs.is_file(gitmodules_path) {
-    let wt_git_dir = resolve_gitdir(fs, abs_wt_path + "/.git")
+    let wt_git_dir = @gitlib.resolve_gitdir(fs, abs_wt_path + "/.git")
     handle_submodule_update(fs, abs_wt_path, wt_git_dir, ["--init"])
   }
   // Print success message
