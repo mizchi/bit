@@ -554,6 +554,17 @@ pub fn build_upload_pack_config_with_overrides(
       )
   }
 
+  // Read allow_ref_in_want from file, then check cmdline override
+  let allow_ref_in_want = match overrides.get("uploadpack.allowrefinwant") {
+    Some(v) => {
+      let lower = v.to_lower()
+      lower == "true" || lower == "1" || lower == "yes"
+    }
+    None =>
+      read_config_bool(fs, config_path, "uploadpack", "allowrefinwant")
+      .unwrap_or(false)
+  }
+
   // Read blobpackfileuri from cmdline first, then file
   // Note: -c uploadpack.blobpackfileuri (without =) means key is present but empty
   // -c uploadpack.blobpackfileuri=anything means key has value
@@ -568,5 +579,5 @@ pub fn build_upload_pack_config_with_overrides(
       }
     None => read_config_value(fs, config_path, "uploadpack", "blobpackfileuri")
   }
-  UploadPackConfig::new(allow_filter, blob_packfile_uri)
+  UploadPackConfig::new(allow_filter, blob_packfile_uri, allow_ref_in_want)
 }

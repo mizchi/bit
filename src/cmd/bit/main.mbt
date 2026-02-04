@@ -815,10 +815,7 @@ async fn dispatch_command(cmd : String, rest : Array[String]) -> Unit {
       handle_receive_pack(rest) catch {
         err => exit_with_error("receive-pack", err)
       }
-    "upload-pack" | "git-upload-pack" =>
-      handle_upload_pack(rest) catch {
-        err => exit_with_error("upload-pack", err)
-      }
+    "upload-pack" | "git-upload-pack" => handle_upload_pack(rest)
     "pack-objects" =>
       handle_pack_objects(rest) catch {
         err => exit_with_error("pack-objects", err)

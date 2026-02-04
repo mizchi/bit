@@ -1127,6 +1127,7 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
         let lines = split_lines_bytes(input)
         let include_commits : Array[@git.ObjectId] = []
         let exclude_commits : Array[@git.ObjectId] = []
+        let mut negate_mode = false
         for line in lines {
           let trimmed = trim_line_bytes(line)
           // Empty line signals end of input in --revs mode (like git rev-list --stdin)
@@ -1134,10 +1135,17 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
             break
           }
           let text = line_to_string(trimmed)
+          if text == "--not" {
+            negate_mode = !negate_mode
+            continue
+          }
+          if text == "--" {
+            continue
+          }
           let (negated, spec) = if text.has_prefix("^") {
             (true, (try! text[1:]).to_string())
           } else {
-            (false, text)
+            (negate_mode, text)
           }
           let mut handled = false
           if !negated {

@@ -129,7 +129,7 @@ t5527-fetch-odd-refs.sh
 t5528-push-default.sh
 t5529-push-errors.sh
 # t5510-fetch.sh  # boundary commit exclusion test fails in shim
-# t5530-upload-pack-error.sh  # broken: upload-pack error handling
+t5530-upload-pack-error.sh
 t5533-push-cas.sh
 t5535-fetch-push-symref.sh
 t5536-fetch-conflicts.sh
@@ -158,8 +158,8 @@ t5612-clone-refspec.sh
 t5700-protocol-v1.sh
 t5701-git-serve.sh
 t5702-protocol-v2.sh
-# t5703-upload-pack-ref-in-want.sh  # broken: upload-pack ref-in-want
-# t5704-protocol-violations.sh  # broken: protocol v2 violation handling
+t5703-upload-pack-ref-in-want.sh
+t5704-protocol-violations.sh
 t5705-session-id-in-capabilities.sh
 t5710-promisor-remote-capability.sh
 t5730-protocol-v2-bundle-uri-file.sh

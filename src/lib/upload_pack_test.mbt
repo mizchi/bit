@@ -192,5 +192,40 @@ test "parse_upload_pack_request_v2: with filter" {
   inspect(req.filter, content="Some(\"blob:none\")")
 }
 
+///|
+test "parse_upload_pack_request_v2: want-ref" {
+  let req_bytes = test_concat_bytes([
+    test_pktline_v2("command=fetch"),
+    test_pktline_v2("object-format=sha1"),
+    test_delimiter(),
+    test_pktline_v2("want-ref refs/heads/main"),
+    test_pktline_v2("done"),
+    @git.pktline_flush(),
+  ])
+  let req = parse_upload_pack_request_v2(req_bytes)
+  inspect(req.want_refs.length(), content="1")
+  inspect(req.want_refs[0], content="refs/heads/main")
+}
+
+///|
+test "parse_upload_pack_request_v2: extra delimiter" {
+  let req_bytes = test_concat_bytes([
+    test_pktline_v2("command=fetch"),
+    test_pktline_v2("object-format=sha1"),
+    test_delimiter(),
+    test_delimiter(),
+  ])
+  let res : Result[UploadPackRequestV2, Error] =
+    try? parse_upload_pack_request_v2(req_bytes)
+  match res {
+    Ok(_) => fail("expected protocol error")
+    Err(err) =>
+      inspect(
+        err.to_string().contains("expected flush after fetch arguments"),
+        content="true",
+      )
+  }
+}
+
 // Note: Oracle tests for upload-pack are in src/git_oracle_pack_test.mbt
 // (main package) which has access to native-only features (@process, @fs).

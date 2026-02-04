@@ -6,6 +6,8 @@ pub struct UploadPackRequest {
   haves : Array[@git.ObjectId]
   capabilities : Array[String]
   done : Bool
+  shallow : Array[@git.ObjectId]
+  deepen : Int?
 }
 
 ///|
@@ -14,6 +16,7 @@ pub struct UploadPackRequestV2 {
   command : String // "fetch", "ls-refs", etc.
   capabilities : Array[String]
   wants : Array[@git.ObjectId]
+  want_refs : Array[String]
   haves : Array[@git.ObjectId]
   done : Bool
   // v2-specific capabilities
@@ -76,29 +79,43 @@ pub fn parse_upload_pack_request_v2(
   let mut command = ""
   let capabilities : Array[String] = []
   let wants : Array[@git.ObjectId] = []
+  let want_refs : Array[String] = []
   let haves : Array[@git.ObjectId] = []
   let mut done = false
   let mut filter : String? = None
   let mut packfile_uris : String? = None
   let mut i = 0
   let mut in_args = false // After delimiter (0001)
+  let mut saw_flush_after_args = false
   while i + 4 <= data.length() {
     let len = upload_parse_pkt_len_safe(data, i)
 
     // 0000 = flush
     if len == 0 {
       i += 4
+      if in_args {
+        saw_flush_after_args = true
+      }
       continue
     }
 
     // 0001 = delimiter (switch from command section to arguments)
     if len == 1 {
+      if in_args {
+        let cmd = if command.length() > 0 { command } else { "unknown" }
+        raise @git.GitError::ProtocolError(
+          "expected flush after " + cmd + " arguments",
+        )
+      }
       in_args = true
       i += 4
       continue
     }
     if len < 4 || i + len > data.length() {
       raise @git.GitError::ProtocolError("Invalid pkt-line length in v2")
+    }
+    if saw_flush_after_args {
+      raise @git.GitError::ProtocolError("Unexpected data after flush")
     }
     let line = upload_bytes_to_string_range(data, i + 4, i + len)
     let line = upload_trim_line(line)
@@ -113,6 +130,12 @@ pub fn parse_upload_pack_request_v2(
         capabilities.push(line)
       }
       // Arguments section
+    } else if line.has_prefix("want-ref ") {
+      let refname = String::unsafe_substring(line, start=9, end=line.length())
+      let refname = upload_trim_line(refname)
+      if refname.length() > 0 {
+        want_refs.push(refname)
+      }
     } else if line.has_prefix("want ") {
       let hex = String::unsafe_substring(line, start=5, end=line.length())
       let hex = upload_trim_line(hex)
@@ -137,7 +160,7 @@ pub fn parse_upload_pack_request_v2(
       )
     }
   }
-  { command, capabilities, wants, haves, done, filter, packfile_uris }
+  { command, capabilities, wants, want_refs, haves, done, filter, packfile_uris }
 }
 
 ///|
@@ -177,8 +200,10 @@ pub fn parse_upload_pack_request(
 ) -> UploadPackRequest raise @git.GitError {
   let wants : Array[@git.ObjectId] = []
   let haves : Array[@git.ObjectId] = []
+  let shallow : Array[@git.ObjectId] = []
   let capabilities : Array[String] = []
   let mut done = false
+  let mut deepen : Int? = None
   let mut i = 0
   let mut first_want = true
   while i + 4 <= data.length() {
@@ -256,12 +281,26 @@ pub fn parse_upload_pack_request(
         let hex40 = String::unsafe_substring(hex, start=0, end=40)
         haves.push(@git.ObjectId::from_hex(hex40))
       }
+    } else if line.has_prefix("shallow ") {
+      let hex = String::unsafe_substring(line, start=8, end=line.length())
+      let hex = upload_trim_line(hex)
+      if hex.length() >= 40 {
+        let hex40 = String::unsafe_substring(hex, start=0, end=40)
+        shallow.push(@git.ObjectId::from_hex(hex40))
+      }
+    } else if line.has_prefix("deepen ") {
+      let depth_str = String::unsafe_substring(line, start=7, end=line.length())
+      let depth_str = upload_trim_line(depth_str)
+      let depth = @strconv.parse_int(depth_str) catch { _ => -1 }
+      if depth >= 0 {
+        deepen = Some(depth)
+      }
     } else if line == "done" {
       done = true
     }
     i += len
   }
-  { wants, haves, capabilities, done }
+  { wants, haves, capabilities, done, shallow, deepen }
 }
 
 ///|
@@ -272,11 +311,49 @@ pub fn upload_pack(
 ) -> Bytes raise @git.GitError {
   let git_dir = join_path(root, ".git")
   let db = ObjectDb::load(fs, git_dir)
-  // Collect objects reachable from wants
-  let objects = collect_reachable_objects_from_commits(db, fs, req.wants)
+
+  // Validate wants (must be commit objects)
+  for want in req.wants {
+    let obj = db.get(fs, want)
+    match obj {
+      None =>
+        raise @git.GitError::ProtocolError(
+          "not our ref " + want.to_hex(),
+        )
+      Some(o) =>
+        if o.obj_type != @git.ObjectType::Commit {
+          raise @git.GitError::ProtocolError(
+            "not our ref " + want.to_hex(),
+          )
+        }
+    }
+  }
+
+  // Stateless clients may terminate after wants; respond with flush only
+  if not(req.done) && req.haves.length() == 0 {
+    return @git.pktline_flush()
+  }
+
   // Check if client wants side-band
   let use_side_band = req.capabilities.contains("side-band-64k") ||
     req.capabilities.contains("side-band")
+
+  // Collect have ACKs (v0 allows duplicates)
+  let ack_ids = collect_have_acks_v0(db, fs, req.haves)
+  if not(req.done) {
+    return build_upload_pack_ack_response(ack_ids)
+  }
+
+  // Collect objects reachable from wants
+  let include_pack_objects_died = req.shallow.length() == 0 &&
+    req.deepen is None
+  let objects = try collect_reachable_objects_from_commits(db, fs, req.wants) catch {
+    err =>
+      raise @git.GitError::ProtocolError(
+        upload_pack_error_message(err, include_pack_objects_died),
+      )
+  }
+
   // If client has some objects, filter them out
   if req.haves.length() > 0 {
     let have_set : Map[String, Bool] = {}
@@ -292,17 +369,39 @@ pub fn upload_pack(
         filtered.push(obj)
       }
     }
-    return build_upload_pack_response(filtered, use_side_band)
+    return build_upload_pack_response(filtered, use_side_band, ack_ids)
   }
-  build_upload_pack_response(objects, use_side_band)
+  build_upload_pack_response(objects, use_side_band, ack_ids)
+}
+
+///|
+fn build_upload_pack_ack_response(
+  ack_ids : Array[@git.ObjectId],
+) -> Bytes {
+  let out : Array[Byte] = []
+  if ack_ids.length() > 0 {
+    for id in ack_ids {
+      upload_push_bytes(out, @git.pktline_encode("ACK " + id.to_hex() + "\n"))
+    }
+  } else {
+    upload_push_bytes(out, @git.pktline_encode("NAK\n"))
+  }
+  upload_push_bytes(out, @git.pktline_flush())
+  Bytes::from_array(FixedArray::makei(out.length(), fn(i) { out[i] }))
 }
 
 ///|
 fn build_upload_pack_response(
   objects : Array[@git.PackObject],
   use_side_band : Bool,
+  ack_ids : Array[@git.ObjectId],
 ) -> Bytes {
   let out : Array[Byte] = []
+  if ack_ids.length() > 0 {
+    for id in ack_ids {
+      upload_push_bytes(out, @git.pktline_encode("ACK " + id.to_hex() + "\n"))
+    }
+  }
   // NAK (no common commits)
   upload_push_bytes(out, @git.pktline_encode("NAK\n"))
   // Create packfile
@@ -338,6 +437,88 @@ fn build_upload_pack_response(
     }
   }
   Bytes::from_array(FixedArray::makei(out.length(), fn(i) { out[i] }))
+}
+
+///|
+fn collect_have_acks_v0(
+  db : ObjectDb,
+  fs : &@git.RepoFileSystem,
+  haves : Array[@git.ObjectId],
+) -> Array[@git.ObjectId] raise @git.GitError {
+  let out : Array[@git.ObjectId] = []
+  for id in haves {
+    let res : Result[@git.PackObject?, Error] = try? db.get(fs, id)
+    match res {
+      Ok(Some(_)) => out.push(id)
+      _ => ()
+    }
+  }
+  out
+}
+
+///|
+fn collect_have_acks_v2(
+  db : ObjectDb,
+  fs : &@git.RepoFileSystem,
+  haves : Array[@git.ObjectId],
+) -> Array[@git.ObjectId] raise @git.GitError {
+  let out : Array[@git.ObjectId] = []
+  let seen : Map[String, Bool] = {}
+  for id in haves {
+    let hex = id.to_hex()
+    if seen.contains(hex) {
+      continue
+    }
+    let res : Result[@git.PackObject?, Error] = try? db.get(fs, id)
+    match res {
+      Ok(Some(_)) => {
+        out.push(id)
+        seen[hex] = true
+      }
+      _ => ()
+    }
+  }
+  out
+}
+
+///|
+fn upload_pack_error_message(
+  err : @git.GitError,
+  include_pack_objects_died : Bool,
+) -> String {
+  let base = match err {
+    InvalidObject(msg) => upload_pack_map_invalid_object(msg)
+    HashMismatch(_, _) => "hash mismatch"
+    PackfileError(msg) => msg
+    ProtocolError(msg) => msg
+    IoError(msg) => msg
+  }
+  if include_pack_objects_died && not(base.contains("pack-objects died")) {
+    base + "\npack-objects died"
+  } else {
+    base
+  }
+}
+
+///|
+fn upload_pack_map_invalid_object(msg : String) -> String {
+  let prefix = "Missing blob object: "
+  if msg.has_prefix(prefix) {
+    let hex = String::unsafe_substring(
+      msg,
+      start=prefix.length(),
+      end=msg.length(),
+    )
+    "unable to read " + hex
+  } else if msg.has_prefix("Missing tree object") ||
+    msg.has_prefix("Object is not a tree") {
+    "bad tree object"
+  } else if msg.has_prefix("Missing commit object") ||
+    msg.has_prefix("Object is not a commit") {
+    "not our ref"
+  } else {
+    msg
+  }
 }
 
 ///|
@@ -456,19 +637,21 @@ fn upload_push_bytes(out : Array[Byte], data : Bytes) -> Unit {
 pub(all) struct UploadPackConfig {
   allow_filter : Bool
   blob_packfile_uri : String? // If set, packfile-uris is allowed
+  allow_ref_in_want : Bool
 }
 
 ///|
 pub fn UploadPackConfig::new(
   allow_filter : Bool,
   blob_packfile_uri : String?,
+  allow_ref_in_want : Bool,
 ) -> UploadPackConfig {
-  { allow_filter, blob_packfile_uri }
+  { allow_filter, blob_packfile_uri, allow_ref_in_want }
 }
 
 ///|
 pub fn UploadPackConfig::default() -> UploadPackConfig {
-  { allow_filter: true, blob_packfile_uri: None }
+  { allow_filter: true, blob_packfile_uri: None, allow_ref_in_want: false }
 }
 
 ///|
@@ -500,8 +683,53 @@ pub fn upload_pack_v2(
   let git_dir = join_path(root, ".git")
   let db = ObjectDb::load(fs, git_dir)
 
+  let refs = show_ref(fs, git_dir)
+  let ref_map : Map[String, @git.ObjectId] = {}
+  for item in refs {
+    let (name, id) = item
+    ref_map[name] = id
+  }
+
+  let all_wants : Array[@git.ObjectId] = []
+  for id in req.wants {
+    all_wants.push(id)
+  }
+  let wanted_refs : Array[(String, @git.ObjectId)] = []
+  if req.want_refs.length() > 0 {
+    if not(config.allow_ref_in_want) {
+      raise @git.GitError::ProtocolError("unknown command 'want-ref'")
+    }
+    for name in req.want_refs {
+      match ref_map.get(name) {
+        Some(id) => {
+          wanted_refs.push((name, id))
+          all_wants.push(id)
+        }
+        None => raise @git.GitError::ProtocolError("unknown ref " + name)
+      }
+    }
+  }
+
+  let seen_wants : Map[String, Bool] = {}
+  let wants : Array[@git.ObjectId] = []
+  for id in all_wants {
+    let hex = id.to_hex()
+    if not(seen_wants.contains(hex)) {
+      seen_wants[hex] = true
+      wants.push(id)
+    }
+  }
+
+  let ack_ids = collect_have_acks_v2(db, fs, req.haves)
+  if not(req.done) {
+    return build_upload_pack_response_v2_ack(ack_ids, wanted_refs)
+  }
+
   // Collect objects reachable from wants
-  let objects = collect_reachable_objects_from_commits(db, fs, req.wants)
+  let objects = try collect_reachable_objects_from_commits(db, fs, wants) catch {
+    err =>
+      raise @git.GitError::ProtocolError(upload_pack_error_message(err, true))
+  }
 
   // Apply partial clone filter (blob:none, blob:limit, tree:depth)
   let filter_spec = match req.filter {
@@ -531,7 +759,7 @@ pub fn upload_pack_v2(
   }
 
   // Build v2 response
-  build_upload_pack_response_v2(filtered_objects)
+  build_upload_pack_response_v2(filtered_objects, ack_ids, wanted_refs)
 }
 
 ///|
@@ -589,23 +817,60 @@ fn apply_filter_spec(
 }
 
 ///|
-fn build_upload_pack_response_v2(objects : Array[@git.PackObject]) -> Bytes {
+fn build_upload_pack_response_v2_ack(
+  ack_ids : Array[@git.ObjectId],
+  wanted_refs : Array[(String, @git.ObjectId)],
+) -> Bytes {
+  let out : Array[Byte] = []
+  if ack_ids.length() > 0 {
+    upload_push_bytes(out, @git.pktline_encode("acknowledgments\n"))
+    for id in ack_ids {
+      upload_push_bytes(out, @git.pktline_encode("ACK " + id.to_hex() + "\n"))
+    }
+    upload_push_bytes(out, @git.pktline_delim())
+  }
+  if wanted_refs.length() > 0 {
+    upload_push_bytes(out, @git.pktline_encode("wanted-refs\n"))
+    for item in wanted_refs {
+      let (name, id) = item
+      upload_push_bytes(out, @git.pktline_encode("\{id.to_hex()} \{name}\n"))
+    }
+    upload_push_bytes(out, @git.pktline_delim())
+  }
+  upload_push_bytes(out, @git.pktline_flush())
+  Bytes::from_array(FixedArray::makei(out.length(), fn(i) { out[i] }))
+}
+
+///|
+fn build_upload_pack_response_v2(
+  objects : Array[@git.PackObject],
+  ack_ids : Array[@git.ObjectId],
+  wanted_refs : Array[(String, @git.ObjectId)],
+) -> Bytes {
   let out : Array[Byte] = []
 
-  // Send acknowledgments section (simplified - just packfile for now)
-  // Format: 0001 (delimiter), then packfile section, then 0000 (flush)
+  if ack_ids.length() > 0 {
+    upload_push_bytes(out, @git.pktline_encode("acknowledgments\n"))
+    for id in ack_ids {
+      upload_push_bytes(out, @git.pktline_encode("ACK " + id.to_hex() + "\n"))
+    }
+    upload_push_bytes(out, @git.pktline_delim())
+  }
 
-  // Delimiter to signal start of packfile section
-  out.push(b'0')
-  out.push(b'0')
-  out.push(b'0')
-  out.push(b'1')
-
-  // Create packfile
-  let pack = @git.create_packfile(objects)
+  if wanted_refs.length() > 0 {
+    upload_push_bytes(out, @git.pktline_encode("wanted-refs\n"))
+    for item in wanted_refs {
+      let (name, id) = item
+      upload_push_bytes(out, @git.pktline_encode("\{id.to_hex()} \{name}\n"))
+    }
+    upload_push_bytes(out, @git.pktline_delim())
+  }
 
   // Send packfile-section header
   upload_push_bytes(out, @git.pktline_encode("packfile\n"))
+
+  // Create packfile
+  let pack = @git.create_packfile(objects)
 
   // Send packfile via side-band-64k (band 1)
   let chunk_size = 65515 // 65520 - 4 (pkt-line header) - 1 (band byte)

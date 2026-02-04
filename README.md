@@ -26,7 +26,7 @@ Clone subdirectories directly from GitHub:
 
 ```bash
 # Using @user/repo/path shorthand
-bit clone @mizchi/bit/src/x/fs
+bit clone mizchi/bit:src/x/fs
 
 # Or paste GitHub browser URL
 bit clone https://github.com/user/repo/tree/main/packages/core

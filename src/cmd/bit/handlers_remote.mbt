@@ -2189,57 +2189,101 @@ async fn handle_upload_pack(args : Array[String]) -> Unit {
       @sys.exit(129)
     }
   }
-  // Parse config overrides from environment variable
-  let cmdline_config = @gitlib.parse_config_overrides()
-  guard parse_pack_args(args) is Some((advertise, repo_path)) else {
-    raise @git.GitError::ProtocolError("missing repository path")
-  }
-  let root = if repo_path.has_suffix(".git") && !repo_path.has_suffix("/.git") {
-    // Bare repository with .git suffix
-    repo_path
-  } else {
-    normalize_repo_root(repo_path)
-  }
-  let fs = OsFs::new()
-  let git_dir = if root.has_suffix(".git") && !root.has_suffix("/.git") {
-    root
-  } else {
-    root + "/.git"
-  }
-  if is_sha256_repo(git_dir) {
-    match real_git_path() {
-      Some(real_git) => {
-        let real_args = real_git_args_from_cli()
-        let code = @process.run(real_git, real_args)
-        @sys.exit(code)
-      }
-      None => {
-        @stdio.stderr.write("bit: SHA256 repositories are not supported\n")
-        @sys.exit(1)
+  let mut advertise = false
+  let mut protocol_version = 1
+  try {
+    // Parse config overrides from environment variable
+    let cmdline_config = @gitlib.parse_config_overrides()
+    guard parse_pack_args(args) is Some((advertise_flag, repo_path)) else {
+      raise @git.GitError::ProtocolError("missing repository path")
+    }
+    advertise = advertise_flag
+    let root = if repo_path.has_suffix(".git") && !repo_path.has_suffix("/.git") {
+      // Bare repository with .git suffix
+      repo_path
+    } else {
+      normalize_repo_root(repo_path)
+    }
+    let fs = OsFs::new()
+    let git_dir = if root.has_suffix(".git") && !root.has_suffix("/.git") {
+      root
+    } else {
+      root + "/.git"
+    }
+    if is_sha256_repo(git_dir) {
+      match real_git_path() {
+        Some(real_git) => {
+          let real_args = real_git_args_from_cli()
+          let code = @process.run(real_git, real_args)
+          @sys.exit(code)
+        }
+        None => {
+          @stdio.stderr.write("bit: SHA256 repositories are not supported\n")
+          @sys.exit(1)
+        }
       }
     }
-  }
-  if advertise {
-    let out = @gitlib.build_upload_pack_advertisement(fs, root)
-    @stdio.stdout.write(out)
-  } else {
-    let input = read_all_stdin()
-    // Check protocol version from GIT_PROTOCOL environment variable
-    let protocol_version = @gitlib.get_protocol_version()
-    if protocol_version == 2 {
-      // Protocol v2: parse and handle v2 request
-      let req = @gitlib.parse_upload_pack_request_v2(input)
-      let config = @gitlib.build_upload_pack_config_with_overrides(
-        fs, root, cmdline_config,
-      )
-      let out = @gitlib.upload_pack_v2(fs, root, req, config)
+    if advertise {
+      let out = @gitlib.build_upload_pack_advertisement(fs, root)
       @stdio.stdout.write(out)
     } else {
-      // Protocol v1: use existing handler
-      let req = @gitlib.parse_upload_pack_request(input)
-      let out = @gitlib.upload_pack(fs, root, req)
-      @stdio.stdout.write(out)
+      let input = read_all_stdin()
+      // Check protocol version from GIT_PROTOCOL environment variable
+      protocol_version = @gitlib.get_protocol_version()
+      if protocol_version == 2 {
+        // Protocol v2: parse and handle v2 request
+        let req = @gitlib.parse_upload_pack_request_v2(input)
+        let config = @gitlib.build_upload_pack_config_with_overrides(
+          fs, root, cmdline_config,
+        )
+        let out = @gitlib.upload_pack_v2(fs, root, req, config)
+        @stdio.stdout.write(out)
+      } else {
+        // Protocol v1: use existing handler
+        let req = @gitlib.parse_upload_pack_request(input)
+        let out = @gitlib.upload_pack(fs, root, req)
+        @stdio.stdout.write(out)
+      }
     }
+  } catch {
+    err => upload_pack_fail(err, protocol_version, advertise)
+  }
+}
+
+///|
+async fn upload_pack_fail(
+  err : Error,
+  protocol_version : Int,
+  advertise : Bool,
+) -> Unit {
+  let _ : Int = protocol_version
+  let msg = upload_pack_error_text(err)
+  if not(advertise) {
+    let line = upload_pack_first_line(msg)
+    let pkt = @git.pktline_encode("ERR " + line + "\n")
+    @stdio.stdout.write(pkt)
+  }
+  @stdio.stderr.write(msg + "\n")
+  @sys.exit(1)
+}
+
+///|
+fn upload_pack_error_text(err : Error) -> String {
+  match err {
+    @git.GitError::ProtocolError(msg) => msg
+    @git.GitError::InvalidObject(msg) => msg
+    @git.GitError::PackfileError(msg) => msg
+    @git.GitError::HashMismatch(_, _) => "hash mismatch"
+    @git.GitError::IoError(msg) => msg
+    _ => err.to_string()
+  }
+}
+
+///|
+fn upload_pack_first_line(msg : String) -> String {
+  match msg.find("\n") {
+    Some(idx) => String::unsafe_substring(msg, start=0, end=idx)
+    None => msg
   }
 }
 
