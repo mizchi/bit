@@ -559,6 +559,85 @@ pub fn create_packfile_with_delta_stats_compression(
 }
 
 ///|
+/// Create a packfile with delta stats, optional delta reuse, and depth limit
+pub fn create_packfile_with_delta_stats_compression_reuse(
+  objects : Array[PackObject],
+  delta_mode : PackDeltaMode,
+  compression : PackCompression,
+  reuse_only : Bool,
+  max_depth : Int,
+) -> (Bytes, Int) {
+  let result : Array[Byte] = []
+
+  // Magic: "PACK"
+  result.push(b'P')
+  result.push(b'A')
+  result.push(b'C')
+  result.push(b'K')
+
+  // Version: 2 (big-endian)
+  result.push(b'\x00')
+  result.push(b'\x00')
+  result.push(b'\x00')
+  result.push(b'\x02')
+
+  // Object count (big-endian)
+  let count = objects.length()
+  result.push(((count >> 24) & 0xff).to_byte())
+  result.push(((count >> 16) & 0xff).to_byte())
+  result.push(((count >> 8) & 0xff).to_byte())
+  result.push((count & 0xff).to_byte())
+
+  // Pack each object with optional delta reuse / depth limit
+  let mut offset = 12
+  let last_by_type : Map[Int, (Int, PackObject, Int)] = {}
+  let mut delta_count = 0
+  for obj in objects {
+    let obj_offset = offset
+    let key = obj.obj_type.to_packfile_type()
+    let mut base : (Int, PackObject)? = None
+    let mut base_depth = 0
+    match last_by_type.get(key) {
+      Some((base_offset, base_obj, depth)) => {
+        base = Some((base_offset, base_obj))
+        base_depth = depth
+      }
+      None => ()
+    }
+    let allow_delta = match base {
+      None => false
+      Some((_base_offset, base_obj)) =>
+        max_depth > 0 &&
+        base_depth < max_depth &&
+        (match delta_mode {
+          PackDeltaMode::NoDelta => false
+          _ => true
+        }) &&
+        (!reuse_only || (obj.offset >= 0 && base_obj.offset >= 0))
+    }
+    let mode = if allow_delta { delta_mode } else { PackDeltaMode::NoDelta }
+    let (written, used_delta) = pack_object_with_delta(
+      obj, base, obj_offset, result, mode, compression,
+    )
+    offset = offset + written
+    if used_delta {
+      delta_count = delta_count + 1
+    }
+    let next_depth = if used_delta { base_depth + 1 } else { 0 }
+    last_by_type[key] = (obj_offset, obj, next_depth)
+  }
+
+  // Compute SHA-1 of everything so far
+  let trailer = sha1_array_prefix(result, result.length())
+
+  // Append trailer
+  for b in trailer.bytes {
+    result.push(b)
+  }
+  (pack_array_to_bytes(result), delta_count)
+}
+
+///|
 /// Encode type and size in Git's variable-length format
 pub fn encode_type_and_size(
   obj_type : Int,

@@ -2,6 +2,8 @@
 priv struct IndexPackConfig {
   stdin : Bool
   verify : Bool
+  verify_stat_only : Bool
+  fix_thin : Bool
   output_path : String?
   keep_msg : String?
   pack_path : String?
@@ -33,6 +35,8 @@ fn normalize_object_format(value : String) -> String? {
 fn parse_index_pack_args(args : Array[String]) -> IndexPackParse {
   let mut stdin = false
   let mut verify = false
+  let mut verify_stat_only = false
+  let mut fix_thin = false
   let mut output_path : String? = None
   let mut keep_msg : String? = None
   let mut pack_path : String? = None
@@ -55,7 +59,8 @@ fn parse_index_pack_args(args : Array[String]) -> IndexPackParse {
       match arg {
         "--stdin" => stdin = true
         "--verify" => verify = true
-        "--fix-thin" => ()
+        "--verify-stat-only" => verify_stat_only = true
+        "--fix-thin" => fix_thin = true
         "--keep" => keep_msg = Some("")
         "--strict" => {
           strict = true
@@ -116,6 +121,8 @@ fn parse_index_pack_args(args : Array[String]) -> IndexPackParse {
             if arg.contains("missingEmail=ignore") {
               ignore_missing_email = true
             }
+          } else if arg.has_prefix("--verify-stat-only") {
+            return IndexPackParse::Unsupported
           } else if arg.has_prefix("--index-version=") {
             delegate_to_real_git = true
           } else if arg.has_prefix("--max-input-size=") {
@@ -143,16 +150,24 @@ fn parse_index_pack_args(args : Array[String]) -> IndexPackParse {
     if extra_args > 0 {
       return IndexPackParse::Error("fatal: too many arguments")
     }
-    if !stdin && !verify && pack_path is None {
+    if verify && verify_stat_only {
+      return IndexPackParse::Error("fatal: --verify-stat-only cannot be used with --verify")
+    }
+    if !stdin && !verify && !verify_stat_only && pack_path is None {
       return IndexPackParse::Unsupported
     }
     if verify && pack_path is None {
       return IndexPackParse::Error("fatal: --verify requires a pack file")
     }
+    if verify_stat_only && pack_path is None {
+      return IndexPackParse::Error("fatal: --verify-stat-only requires a pack file")
+    }
   }
   IndexPackParse::Ok({
     stdin,
     verify,
+    verify_stat_only,
+    fix_thin,
     output_path,
     keep_msg,
     pack_path,
@@ -632,6 +647,33 @@ async fn handle_index_pack(args : Array[String]) -> Unit {
         }
       }
 
+      if cfg.verify_stat_only {
+        let pack_path = match cfg.pack_path {
+          Some(path) => resolve_in_cwd(path)
+          None => {
+            @stdio.stderr.write("fatal: --verify-stat-only requires a pack file\n")
+            @sys.exit(1)
+            ""
+          }
+        }
+        let pack = @fs.read_file_to_bytes(pack_path) catch {
+          err => {
+            @stdio.stderr.write("fatal: " + err.to_string() + "\n")
+            @sys.exit(1)
+            Bytes::default()
+          }
+        }
+        let max_depth = @git.max_delta_chain_length(pack) catch {
+          err => {
+            @stdio.stderr.write("fatal: " + err.to_string() + "\n")
+            @sys.exit(1)
+            0
+          }
+        }
+        @stdio.stdout.write("chain length = " + max_depth.to_string() + ":\n")
+        return
+      }
+
       // Handle --verify mode
       if cfg.verify {
         let pack_path = match cfg.pack_path {
@@ -682,7 +724,16 @@ async fn handle_index_pack(args : Array[String]) -> Unit {
           @stdio.stderr.write("fatal: not a git repository\n")
           @sys.exit(1)
         }
-        let objects = @git.parse_packfile(pack)
+        let bases = if cfg.fix_thin {
+          @gitlib.load_all_objects_from_fs(fs, git_dir) catch { _ => [] }
+        } else {
+          []
+        }
+        let objects = if cfg.fix_thin {
+          @git.parse_packfile_with_bases(pack, bases)
+        } else {
+          @git.parse_packfile(pack)
+        }
         check_sha1_collisions_with_repo(fs, git_dir, objects)
         check_pack_strict_and_fsck(
           fs,

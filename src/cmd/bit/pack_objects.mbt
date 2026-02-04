@@ -4,6 +4,8 @@ priv struct PackObjectsConfig {
   stdout : Bool
   all : Bool
   delta_mode : @git.PackDeltaMode
+  window : Int
+  depth : Int
   base_name : String?
   progress : Bool
   path_walk : Bool
@@ -19,7 +21,15 @@ priv struct PackObjectsConfig {
   exclude_promisor_objects : Bool
   name_hash_version : Int?
   write_bitmap : Bool
+  include_tag : Bool
   delegate_to_real_git : Bool
+  missing_mode : MissingMode
+}
+
+///|
+priv enum MissingMode {
+  Error
+  AllowAny
 }
 
 ///|
@@ -36,6 +46,7 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
   let mut all = false
   let mut delta_mode = @git.PackDeltaMode::RefDelta
   let mut window = 10
+  let mut depth = 50
   let mut base_name : String? = None
   let mut progress = false
   let mut path_walk = false
@@ -51,7 +62,9 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
   let mut exclude_promisor_objects = false
   let mut name_hash_version : Int? = None
   let mut write_bitmap = false
+  let mut include_tag = false
   let mut delegate_to_real_git = false
+  let mut missing_mode = MissingMode::Error
   let mut i = 0
   let mut in_opts = true
   let mut extra_args = 0
@@ -75,6 +88,7 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
         "--path-walk" => path_walk = true
         "--no-path-walk" => ()
         "--thin" => ()
+        "--include-tag" => include_tag = true
         "--stdin-packs" => stdin_packs = true
         "--stdin-packs=follow" => {
           stdin_packs = true
@@ -83,6 +97,8 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
         "--write-bitmap-index" => write_bitmap = true
         "--progress" => progress = true
         "--no-progress" => ()
+        "--use-bitmap-index" => ()
+        "--no-use-bitmap-index" => ()
         "--quiet" => ()
         "-q" => ()
         "--exclude-promisor-objects" => exclude_promisor_objects = true
@@ -109,6 +125,17 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
             _ => return PackObjectsParse::Unsupported
           }
           window = parsed
+          i += 1
+        }
+        "--depth" => {
+          if i + 1 >= args.length() {
+            return PackObjectsParse::Unsupported
+          }
+          let value = args[i + 1]
+          let parsed = @strconv.parse_int(value) catch {
+            _ => return PackObjectsParse::Unsupported
+          }
+          depth = parsed
           i += 1
         }
         "--name-hash-version" => {
@@ -172,6 +199,19 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
             name_hash_version = Some(normalized)
           } else if arg.has_prefix("--index-version=") {
             delegate_to_real_git = true
+          } else if arg.has_prefix("--missing=") {
+            let value = (try! arg[10:]).to_string()
+            match value {
+              "allow-any" => missing_mode = MissingMode::AllowAny
+              "error" => missing_mode = MissingMode::Error
+              _ => return PackObjectsParse::Unsupported
+            }
+          } else if arg.has_prefix("--depth=") {
+            let value = (try! arg[8:]).to_string()
+            let parsed = @strconv.parse_int(value) catch {
+              _ => return PackObjectsParse::Unsupported
+            }
+            depth = parsed
           } else if arg.has_prefix("--stdin-packs") ||
             arg.has_prefix("--write-bitmap-index") ||
             arg.has_prefix("--threads") ||
@@ -202,7 +242,13 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
   if extra_args > 0 {
     return PackObjectsParse::Error("fatal: too many arguments")
   }
-  if window <= 0 {
+  if window < 0 {
+    window = 0
+  }
+  if depth < 0 {
+    depth = 0
+  }
+  if depth == 0 {
     delta_mode = @git.PackDeltaMode::NoDelta
   }
   let has_filter = match filter {
@@ -227,6 +273,8 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
     stdout,
     all,
     delta_mode,
+    window,
+    depth,
     base_name,
     progress,
     path_walk,
@@ -242,7 +290,9 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
     exclude_promisor_objects,
     name_hash_version,
     write_bitmap,
+    include_tag,
     delegate_to_real_git,
+    missing_mode,
   })
 }
 
@@ -360,18 +410,24 @@ fn parse_object_id_bytes(line : BytesView) -> @git.ObjectId? {
   if trimmed.length() == 0 {
     return None
   }
-  if trimmed.length() < 40 {
-    return None
-  }
-  if trimmed.length() > 40 {
-    if !is_space_byte(trimmed[40]) {
-      return None
+  let mut end = trimmed.length()
+  for i in 0..<trimmed.length() {
+    if is_space_byte(trimmed[i]) {
+      end = i
+      break
     }
+  }
+  let mut hex_view = trimmed[:end]
+  if hex_view.length() > 0 && (hex_view[0] == b'-' || hex_view[0] == b'^') {
+    hex_view = hex_view[1:hex_view.length()]
+  }
+  if hex_view.length() != 40 {
+    return None
   }
   let bytes = FixedArray::make(20, b'\x00')
   for i in 0..<20 {
-    let hi = hex_byte_to_int(trimmed[i * 2])
-    let lo = hex_byte_to_int(trimmed[i * 2 + 1])
+    let hi = hex_byte_to_int(hex_view[i * 2])
+    let lo = hex_byte_to_int(hex_view[i * 2 + 1])
     match (hi, lo) {
       (Some(h), Some(l)) => bytes[i] = ((h << 4) | l).to_byte()
       _ => return None
@@ -414,6 +470,106 @@ fn invalid_object_line_message(line : String) -> String {
   } else {
     "fatal: expected object ID, got garbage:\n " + line + "\n\n"
   }
+}
+
+///|
+fn parse_tag_target_id(data : Bytes) -> @git.ObjectId? {
+  let lines = split_lines_bytes(data)
+  for line in lines {
+    let trimmed = trim_line_bytes(line)
+    if trimmed.length() == 0 {
+      break
+    }
+    let text = line_to_string(trimmed)
+    if text.has_prefix("object ") {
+      let hex = (try! text[7:]).to_string()
+      let id = @git.ObjectId::from_hex(hex) catch { _ => return None }
+      return Some(id)
+    }
+  }
+  None
+}
+
+///|
+fn resolve_tag_chain(
+  db : @gitlib.ObjectDb,
+  fs : OsFs,
+  start : @git.ObjectId,
+) -> (Array[@git.PackObject], @git.ObjectId?) {
+  let chain : Array[@git.PackObject] = []
+  let seen : Map[String, Bool] = {}
+  let mut current = start
+  let mut resolved : @git.ObjectId? = None
+  while true {
+    let key = current.to_hex()
+    if seen.contains(key) {
+      resolved = None
+      break
+    }
+    seen[key] = true
+    let obj = try db.get(fs, current) catch { _ => None } noraise {
+      value => value
+    }
+    match obj {
+      Some(o) if o.obj_type == @git.ObjectType::Tag => {
+        chain.push(o)
+        match parse_tag_target_id(o.data) {
+          Some(next) => {
+            current = next
+            continue
+          }
+          None => {
+            resolved = None
+            break
+          }
+        }
+      }
+      Some(_) => {
+        resolved = Some(current)
+        break
+      }
+      None => {
+        resolved = None
+        break
+      }
+    }
+  }
+  (chain, resolved)
+}
+
+///|
+fn collect_include_tag_objects(
+  fs : OsFs,
+  git_dir : String,
+  db : @gitlib.ObjectDb,
+  objects : Array[@git.PackObject],
+) -> Array[@git.PackObject] {
+  let included : Map[String, Bool] = {}
+  for obj in objects {
+    included[object_hex(obj)] = true
+  }
+  let refs = @gitlib.show_ref(fs, git_dir) catch { _ => [] }
+  let added : Map[String, Bool] = {}
+  let out : Array[@git.PackObject] = []
+  for pair in refs {
+    let (_name, id) = pair
+    let (chain, target) = resolve_tag_chain(db, fs, id)
+    match target {
+      Some(t) if included.contains(t.to_hex()) => {
+        for tag in chain {
+          let tag_hex = object_hex(tag)
+          if added.contains(tag_hex) {
+            continue
+          }
+          added[tag_hex] = true
+          included[tag_hex] = true
+          out.push(tag)
+        }
+      }
+      _ => ()
+    }
+  }
+  out
 }
 
 ///|
@@ -478,6 +634,21 @@ fn parse_pack_index_ids(data : Bytes) -> Array[String]? {
 }
 
 ///|
+fn normalize_dir_entry(entry : String) -> String {
+  match entry.rev_find("/") {
+    None => entry
+    Some(pos) =>
+      if pos + 1 >= entry.length() {
+        ""
+      } else {
+        (try! entry[pos + 1:]).to_string()
+      }
+  }
+}
+
+
+
+///|
 fn collect_pack_index_ids(fs : OsFs, idx_path : String) -> Array[String] {
   let data = fs.read_file(idx_path) catch { _ => return [] }
   match parse_pack_index_ids(data) {
@@ -494,10 +665,11 @@ fn collect_pack_ids_from_dir(fs : OsFs, pack_dir : String) -> Map[String, Bool] 
   }
   let entries = fs.readdir(pack_dir) catch { _ => [] }
   for entry in entries {
-    if not(entry.has_suffix(".idx")) {
+    let name = normalize_dir_entry(entry)
+    if not(name.has_suffix(".idx")) {
       continue
     }
-    let idx_path = pack_dir + "/" + entry
+    let idx_path = pack_dir + "/" + name
     if not(fs.is_file(idx_path)) {
       continue
     }
@@ -521,10 +693,11 @@ fn collect_pack_ids_from_marker(
   }
   let entries = fs.readdir(pack_dir) catch { _ => [] }
   for entry in entries {
-    if not(entry.has_suffix(suffix)) {
+    let name = normalize_dir_entry(entry)
+    if not(name.has_suffix(suffix)) {
       continue
     }
-    let base = (try! entry[:entry.length() - suffix.length()]).to_string()
+    let base = (try! name[:name.length() - suffix.length()]).to_string()
     let idx_path = pack_dir + "/" + base + ".idx"
     if not(fs.is_file(idx_path)) {
       continue
@@ -548,22 +721,24 @@ fn collect_loose_object_ids(
   }
   let entries = fs.readdir(objects_dir) catch { _ => [] }
   for entry in entries {
-    if entry == "info" || entry == "pack" {
+    let name = normalize_dir_entry(entry)
+    if name == "info" || name == "pack" {
       continue
     }
-    if entry.length() != 2 || not(is_hex_string(entry)) {
+    if name.length() != 2 || not(is_hex_string(name)) {
       continue
     }
-    let subdir = objects_dir + "/" + entry
+    let subdir = objects_dir + "/" + name
     if !fs.is_dir(subdir) {
       continue
     }
     let files = fs.readdir(subdir) catch { _ => [] }
     for file in files {
-      if file.length() != 38 || not(is_hex_string(file)) {
+      let filename = normalize_dir_entry(file)
+      if filename.length() != 38 || not(is_hex_string(filename)) {
         continue
       }
-      out[entry + file] = true
+      out[name + filename] = true
     }
   }
   out
@@ -677,6 +852,59 @@ fn filter_objects(
 }
 
 ///|
+async fn report_collect_error(err : @git.GitError) -> Unit {
+  match err {
+    @git.GitError::InvalidObject(msg) => {
+      if msg.contains("Missing tree object") {
+        @stdio.stderr.write("fatal: bad tree object\n")
+      } else if msg.contains("Missing commit object") {
+        @stdio.stderr.write("fatal: bad commit object\n")
+      } else if msg.contains("Missing blob object") {
+        @stdio.stderr.write("fatal: missing blob object\n")
+      } else {
+        @stdio.stderr.write("fatal: " + msg + "\n")
+      }
+    }
+    @git.GitError::HashMismatch(expected, actual) =>
+      @stdio.stderr.write(
+        "fatal: hash mismatch (expected " + expected + ", got " + actual + ")\n"
+      )
+    @git.GitError::PackfileError(msg) =>
+      @stdio.stderr.write("fatal: " + msg + "\n")
+    @git.GitError::ProtocolError(msg) =>
+      @stdio.stderr.write("fatal: " + msg + "\n")
+    @git.GitError::IoError(msg) => @stdio.stderr.write("fatal: " + msg + "\n")
+  }
+  @sys.exit(1)
+}
+
+///|
+fn count_pack_reused_objects(
+  fs : OsFs,
+  git_dir : String,
+  pack_dir : String,
+  objects : Array[@git.PackObject],
+) -> Int {
+  let packed_ids = collect_pack_ids_from_dir(fs, pack_dir)
+  let alt_dirs = read_alternate_object_dirs(fs, git_dir)
+  for alt_dir in alt_dirs {
+    let alt_pack_dir = alt_dir + "/pack"
+    let alt_pack_ids = collect_pack_ids_from_dir(fs, alt_pack_dir)
+    for item in alt_pack_ids {
+      let (hex, _v) = item
+      packed_ids[hex] = true
+    }
+  }
+  let mut count = 0
+  for obj in objects {
+    if packed_ids.contains(obj.id.to_hex()) {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
 async fn run_real_git_pack_objects_with_input(
   real_git : String,
   args : Array[String],
@@ -767,6 +995,57 @@ fn append_commit_ids_from_objects(
     if obj.obj_type == @git.ObjectType::Commit {
       out.push(@git.hash_object_content(obj.obj_type, obj.data))
     }
+  }
+}
+
+///|
+///|
+fn collect_objects_from_ref_allow_missing(
+  db : @gitlib.ObjectDb,
+  fs : OsFs,
+  id : @git.ObjectId,
+  blocked : Map[String, Bool],
+  seen : Map[String, Bool],
+  out : Array[@git.PackObject],
+) -> Unit {
+  let hex = id.to_hex()
+  if blocked.contains(hex) {
+    return ()
+  }
+  if seen.contains(hex) {
+    return ()
+  }
+  let obj = try db.get(fs, id) catch { _ => None } noraise {
+    value => value
+  }
+  match obj {
+    Some(o) => {
+      match o.obj_type {
+        @git.ObjectType::Commit =>
+          collect_commit_objects_allow_missing(db, fs, id, blocked, seen, out)
+        @git.ObjectType::Tree =>
+          collect_tree_objects_allow_missing(db, fs, id, blocked, seen, out)
+        @git.ObjectType::Blob =>
+          collect_blob_object_allow_missing(db, fs, id, blocked, seen, out)
+        @git.ObjectType::Tag => {
+          seen[hex] = true
+          out.push(o)
+          match parse_tag_target_id(o.data) {
+            Some(target) =>
+              collect_objects_from_ref_allow_missing(
+                db,
+                fs,
+                target,
+                blocked,
+                seen,
+                out,
+              )
+            None => ()
+          }
+        }
+      }
+    }
+    None => ()
   }
 }
 
@@ -1120,6 +1399,9 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
         _ => @git.PackCompression::Default
       }
       let db = @gitlib.ObjectDb::load(fs, git_dir)
+      if cfg.window == 0 {
+        db.set_prefer_packed(true)
+      }
       let mut objects : Array[@git.PackObject] = []
       if cfg.stdin_packs {
         let input = read_all_stdin()
@@ -1133,20 +1415,21 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
           fs, git_dir, db, cfg, include_names, exclude_names,
         )
       } else if cfg.all {
-        let refs = @gitlib.show_ref(fs, git_dir)
-        let commits : Array[@git.ObjectId] = []
+        let refs = @gitlib.show_ref(fs, git_dir) catch { _ => [] }
+        let blocked : Map[String, Bool] = {}
+        let seen : Map[String, Bool] = {}
+        let out : Array[@git.PackObject] = []
         for pair in refs {
           let (_name, id) = pair
-          commits.push(id)
+          collect_objects_from_ref_allow_missing(db, fs, id, blocked, seen, out)
         }
-        objects = @gitlib.collect_reachable_objects_from_commits(
-          db, fs, commits,
-        )
+        objects = out
       } else if cfg.revs {
         let input = read_all_stdin()
         let lines = split_lines_bytes(input)
         let include_commits : Array[@git.ObjectId] = []
         let exclude_commits : Array[@git.ObjectId] = []
+        let explicit_tags : Array[@git.PackObject] = []
         let mut negate_mode = false
         for line in lines {
           let trimmed = trim_line_bytes(line)
@@ -1181,7 +1464,16 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
                       )
                       @sys.exit(1)
                     }
-                    Some(id) => include_commits.push(id)
+                    Some(id) => {
+                      let (tags, peeled) = resolve_tag_chain(db, fs, id)
+                      for tag in tags {
+                        explicit_tags.push(tag)
+                      }
+                      match peeled {
+                        Some(target) => include_commits.push(target)
+                        None => include_commits.push(id)
+                      }
+                    }
                   }
                 }
                 if left.length() > 0 {
@@ -1192,7 +1484,13 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
                       )
                       @sys.exit(1)
                     }
-                    Some(id) => exclude_commits.push(id)
+                    Some(id) => {
+                      let (_tags, peeled) = resolve_tag_chain(db, fs, id)
+                      match peeled {
+                        Some(target) => exclude_commits.push(target)
+                        None => exclude_commits.push(id)
+                      }
+                    }
                   }
                 }
                 handled = true
@@ -1206,24 +1504,65 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
                 @stdio.stderr.write("fatal: bad revision '" + spec + "'\n")
                 @sys.exit(1)
               }
-              Some(id) =>
-                if negated {
-                  exclude_commits.push(id)
-                } else {
-                  include_commits.push(id)
+              Some(id) => {
+                let (tags, peeled) = resolve_tag_chain(db, fs, id)
+                let resolved = match peeled {
+                  Some(target) => target
+                  None => id
                 }
+                if negated {
+                  exclude_commits.push(resolved)
+                } else {
+                  for tag in tags {
+                    explicit_tags.push(tag)
+                  }
+                  include_commits.push(resolved)
+                }
+              }
             }
           }
         }
-        let include_objects = @gitlib.collect_reachable_objects_from_commits(
-          db, fs, include_commits,
-        )
+        let allow_missing = match cfg.missing_mode {
+          MissingMode::AllowAny => true
+          _ => false
+        }
+        let allow_missing_for_local =
+          allow_missing ||
+          cfg.local_only ||
+          cfg.honor_pack_keep ||
+          cfg.incremental ||
+          cfg.unpacked
+        let include_objects = if allow_missing_for_local {
+          let blocked : Map[String, Bool] = {}
+          collect_reachable_objects_from_commits_allow_missing(
+            db,
+            fs,
+            include_commits,
+            blocked,
+          )
+        } else {
+          try @gitlib.collect_reachable_objects_from_commits(
+            db,
+            fs,
+            include_commits,
+          ) catch {
+            err => {
+              report_collect_error(err)
+              []
+            }
+          }
+        }
         if exclude_commits.length() == 0 {
           objects = include_objects
         } else {
-          let exclude_objects = @gitlib.collect_reachable_objects_from_commits(
-            db, fs, exclude_commits,
-          )
+          let blocked : Map[String, Bool] = {}
+          let exclude_objects =
+            collect_reachable_objects_from_commits_allow_missing(
+              db,
+              fs,
+              exclude_commits,
+              blocked,
+            )
           let exclude_set : Map[String, Bool] = {}
           for obj in exclude_objects {
             let id = @git.hash_object_content(obj.obj_type, obj.data)
@@ -1237,6 +1576,9 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
             }
           }
           objects = filtered
+        }
+        if explicit_tags.length() > 0 {
+          objects.append(explicit_tags)
         }
       } else {
         let input = read_all_stdin()
@@ -1283,10 +1625,18 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
             }
             Some(id) =>
               match db.get(fs, id) {
-                None => {
-                  @stdio.stderr.write("fatal: bad object " + id.to_hex() + "\n")
-                  @sys.exit(1)
-                }
+                None =>
+                  if (match cfg.missing_mode {
+                    MissingMode::AllowAny => true
+                    _ => false
+                  }) {
+                    ()
+                  } else {
+                    @stdio.stderr.write(
+                      "fatal: bad object " + id.to_hex() + "\n",
+                    )
+                    @sys.exit(1)
+                  }
                 Some(obj) => objects.push(obj)
               }
           }
@@ -1298,18 +1648,6 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
       // Apply filter specification (e.g., blob:none for partial clone)
       let mut objects = apply_pack_filter_spec(objects, cfg.filter)
       if cfg.local_only {
-        let objects_dir = git_dir + "/objects"
-        let local_pack_ids = collect_pack_ids_from_dir(fs, pack_dir)
-        let local_loose_ids = collect_loose_object_ids(fs, objects_dir)
-        let local_ids : Map[String, Bool] = {}
-        for item in local_pack_ids {
-          let (hex, _v) = item
-          local_ids[hex] = true
-        }
-        for item in local_loose_ids {
-          let (hex, _v) = item
-          local_ids[hex] = true
-        }
         let alt_dirs = read_alternate_object_dirs(fs, git_dir)
         let non_local_ids : Map[String, Bool] = {}
         for alt_dir in alt_dirs {
@@ -1317,16 +1655,12 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
           let alt_pack_ids = collect_pack_ids_from_dir(fs, alt_pack_dir)
           for item in alt_pack_ids {
             let (hex, _v) = item
-            if not(local_ids.contains(hex)) {
-              non_local_ids[hex] = true
-            }
+            non_local_ids[hex] = true
           }
           let alt_loose_ids = collect_loose_object_ids(fs, alt_dir)
           for item in alt_loose_ids {
             let (hex, _v) = item
-            if not(local_ids.contains(hex)) {
-              non_local_ids[hex] = true
-            }
+            non_local_ids[hex] = true
           }
         }
         objects = filter_objects(objects, non_local_ids)
@@ -1345,16 +1679,38 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
         )
         objects = filter_objects(objects, promisor_ids)
       }
+      if cfg.include_tag {
+        let tags = collect_include_tag_objects(fs, git_dir, db, objects)
+        if tags.length() > 0 {
+          objects.append(tags)
+        }
+      }
       objects = dedup_objects(objects)
+      if cfg.progress {
+        let enumerated = objects.length()
+        let pack_reused = count_pack_reused_objects(
+          fs,
+          git_dir,
+          pack_dir,
+          objects,
+        )
+        @stdio.stderr.write(
+          "Enumerating objects: " + enumerated.to_string() + ", done\n",
+        )
+        @stdio.stderr.write("pack-reused " + pack_reused.to_string() + "\n")
+      }
+      let reuse_only = cfg.window == 0
       // Split objects into groups based on packSizeLimit (only for file output, not stdout)
       let effective_limit = if cfg.stdout { None } else { pack_size_limit }
       let object_groups = split_objects_by_size_limit(objects, effective_limit)
       let mut total_delta_count = 0
       for group in object_groups {
-        let (pack, delta_count) = @git.create_packfile_with_delta_stats_compression(
+        let (pack, delta_count) = @git.create_packfile_with_delta_stats_compression_reuse(
           group,
           cfg.delta_mode,
           pack_compression,
+          reuse_only,
+          cfg.depth,
         )
         total_delta_count += delta_count
         if cfg.stdout {

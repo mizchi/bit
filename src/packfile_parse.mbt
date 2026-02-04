@@ -7,6 +7,253 @@ pub fn parse_packfile(data : Bytes) -> Array[PackObject] raise GitError {
 }
 
 ///|
+/// Compute the maximum delta chain length in a packfile
+pub fn max_delta_chain_length(data : Bytes) -> Int raise GitError {
+  if data.length() < 32 {
+    raise GitError::PackfileError("Packfile too short")
+  }
+  if not(
+      data[0] == b'P' && data[1] == b'A' && data[2] == b'C' && data[3] == b'K',
+    ) {
+    raise GitError::PackfileError("Invalid packfile magic")
+  }
+  let version = read_u32_be(data, 4)
+  if version != 2 {
+    raise GitError::PackfileError("Unsupported packfile version: \{version}")
+  }
+  let count = read_u32_be(data, 8)
+  let mut offset = 12
+  let objects : Array[PackObject] = []
+  let resolved : Array[Bool] = []
+  let depths : Array[Int] = []
+  let pending : Array[PendingDelta] = []
+  let by_offset : Map[Int, Int] = {}
+  let by_id : Map[String, PackObject] = {}
+  let by_id_depth : Map[String, Int] = {}
+  let mut max_depth = 0
+  for _ in 0..<count {
+    let obj_offset = offset
+    let (type_id, size, next_offset) = decode_type_and_size_at(data, offset)
+    offset = next_offset
+    let (obj_type, content, after) = match type_id {
+      1 | 2 | 3 | 4 => {
+        let obj_type = packfile_type_to_object_type(type_id)
+        let (content, after) = @zlib.zlib_decompress_at(data, offset) catch {
+          e => raise GitError::PackfileError("Zlib error: \{e}")
+        }
+        if content.length() != size {
+          raise GitError::PackfileError("Object size mismatch: expected=\{size}, got=\{content.length()}")
+        }
+        (obj_type, content, after)
+      }
+      6 => {
+        let (back_offset, after_ref) = read_ofs_delta_offset(data, offset)
+        let base_offset = obj_offset - back_offset
+        if base_offset < 0 {
+          raise GitError::PackfileError("Invalid OFS_DELTA base offset")
+        }
+        let (delta, after) = @zlib.zlib_decompress_at(data, after_ref) catch {
+          e => raise GitError::PackfileError("Zlib error: \{e}")
+        }
+        if delta.length() != size {
+          raise GitError::PackfileError("Delta size mismatch: expected=\{size}, got=\{delta.length()}")
+        }
+        let crc = crc32_range(data, obj_offset, after)
+        let placeholder = PackObject::with_metadata(
+          ObjectType::Blob,
+          Bytes::from_array([]),
+          ObjectId::zero(),
+          obj_offset,
+          crc,
+        )
+        objects.push(placeholder)
+        resolved.push(false)
+        depths.push(0)
+        let idx = objects.length() - 1
+        by_offset[obj_offset] = idx
+        match by_offset.get(base_offset) {
+          Some(base_index) =>
+            if base_index >= 0 && base_index < objects.length() && resolved[base_index] {
+              let base = objects[base_index]
+              let content = apply_delta(base.data, delta)
+              let obj_id = hash_object_content(base.obj_type, content)
+              let obj = PackObject::with_metadata(
+                base.obj_type,
+                content,
+                obj_id,
+                obj_offset,
+                crc,
+              )
+              objects[idx] = obj
+              resolved[idx] = true
+              let depth = depths[base_index] + 1
+              depths[idx] = depth
+              if depth > max_depth {
+                max_depth = depth
+              }
+              insert_pack_object_by_id(by_id, obj)
+              by_id_depth[obj_id.to_hex()] = depth
+            } else {
+              pending.push({ index: idx, base: DeltaBaseRef::Ofs(base_index), delta })
+            }
+          None =>
+            raise GitError::PackfileError("Missing base object for OFS_DELTA")
+        }
+        (ObjectType::Blob, Bytes::from_array([]), after)
+      }
+      7 => {
+        let (base_id, after_ref) = read_ref_delta_id(data, offset)
+        let (delta, after) = @zlib.zlib_decompress_at(data, after_ref) catch {
+          e => raise GitError::PackfileError("Zlib error: \{e}")
+        }
+        if delta.length() != size {
+          raise GitError::PackfileError("Delta size mismatch: expected=\{size}, got=\{delta.length()}")
+        }
+        let crc = crc32_range(data, obj_offset, after)
+        let placeholder = PackObject::with_metadata(
+          ObjectType::Blob,
+          Bytes::from_array([]),
+          ObjectId::zero(),
+          obj_offset,
+          crc,
+        )
+        objects.push(placeholder)
+        resolved.push(false)
+        depths.push(0)
+        let idx = objects.length() - 1
+        by_offset[obj_offset] = idx
+        match by_id.get(base_id) {
+          Some(base) => {
+            let content = apply_delta(base.data, delta)
+            let obj_id = hash_object_content(base.obj_type, content)
+            let obj = PackObject::with_metadata(
+              base.obj_type,
+              content,
+              obj_id,
+              obj_offset,
+              crc,
+            )
+            objects[idx] = obj
+            resolved[idx] = true
+            let base_depth = match by_id_depth.get(base_id) {
+              Some(d) => d
+              None => 0
+            }
+            let depth = base_depth + 1
+            depths[idx] = depth
+            if depth > max_depth {
+              max_depth = depth
+            }
+            insert_pack_object_by_id(by_id, obj)
+            by_id_depth[obj_id.to_hex()] = depth
+          }
+          None => pending.push({ index: idx, base: DeltaBaseRef::Ref(base_id), delta })
+        }
+        (ObjectType::Blob, Bytes::from_array([]), after)
+      }
+      _ =>
+        raise GitError::PackfileError("Unknown packfile object type: \{type_id}")
+    }
+    offset = after
+    if type_id == 1 || type_id == 2 || type_id == 3 || type_id == 4 {
+      let crc = crc32_range(data, obj_offset, after)
+      let obj_id = hash_object_content(obj_type, content)
+      let obj = PackObject::with_metadata(
+        obj_type, content, obj_id, obj_offset, crc,
+      )
+      objects.push(obj)
+      resolved.push(true)
+      depths.push(0)
+      by_offset[obj_offset] = objects.length() - 1
+      insert_pack_object_by_id(by_id, obj)
+      by_id_depth[obj_id.to_hex()] = 0
+    }
+  }
+  let mut progress = true
+  let mut pending_list = pending
+  while pending_list.length() > 0 && progress {
+    progress = false
+    let next_pending : Array[PendingDelta] = []
+    for p in pending_list {
+      match p.base {
+        DeltaBaseRef::Ofs(base_index) =>
+          if base_index >= 0 &&
+            base_index < objects.length() &&
+            resolved[base_index] {
+            let base = objects[base_index]
+            let content = apply_delta(base.data, p.delta)
+            let obj_id = hash_object_content(base.obj_type, content)
+            let old = objects[p.index]
+            let obj = PackObject::with_metadata(
+              base.obj_type,
+              content,
+              obj_id,
+              old.offset,
+              old.crc32,
+            )
+            objects[p.index] = obj
+            resolved[p.index] = true
+            let depth = depths[base_index] + 1
+            depths[p.index] = depth
+            if depth > max_depth {
+              max_depth = depth
+            }
+            insert_pack_object_by_id(by_id, obj)
+            by_id_depth[obj_id.to_hex()] = depth
+            progress = true
+          } else {
+            next_pending.push(p)
+          }
+        DeltaBaseRef::Ref(base_id) =>
+          match by_id.get(base_id) {
+            Some(base) => {
+              let content = apply_delta(base.data, p.delta)
+              let obj_id = hash_object_content(base.obj_type, content)
+              let old = objects[p.index]
+              let obj = PackObject::with_metadata(
+                base.obj_type,
+                content,
+                obj_id,
+                old.offset,
+                old.crc32,
+              )
+              objects[p.index] = obj
+              resolved[p.index] = true
+              let base_depth = match by_id_depth.get(base_id) {
+                Some(d) => d
+                None => 0
+              }
+              let depth = base_depth + 1
+              depths[p.index] = depth
+              if depth > max_depth {
+                max_depth = depth
+              }
+              insert_pack_object_by_id(by_id, obj)
+              by_id_depth[obj_id.to_hex()] = depth
+              progress = true
+            }
+            None => next_pending.push(p)
+          }
+      }
+    }
+    pending_list = next_pending
+  }
+  if pending_list.length() > 0 {
+    raise GitError::PackfileError("Unresolved delta objects")
+  }
+  let trailer_offset = data.length() - 20
+  if offset != trailer_offset {
+    raise GitError::PackfileError("Packfile length mismatch")
+  }
+  let computed = sha1_prefix(data, trailer_offset)
+  let trailer = read_trailer_id(data, trailer_offset)
+  if computed != trailer {
+    raise GitError::HashMismatch(computed.to_hex(), trailer.to_hex())
+  }
+  max_depth
+}
+
+///|
 /// Parse a packfile with preloaded base objects (for thin packs).
 pub fn parse_packfile_with_bases(
   data : Bytes,

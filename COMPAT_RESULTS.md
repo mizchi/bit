@@ -47,9 +47,9 @@ Known breakage in allowlist:
 
 Overall:
 - executed: 779 / 901 (86.5%)
-- pass: 743
-- fail: 36
-- pass rate: 95.4%
+- pass: 744
+- fail: 35
+- pass rate: 95.5%
 
 ### t0 (non-allowlist)
 
@@ -96,39 +96,32 @@ Failures:
 - fail: 0
 
 
-### t5 (non-allowlist, complete)
+### t5 (non-allowlist, complete) — 2026-02-04 (re-run)
 
-- executed: 104 / 104 (100%)
-- pass: 83
-- fail: 21
+- executed: 5427 / 5427 (100%)
+- pass: 5239
+- fail: 98
+- broken: 16
 
+Failures (t5 re-run):
 
-Note: t5300-pack-object.sh passed in exploratory run despite explicit exclude in allowlist.
-
-Failures (t5 so far):
-
-Note: t5302-pack-index.sh now passes after v1 index parsing + corrupt reuse handling (2026-02-04).
-
-Note: t5303-pack-corruption-resilience.sh now passes after pack compression + delta base fallback fix (2026-02-04).
-- t5305-include-tag.sh: unpack objects / missing objects after include-tag
-- t5309-pack-delta-cycles.sh: thin-pack delta cycle handling
-- t5310-pack-bitmaps.sh: bitmap reuse / validation failures
-- t5314-pack-cycle-detection.sh: pack cycle detection
-- t5316-pack-delta-depth.sh: --depth=0 / negative disables deltas
-- t5317-pack-objects-filter-objects.sh: --missing=allow-any
-- t5319-multi-pack-index.sh: BTMP/midx handling
-- t5322-pack-objects-sparse.sh: pack.useSparse / --no-sparse
-- t5323-pack-redundant.sh: alt-odb redundancy
-- t5325-reverse-index.sh: rev-index read/validate
-- t5326-multi-pack-bitmaps.sh: BTMP / reuse
-- t5327-multi-pack-bitmaps-rev.sh: progress / pack-reused
-- t5329-pack-objects-cruft.sh: cruft pack mtimes
-- t5332-multi-pack-reuse.sh: preferred-pack reuse
-- t5410-receive-pack.sh: skip-connectivity-check replay
-- t5411-proc-receive-hook.sh: proc-receive hook mismatch
-- t5510-fetch.sh: boundary commit exclusion
-- t5555-http-smart-common.sh: upload-pack --advertise-refs v2 output mismatch
-- t5616-partial-clone.sh: promisor delta base fetch (protocol v2)
+- t5305-include-tag.sh: 9 / 15 failed
+- t5309-pack-delta-cycles.sh: 2 / 7 failed
+- t5314-pack-cycle-detection.sh: 1 / 2 failed
+- t5316-pack-delta-depth.sh: 5 / 5 failed
+- t5319-multi-pack-index.sh: 1 / 96 failed
+- t5322-pack-objects-sparse.sh: 8 / 11 failed
+- t5323-pack-redundant.sh: 13 / 18 failed
+- t5325-reverse-index.sh: 7 / 16 failed
+- t5326-multi-pack-bitmaps.sh: 4 / 357 failed
+- t5327-multi-pack-bitmaps-rev.sh: 2 / 314 failed
+- t5329-pack-objects-cruft.sh: 17 / 25 failed
+- t5332-multi-pack-reuse.sh: 13 / 14 failed
+- t5410-receive-pack.sh: 4 / 5 failed
+- t5411-proc-receive-hook.sh: 1 / 354 failed
+- t5510-fetch.sh: 1 / 215 failed
+- t5555-http-smart-common.sh: 7 / 10 failed
+- t5616-partial-clone.sh: 3 / 47 failed
 
 ### t6 (non-allowlist, complete)
 

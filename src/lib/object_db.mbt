@@ -104,6 +104,7 @@ pub struct ObjectDb {
   pack_cache : Map[String, Bytes]
   pack_cache_order : Array[String]
   pack_cache_limit : Int
+  mut prefer_packed : Bool
   mut saw_corrupt_pack : Bool
 }
 
@@ -171,6 +172,7 @@ pub fn ObjectDb::load(
     pack_cache: {},
     pack_cache_order: [],
     pack_cache_limit,
+    prefer_packed: false,
     saw_corrupt_pack: false,
   }
 }
@@ -201,11 +203,20 @@ pub fn ObjectDb::load_lazy(
     pack_cache: {},
     pack_cache_order: [],
     pack_cache_limit,
+    prefer_packed: false,
     saw_corrupt_pack: false,
   }
 }
 
 ///|
+///|
+pub fn ObjectDb::set_prefer_packed(
+  self : ObjectDb,
+  value : Bool,
+) -> Unit {
+  self.prefer_packed = value
+}
+
 pub fn ObjectDb::get(
   self : ObjectDb,
   fs : &@git.RepoFileSystem,
@@ -240,51 +251,12 @@ fn get_pack_bytes(
 }
 
 ///|
-fn get_by_hex(
+fn get_from_packs(
   db : ObjectDb,
   fs : &@git.RepoFileSystem,
   hex : String,
   seen : Map[String, Bool],
 ) -> @git.PackObject? raise @git.GitError {
-  if seen.contains(hex) {
-    raise @git.GitError::InvalidObject("Delta cycle detected: \{hex}")
-  }
-  seen[hex] = true
-  // Try to load from loose objects - first check cache, then try direct path
-  let loose_path = match db.loose_paths.get(hex) {
-    Some(path) => Some(path)
-    None =>
-      // Try constructing path directly (lazy loading)
-      if hex.length() == 40 {
-        let prefix = String::unsafe_substring(hex, start=0, end=2)
-        let suffix = String::unsafe_substring(hex, start=2, end=40)
-        let path = db.objects_dir + "/" + prefix + "/" + suffix
-        if fs.is_file(path) {
-          db.loose_paths[hex] = path // cache for future lookups
-          Some(path)
-        } else {
-          None
-        }
-      } else {
-        None
-      }
-  }
-  match loose_path {
-    Some(path) => {
-      let compressed = fs.read_file(path)
-      let raw = @zlib.zlib_decompress(compressed) catch {
-        e => raise @git.GitError::InvalidObject("Zlib error: \{e}")
-      }
-      let obj = parse_loose_object(raw)
-      // Verify hash
-      let computed = @git.hash_object_content(obj.obj_type, obj.data).to_hex()
-      if computed != hex {
-        raise @git.GitError::HashMismatch(computed, hex)
-      }
-      return Some(obj)
-    }
-    None => ()
-  }
   let mut last_error : @git.GitError? = None
   // Try pack files (eagerly loaded)
   for pack in db.packs {
@@ -339,6 +311,64 @@ fn get_by_hex(
 }
 
 ///|
+fn get_by_hex(
+  db : ObjectDb,
+  fs : &@git.RepoFileSystem,
+  hex : String,
+  seen : Map[String, Bool],
+) -> @git.PackObject? raise @git.GitError {
+  if seen.contains(hex) {
+    raise @git.GitError::InvalidObject("Delta cycle detected: \{hex}")
+  }
+  seen[hex] = true
+  if db.prefer_packed {
+    match get_from_packs(db, fs, hex, seen) {
+      Some(obj) => return Some(obj)
+      None => ()
+    }
+  }
+  // Try to load from loose objects - first check cache, then try direct path
+  let loose_path = match db.loose_paths.get(hex) {
+    Some(path) => Some(path)
+    None =>
+      // Try constructing path directly (lazy loading)
+      if hex.length() == 40 {
+        let prefix = String::unsafe_substring(hex, start=0, end=2)
+        let suffix = String::unsafe_substring(hex, start=2, end=40)
+        let path = db.objects_dir + "/" + prefix + "/" + suffix
+        if fs.is_file(path) {
+          db.loose_paths[hex] = path // cache for future lookups
+          Some(path)
+        } else {
+          None
+        }
+      } else {
+        None
+      }
+  }
+  match loose_path {
+    Some(path) => {
+      let compressed = fs.read_file(path)
+      let raw = @zlib.zlib_decompress(compressed) catch {
+        e => raise @git.GitError::InvalidObject("Zlib error: \{e}")
+      }
+      let obj = parse_loose_object(raw)
+      // Verify hash
+      let computed = @git.hash_object_content(obj.obj_type, obj.data).to_hex()
+      if computed != hex {
+        raise @git.GitError::HashMismatch(computed, hex)
+      }
+      return Some(obj)
+    }
+    None => ()
+  }
+  if !db.prefer_packed {
+    return get_from_packs(db, fs, hex, seen)
+  }
+  None
+}
+
+///|
 pub fn load_object_store_from_fs(
   fs : &@git.RepoFileSystem,
   git_dir : String,
@@ -360,8 +390,28 @@ pub fn load_object_store_from_fs(
   }
   store
 }
-
 ///|
+pub fn load_all_objects_from_fs(
+  fs : &@git.RepoFileSystem,
+  git_dir : String,
+) -> Array[@git.PackObject] raise @git.GitError {
+  let result : Array[@git.PackObject] = []
+  let objects_dir = join_path(git_dir, "objects")
+  if fs.is_dir(objects_dir) {
+    let loose = load_loose_objects(fs, objects_dir)
+    for obj in loose {
+      result.push(obj)
+    }
+    let pack_dir = join_path(objects_dir, "pack")
+    if fs.is_dir(pack_dir) {
+      let packed = load_pack_objects(fs, pack_dir)
+      for obj in packed {
+        result.push(obj)
+      }
+    }
+  }
+  result
+}
 
 ///|
 /// Collect paths to loose objects without loading content (lazy loading)
@@ -631,7 +681,8 @@ fn read_pack_object_at(
           "Object size mismatch: expected=\{size}, got=\{content.length()}",
         )
       }
-      @git.PackObject::new(obj_type, content)
+      let id = @git.hash_object_content(obj_type, content)
+      @git.PackObject::with_metadata(obj_type, content, id, offset_i, 0U)
     }
     6 => {
       let (back_offset, after_ref) = @git.read_ofs_delta_offset(
@@ -670,7 +721,8 @@ fn read_pack_object_at(
           }
       }
       let content = @git.apply_delta(base.data, delta)
-      @git.PackObject::new(base.obj_type, content)
+      let id = @git.hash_object_content(base.obj_type, content)
+      @git.PackObject::with_metadata(base.obj_type, content, id, offset_i, 0U)
     }
     7 => {
       let (base_hex, after_ref) = @git.read_ref_delta_id(data, next_offset)
@@ -706,7 +758,8 @@ fn read_pack_object_at(
           }
       }
       let content = @git.apply_delta(base.data, delta)
-      @git.PackObject::new(base.obj_type, content)
+      let id = @git.hash_object_content(base.obj_type, content)
+      @git.PackObject::with_metadata(base.obj_type, content, id, offset_i, 0U)
     }
     _ =>
       raise @git.GitError::PackfileError(
