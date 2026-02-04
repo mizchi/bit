@@ -19,7 +19,9 @@ fn setup_status_repo(
   }
   add_paths(fs, fs, bench_root, ["."])
   ignore(
-    commit(fs, fs, bench_root, "msg\n", "Bench <bench@example.com>", 1700000000L),
+    commit(
+      fs, fs, bench_root, "msg\n", "Bench <bench@example.com>", 1700000000L,
+    ),
   )
   for i in 0..<dirty_count {
     fs.write_string(bench_root + "/file_\{i}.txt", "changed\n")

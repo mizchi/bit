@@ -215,8 +215,9 @@ test "parse_upload_pack_request_v2: extra delimiter" {
     test_delimiter(),
     test_delimiter(),
   ])
-  let res : Result[UploadPackRequestV2, Error] =
-    try? parse_upload_pack_request_v2(req_bytes)
+  let res : Result[UploadPackRequestV2, Error] = try? parse_upload_pack_request_v2(
+    req_bytes,
+  )
   match res {
     Ok(_) => fail("expected protocol error")
     Err(err) =>

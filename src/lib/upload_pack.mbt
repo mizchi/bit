@@ -160,7 +160,16 @@ pub fn parse_upload_pack_request_v2(
       )
     }
   }
-  { command, capabilities, wants, want_refs, haves, done, filter, packfile_uris }
+  {
+    command,
+    capabilities,
+    wants,
+    want_refs,
+    haves,
+    done,
+    filter,
+    packfile_uris,
+  }
 }
 
 ///|
@@ -316,15 +325,10 @@ pub fn upload_pack(
   for want in req.wants {
     let obj = db.get(fs, want)
     match obj {
-      None =>
-        raise @git.GitError::ProtocolError(
-          "not our ref " + want.to_hex(),
-        )
+      None => raise @git.GitError::ProtocolError("not our ref " + want.to_hex())
       Some(o) =>
         if o.obj_type != @git.ObjectType::Commit {
-          raise @git.GitError::ProtocolError(
-            "not our ref " + want.to_hex(),
-          )
+          raise @git.GitError::ProtocolError("not our ref " + want.to_hex())
         }
     }
   }
@@ -347,7 +351,7 @@ pub fn upload_pack(
   // Collect objects reachable from wants
   let include_pack_objects_died = req.shallow.length() == 0 &&
     req.deepen is None
-  let objects = try collect_reachable_objects_from_commits(db, fs, req.wants) catch {
+  let objects = collect_reachable_objects_from_commits(db, fs, req.wants) catch {
     err =>
       raise @git.GitError::ProtocolError(
         upload_pack_error_message(err, include_pack_objects_died),
@@ -375,9 +379,7 @@ pub fn upload_pack(
 }
 
 ///|
-fn build_upload_pack_ack_response(
-  ack_ids : Array[@git.ObjectId],
-) -> Bytes {
+fn build_upload_pack_ack_response(ack_ids : Array[@git.ObjectId]) -> Bytes {
   let out : Array[Byte] = []
   if ack_ids.length() > 0 {
     for id in ack_ids {
@@ -682,14 +684,12 @@ pub fn upload_pack_v2(
   }
   let git_dir = join_path(root, ".git")
   let db = ObjectDb::load(fs, git_dir)
-
   let refs = show_ref(fs, git_dir)
   let ref_map : Map[String, @git.ObjectId] = {}
   for item in refs {
     let (name, id) = item
     ref_map[name] = id
   }
-
   let all_wants : Array[@git.ObjectId] = []
   for id in req.wants {
     all_wants.push(id)
@@ -709,7 +709,6 @@ pub fn upload_pack_v2(
       }
     }
   }
-
   let seen_wants : Map[String, Bool] = {}
   let wants : Array[@git.ObjectId] = []
   for id in all_wants {
@@ -719,14 +718,13 @@ pub fn upload_pack_v2(
       wants.push(id)
     }
   }
-
   let ack_ids = collect_have_acks_v2(db, fs, req.haves)
   if not(req.done) {
     return build_upload_pack_response_v2_ack(ack_ids, wanted_refs)
   }
 
   // Collect objects reachable from wants
-  let objects = try collect_reachable_objects_from_commits(db, fs, wants) catch {
+  let objects = collect_reachable_objects_from_commits(db, fs, wants) catch {
     err =>
       raise @git.GitError::ProtocolError(upload_pack_error_message(err, true))
   }
@@ -848,7 +846,6 @@ fn build_upload_pack_response_v2(
   wanted_refs : Array[(String, @git.ObjectId)],
 ) -> Bytes {
   let out : Array[Byte] = []
-
   if ack_ids.length() > 0 {
     upload_push_bytes(out, @git.pktline_encode("acknowledgments\n"))
     for id in ack_ids {
@@ -856,7 +853,6 @@ fn build_upload_pack_response_v2(
     }
     upload_push_bytes(out, @git.pktline_delim())
   }
-
   if wanted_refs.length() > 0 {
     upload_push_bytes(out, @git.pktline_encode("wanted-refs\n"))
     for item in wanted_refs {

@@ -110,9 +110,7 @@ fn pack_cache_limit_from_env() -> Int {
 ///|
 fn touch_pack_cache(db : ObjectDb, pack_path : String) -> Unit {
   match db.pack_cache_order.search(pack_path) {
-    Some(idx) => {
-      ignore(db.pack_cache_order.remove(idx))
-    }
+    Some(idx) => ignore(db.pack_cache_order.remove(idx))
     None => ()
   }
   db.pack_cache_order.push(pack_path)
@@ -152,7 +150,15 @@ pub fn ObjectDb::load(
     []
   }
   let pack_cache_limit = pack_cache_limit_from_env()
-  { objects_dir, loose_paths, packs, lazy_packs: [], pack_cache: {}, pack_cache_order: [], pack_cache_limit }
+  {
+    objects_dir,
+    loose_paths,
+    packs,
+    lazy_packs: [],
+    pack_cache: {},
+    pack_cache_order: [],
+    pack_cache_limit,
+  }
 }
 
 ///|
@@ -173,7 +179,15 @@ pub fn ObjectDb::load_lazy(
     []
   }
   let pack_cache_limit = pack_cache_limit_from_env()
-  { objects_dir, loose_paths: {}, packs: [], lazy_packs, pack_cache: {}, pack_cache_order: [], pack_cache_limit }
+  {
+    objects_dir,
+    loose_paths: {},
+    packs: [],
+    lazy_packs,
+    pack_cache: {},
+    pack_cache_order: [],
+    pack_cache_limit,
+  }
 }
 
 ///|

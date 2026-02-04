@@ -561,8 +561,9 @@ pub fn build_upload_pack_config_with_overrides(
       lower == "true" || lower == "1" || lower == "yes"
     }
     None =>
-      read_config_bool(fs, config_path, "uploadpack", "allowrefinwant")
-      .unwrap_or(false)
+      read_config_bool(fs, config_path, "uploadpack", "allowrefinwant").unwrap_or(
+        false,
+      )
   }
 
   // Read blobpackfileuri from cmdline first, then file
@@ -578,7 +579,8 @@ pub fn build_upload_pack_config_with_overrides(
         None
       }
     None =>
-      match read_config_value(fs, config_path, "uploadpack", "blobpackfileuri") {
+      match
+        read_config_value(fs, config_path, "uploadpack", "blobpackfileuri") {
         Some(v) => if v.length() > 0 { Some(v) } else { None }
         None => None
       }

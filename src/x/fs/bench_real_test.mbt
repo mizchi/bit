@@ -139,11 +139,7 @@ test "bench_real: ObjectDb load" (b : @bench.T) {
 test "bench_real: snapshot from .git" (b : @bench.T) {
   with_real_commit(fn(commit) {
     b.bench(fn() {
-      b.keep(
-        try! Fs::from_commit(
-          bench_real_osfs, bench_real_git_dir, commit,
-        ),
-      )
+      b.keep(try! Fs::from_commit(bench_real_osfs, bench_real_git_dir, commit))
     })
   })
 }
@@ -202,11 +198,7 @@ test "bench_real: ObjectDb load_lazy" (b : @bench.T) {
 test "bench_real: snapshot_lazy from .git" (b : @bench.T) {
   with_real_commit(fn(commit) {
     b.bench(fn() {
-      b.keep(
-        try! Fs::from_commit(
-          bench_real_osfs, bench_real_git_dir, commit,
-        ),
-      )
+      b.keep(try! Fs::from_commit(bench_real_osfs, bench_real_git_dir, commit))
     })
   })
 }

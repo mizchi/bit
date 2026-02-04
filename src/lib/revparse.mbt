@@ -223,7 +223,7 @@ fn ref_collect_loose(
       let line = ref_read_line(fs, path)
       if line.has_prefix("ref: ") {
         let target = String::unsafe_substring(line, start=5, end=line.length())
-        let resolved = try resolve_ref(fs, git_dir, target) catch { _ => None }
+        let resolved = resolve_ref(fs, git_dir, target) catch { _ => None }
         match resolved {
           Some(id) => out[rel] = id
           None => ()
