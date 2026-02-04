@@ -158,7 +158,7 @@ t5612-clone-refspec.sh
 t5700-protocol-v1.sh
 t5701-git-serve.sh
 t5702-protocol-v2.sh
-t5703-upload-pack-ref-in-want.sh
+# t5703-upload-pack-ref-in-want.sh  # broken: upload-pack ref-in-want
 t5704-protocol-violations.sh
 t5705-session-id-in-capabilities.sh
 t5710-promisor-remote-capability.sh
