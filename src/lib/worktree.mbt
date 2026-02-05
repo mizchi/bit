@@ -713,10 +713,6 @@ pub fn write_object_bytes(
     "/" +
     String::unsafe_substring(hex, start=2, end=hex.length()),
   )
-  // Skip if object already exists (Git objects are immutable and read-only)
-  if @fs.path_exists(path) {
-    return ()
-  }
   let dir = join_path(
     git_dir,
     "objects/" + String::unsafe_substring(hex, start=0, end=2),

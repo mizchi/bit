@@ -5,12 +5,12 @@ import {
   "moonbitlang/core/bench" as @bench,
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/strconv",
-  "moonbitlang/x/fs",
 }
 
 import "test" {
   "moonbitlang/async" as @async,
   "moonbitlang/core/bench" as @bench,
+  "moonbitlang/x/fs",
   "mizchi/bit/osfs" as @osfs,
 }
 
