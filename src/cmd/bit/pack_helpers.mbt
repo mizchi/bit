@@ -146,6 +146,55 @@ fn parse_bool_value(value : String) -> Bool? {
 }
 
 ///|
+fn parse_pack_allow_reuse(value : String) -> Bool? {
+  let trimmed = value.trim().to_string().to_lower()
+  if trimmed.length() == 0 {
+    return None
+  }
+  if trimmed == "single" || trimmed == "multi" {
+    return Some(true)
+  }
+  parse_bool_value(trimmed)
+}
+
+///|
+fn is_pack_reuse_config_enabled(git_dir : String) -> Bool {
+  match get_config_override("pack.allowPackReuse") {
+    Some(value) =>
+      match parse_pack_allow_reuse(value) {
+        Some(flag) => return flag
+        None => return false
+      }
+    None => ()
+  }
+  match git_config_get(git_dir, "pack", "allowPackReuse") {
+    Some(value) =>
+      match parse_pack_allow_reuse(value) {
+        Some(flag) => return flag
+        None => return false
+      }
+    None => ()
+  }
+  match get_config_override("feature.experimental") {
+    Some(value) =>
+      match parse_bool_value(value) {
+        Some(flag) => return flag
+        None => return false
+      }
+    None => ()
+  }
+  match git_config_get(git_dir, "feature", "experimental") {
+    Some(value) =>
+      match parse_bool_value(value) {
+        Some(flag) => return flag
+        None => return false
+      }
+    None => ()
+  }
+  false
+}
+
+///|
 /// Get pack.packSizeLimit from git config
 fn get_pack_size_limit(git_dir : String) -> Int64? {
   match git_config_get(git_dir, "pack", "packSizeLimit") {

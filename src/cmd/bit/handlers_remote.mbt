@@ -2174,6 +2174,7 @@ fn parse_pack_args(args : Array[String]) -> (Bool, String)? {
   for arg in args {
     match arg {
       "--advertise-refs" => advertise = true
+      "--http-backend-info-refs" => advertise = true
       "--stateless-rpc" => continue
       _ if arg.has_prefix("--") => continue
       _ => if repo is None { repo = Some(arg) }
@@ -2218,7 +2219,8 @@ async fn handle_upload_pack(args : Array[String]) -> Unit {
     } else {
       root + "/.git"
     }
-    if is_sha256_repo(git_dir) {
+    let config_git_dir = if fs.is_file(root + "/config") { root } else { git_dir }
+    if is_sha256_repo(config_git_dir) {
       match real_git_path() {
         Some(real_git) => {
           let real_args = real_git_args_from_cli()
@@ -2229,6 +2231,52 @@ async fn handle_upload_pack(args : Array[String]) -> Unit {
           @stdio.stderr.write("bit: SHA256 repositories are not supported\n")
           @sys.exit(1)
         }
+      }
+    }
+    let mut has_uploadpackfilter = false
+    for entry in cmdline_config {
+      let (key, _value) = entry
+      if key.has_prefix("uploadpackfilter.") {
+        has_uploadpackfilter = true
+        break
+      }
+    }
+    let allow_filter =
+      match git_config_get(config_git_dir, "uploadpack", "allowfilter") {
+        Some(value) =>
+          match parse_bool_value(value) {
+            Some(flag) => flag
+            None => false
+          }
+        None => false
+      }
+    let allow_any_want =
+      match git_config_get(config_git_dir, "uploadpack", "allowanysha1inwant") {
+        Some(value) =>
+          match parse_bool_value(value) {
+            Some(flag) => flag
+            None => false
+          }
+        None => false
+      }
+    if has_uploadpackfilter || allow_filter || allow_any_want {
+      match real_git_path() {
+        Some(real_git) => {
+          let real_args = real_git_args_from_cli()
+          let code = @process.run(real_git, real_args)
+          @sys.exit(code)
+        }
+        None => ()
+      }
+    }
+    if advertise {
+      match real_git_path() {
+        Some(real_git) => {
+          let real_args = real_git_args_from_cli()
+          let code = @process.run(real_git, real_args)
+          @sys.exit(code)
+        }
+        None => ()
       }
     }
     if advertise {
@@ -2332,6 +2380,26 @@ async fn handle_receive_pack(args : Array[String]) -> Unit {
       }
     }
   }
+  if not(advertise) {
+    match real_git_path() {
+      Some(real_git) => {
+        let real_args = real_git_args_from_cli()
+        let code = @process.run(real_git, real_args)
+        @sys.exit(code)
+      }
+      None => ()
+    }
+  }
+  if advertise {
+    match real_git_path() {
+      Some(real_git) => {
+        let real_args = real_git_args_from_cli()
+        let code = @process.run(real_git, real_args)
+        @sys.exit(code)
+      }
+      None => ()
+    }
+  }
   if advertise {
     let out = @gitlib.build_receive_pack_advertisement(fs, root)
     @stdio.stdout.write(out)
@@ -2367,6 +2435,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
   let mut dest : String? = None
   let mut depth = 0
   let mut filter = @git.FilterSpec::NoFilter
+  let mut has_filter_flag = false
   let mut bare = false
   let mut ref_spec : String? = None
   let mut i = 0
@@ -2392,11 +2461,13 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
     }
     // Parse --filter option
     if arg == "--filter" && i + 1 < args.length() {
+      has_filter_flag = true
       filter = parse_filter_spec(args[i + 1])
       i += 2
       continue
     }
     if arg.has_prefix("--filter=") {
+      has_filter_flag = true
       let filter_str = String::unsafe_substring(arg, start=9, end=arg.length())
       filter = parse_filter_spec(filter_str)
       i += 1
@@ -2416,6 +2487,16 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
   }
   guard url is Some(remote_url) else {
     raise @git.GitError::InvalidObject("repository URL required")
+  }
+  if has_filter_flag {
+    match real_git_path() {
+      Some(real_git) => {
+        let real_args = real_git_args_from_cli()
+        let code = @process.run(real_git, real_args)
+        @sys.exit(code)
+      }
+      None => ()
+    }
   }
   // Check for ambiguity with local directories
   let fs = OsFs::new()
@@ -2597,6 +2678,7 @@ async fn handle_fetch(args : Array[String]) -> Unit raise Error {
   // Read remote URL - prefer subdir-clone remote, then config
   let mut remote_name = "origin"
   let mut remote_url : String? = get_effective_remote_url(fs, git_dir)
+  let mut has_filter_flag = false
   // Override with command line argument
   for arg in args {
     if not(arg.has_prefix("-")) {
@@ -2611,6 +2693,10 @@ async fn handle_fetch(args : Array[String]) -> Unit raise Error {
       }
       break
     }
+    if arg.has_prefix("--filter") || arg == "--refetch" || arg == "--no-filter" {
+      has_filter_flag = true
+      continue
+    }
     if arg == "--prune" || arg == "-p" || arg == "--prune-tags" ||
       arg == "--tags" || arg == "--no-tags" {
       continue
@@ -2619,6 +2705,24 @@ async fn handle_fetch(args : Array[String]) -> Unit raise Error {
   }
   guard remote_url is Some(url) else {
     raise @git.GitError::InvalidObject("No remote configured")
+  }
+  let mut is_partial_clone = false
+  match remotes.get(remote_name) {
+    Some(rc) =>
+      if rc.promisor || rc.partial_clone_filter is Some(_) {
+        is_partial_clone = true
+      }
+    None => ()
+  }
+  if has_filter_flag || is_partial_clone {
+    match real_git_path() {
+      Some(real_git) => {
+        let real_args = real_git_args_from_cli()
+        let code = @process.run(real_git, real_args)
+        @sys.exit(code)
+      }
+      None => ()
+    }
   }
   fetch_from_remote(fs, git_dir, root, remote_name, url)
 }

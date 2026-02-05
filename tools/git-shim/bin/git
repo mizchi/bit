@@ -43,28 +43,34 @@ log() {
 
 capture_stderr="${GIT_SHIM_CAPTURE:-${SHIM_CAPTURE:-}}"
 
-# Fast-path global --exec-path
-case "${1:-}" in
-  --exec-path)
-    exec_path="${GIT_SHIM_EXEC_PATH:-${SHIM_EXEC_PATH:-}}"
-    if [ -n "$exec_path" ]; then
-      printf '%s\n' "$exec_path"
-      exit 0
-    fi
-    exec "$real_git" --exec-path
-    ;;
-  --exec-path=*)
-    exec_path="${GIT_SHIM_EXEC_PATH:-${SHIM_EXEC_PATH:-}}"
-    if [ -n "$exec_path" ]; then
-      printf '%s\n' "$exec_path"
-      exit 0
-    fi
-    exec "$real_git" "$@"
-    ;;
-  --help|-h|-v|--version)
-    exec "$real_git" "$@"
-    ;;
-esac
+# Fast-path global --exec-path (query only; preserve override when subcommand exists)
+if [ "${1:-}" = "--exec-path" ] && [ "$#" -gt 1 ]; then
+  :
+elif case "${1:-}" in --exec-path=*) true ;; *) false ;; esac && [ "$#" -gt 1 ]; then
+  :
+else
+  case "${1:-}" in
+    --exec-path)
+      exec_path="${GIT_SHIM_EXEC_PATH:-${SHIM_EXEC_PATH:-}}"
+      if [ -n "$exec_path" ]; then
+        printf '%s\n' "$exec_path"
+        exit 0
+      fi
+      exec "$real_git" --exec-path
+      ;;
+    --exec-path=*)
+      exec_path="${GIT_SHIM_EXEC_PATH:-${SHIM_EXEC_PATH:-}}"
+      if [ -n "$exec_path" ]; then
+        printf '%s\n' "$exec_path"
+        exit 0
+      fi
+      exec "$real_git" "$@"
+      ;;
+    --help|-h|-v|--version)
+      exec "$real_git" "$@"
+      ;;
+  esac
+fi
 
 # Parse global options to find subcommand (must be done before -c validation)
 subcmd=""
@@ -343,18 +349,8 @@ if [ "$subcmd" = "cat-file" ]; then
 fi
 
 log "pass $subcmd $*"
-set +e
 if [ "$capture_stderr" = "1" ]; then
-  "$real_git" "$@" 2>>"$script_dir/../shim-stderr.log"
+  exec "$real_git" "$@" 2>>"$script_dir/../shim-stderr.log"
 else
-  "$real_git" "$@"
+  exec "$real_git" "$@"
 fi
-status=$?
-set -e
-if [ "$status" -ne 0 ]; then
-  log "fail $subcmd cwd=$(pwd)"
-  log "fail $subcmd env HOME=${HOME-} GIT_DIR=${GIT_DIR-} GIT_WORK_TREE=${GIT_WORK_TREE-} GIT_EXEC_PATH=${GIT_EXEC_PATH-} GIT_TEMPLATE_DIR=${GIT_TEMPLATE_DIR-} PATH=${PATH-}"
-  env | sort >> "$log_file"
-fi
-log "exit $subcmd $status"
-exit $status

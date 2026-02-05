@@ -91,12 +91,48 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
         "--no-path-walk" => ()
         "--sparse" => sparse_mode = Some(true)
         "--no-sparse" => sparse_mode = Some(false)
-        "--thin" => ()
+        "--non-empty" => delegate_to_real_git = true
+        "--reflog" => delegate_to_real_git = true
+        "--indexed-objects" => delegate_to_real_git = true
+        "--keep-true-parents" => delegate_to_real_git = true
+        "--thin" => delegate_to_real_git = true
+        "--cruft" => delegate_to_real_git = true
+        "--cruft-expiration" => {
+          delegate_to_real_git = true
+          if i + 1 >= args.length() {
+            return PackObjectsParse::Unsupported
+          }
+          i += 1
+        }
+        "--max-cruft-size" => {
+          delegate_to_real_git = true
+          if i + 1 >= args.length() {
+            return PackObjectsParse::Unsupported
+          }
+          i += 1
+        }
+        "--max-pack-size" => {
+          delegate_to_real_git = true
+          if i + 1 >= args.length() {
+            return PackObjectsParse::Unsupported
+          }
+          i += 1
+        }
         "--include-tag" => include_tag = true
         "--stdin-packs" => stdin_packs = true
         "--stdin-packs=follow" => {
           stdin_packs = true
           stdin_packs_follow = true
+        }
+        "--unpack-unreachable" => delegate_to_real_git = true
+        "--keep-unreachable" => delegate_to_real_git = true
+        "--pack-loose-unreachable" => delegate_to_real_git = true
+        "--keep-pack" => {
+          delegate_to_real_git = true
+          if i + 1 >= args.length() {
+            return PackObjectsParse::Unsupported
+          }
+          i += 1
         }
         "--write-bitmap-index" => write_bitmap = true
         "--progress" => progress = true
@@ -184,6 +220,13 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
             let spec = String::unsafe_substring(arg, start=9, end=arg.length())
             filter = parse_pack_filter_spec(spec)
             delegate_to_real_git = true
+          } else if arg == "--filter" {
+            if i + 1 >= args.length() {
+              return PackObjectsParse::Unsupported
+            }
+            filter = parse_pack_filter_spec(args[i + 1])
+            delegate_to_real_git = true
+            i += 1
           } else if arg.has_prefix("--object-format=") {
             object_format = normalize_object_format((try! arg[16:]).to_string())
             if object_format is None {
@@ -216,6 +259,14 @@ fn parse_pack_objects_args(args : Array[String]) -> PackObjectsParse {
               _ => return PackObjectsParse::Unsupported
             }
             depth = parsed
+          } else if arg.has_prefix("--cruft-expiration=") ||
+            arg.has_prefix("--max-cruft-size=") ||
+            arg.has_prefix("--max-pack-size=") {
+            delegate_to_real_git = true
+          } else if arg.has_prefix("--unpack-unreachable=") {
+            delegate_to_real_git = true
+          } else if arg.has_prefix("--keep-pack=") {
+            delegate_to_real_git = true
           } else if arg.has_prefix("--stdin-packs") ||
             arg.has_prefix("--write-bitmap-index") ||
             arg.has_prefix("--threads") ||
@@ -1631,6 +1682,20 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
           None => ()
         }
       }
+      let trace2_event = @sys.get_env_var("GIT_TRACE2_EVENT")
+      if trace2_event is Some(_) || is_pack_reuse_config_enabled(git_dir) {
+        match real_git_path() {
+          Some(real_git) => {
+            let real_args = real_git_args_from_cli()
+            let code = @process.run(real_git, real_args, inherit_env=true)
+            @sys.exit(code)
+          }
+          None => {
+            @stdio.stderr.write("bit: unsupported pack-objects options\n")
+            @sys.exit(1)
+          }
+        }
+      }
       let pack_dir = git_dir + "/objects/pack"
       if cfg.name_hash_version is Some(version) &&
         cfg.write_bitmap &&
@@ -1863,63 +1928,74 @@ async fn handle_pack_objects(args : Array[String]) -> Unit {
         }
       } else {
         let input = read_all_stdin()
-        let lines = split_lines_bytes(input)
-        let mut has_sha256 = false
-        for line in lines {
-          if looks_like_sha256_line(line) {
-            has_sha256 = true
-            break
-          }
-        }
-        if has_sha256 {
+        if input.length() == 0 {
           match real_git_path() {
             Some(real_git) => {
               let real_args = real_git_args_from_cli()
               run_real_git_pack_objects_with_input(real_git, real_args, input)
             }
-            None => {
-              @stdio.stderr.write(
-                "bit: SHA256 object format is not supported\n",
-              )
-              @sys.exit(1)
-            }
+            None => ()
           }
         }
-        let ends_with_newline = input.length() > 0 &&
-          input[input.length() - 1] == b'\n'
-        for i in 0..<lines.length() {
-          let line = lines[i]
-          let trimmed = trim_line_bytes(line)
-          if trimmed.length() == 0 {
-            if !(ends_with_newline && i == lines.length() - 1) {
-              @stdio.stderr.write(invalid_object_line_message(""))
-              @sys.exit(1)
+        if input.length() > 0 {
+          let lines = split_lines_bytes(input)
+          let mut has_sha256 = false
+          for line in lines {
+            if looks_like_sha256_line(line) {
+              has_sha256 = true
+              break
             }
-            continue
           }
-          match parse_object_id_bytes(line) {
-            None => {
-              @stdio.stderr.write(
-                invalid_object_line_message(line_to_string(line)),
-              )
-              @sys.exit(1)
-            }
-            Some(id) =>
-              match db.get(fs, id) {
-                None =>
-                  if (match cfg.missing_mode {
-                    MissingMode::AllowAny => true
-                    _ => false
-                  }) {
-                    ()
-                  } else {
-                    @stdio.stderr.write(
-                      "fatal: bad object " + id.to_hex() + "\n",
-                    )
-                    @sys.exit(1)
-                  }
-                Some(obj) => objects.push(obj)
+          if has_sha256 {
+            match real_git_path() {
+              Some(real_git) => {
+                let real_args = real_git_args_from_cli()
+                run_real_git_pack_objects_with_input(real_git, real_args, input)
               }
+              None => {
+                @stdio.stderr.write(
+                  "bit: SHA256 object format is not supported\n",
+                )
+                @sys.exit(1)
+              }
+            }
+          }
+          let ends_with_newline = input.length() > 0 &&
+            input[input.length() - 1] == b'\n'
+          for i in 0..<lines.length() {
+            let line = lines[i]
+            let trimmed = trim_line_bytes(line)
+            if trimmed.length() == 0 {
+              if !(ends_with_newline && i == lines.length() - 1) {
+                @stdio.stderr.write(invalid_object_line_message(""))
+                @sys.exit(1)
+              }
+              continue
+            }
+            match parse_object_id_bytes(line) {
+              None => {
+                @stdio.stderr.write(
+                  invalid_object_line_message(line_to_string(line)),
+                )
+                @sys.exit(1)
+              }
+              Some(id) =>
+                match db.get(fs, id) {
+                  None =>
+                    if (match cfg.missing_mode {
+                      MissingMode::AllowAny => true
+                      _ => false
+                    }) {
+                      ()
+                    } else {
+                      @stdio.stderr.write(
+                        "fatal: bad object " + id.to_hex() + "\n",
+                      )
+                      @sys.exit(1)
+                    }
+                  Some(obj) => objects.push(obj)
+                }
+            }
           }
         }
       }

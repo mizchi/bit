@@ -61,6 +61,8 @@ fn parse_index_pack_args(args : Array[String]) -> IndexPackParse {
         "--verify" => verify = true
         "--verify-stat-only" => verify_stat_only = true
         "--fix-thin" => fix_thin = true
+        "--rev-index" => delegate_to_real_git = true
+        "--no-rev-index" => delegate_to_real_git = true
         "--keep" => keep_msg = Some("")
         "--strict" => {
           strict = true
@@ -177,6 +179,27 @@ fn parse_index_pack_args(args : Array[String]) -> IndexPackParse {
     ignore_missing_email,
     delegate_to_real_git,
   })
+}
+
+///|
+fn pack_write_reverse_index_enabled(git_dir : String) -> Bool {
+  match get_config_override("pack.writeReverseIndex") {
+    Some(value) =>
+      match parse_bool_value(value) {
+        Some(flag) => return flag
+        None => return false
+      }
+    None => ()
+  }
+  match git_config_get(git_dir, "pack", "writeReverseIndex") {
+    Some(value) =>
+      match parse_bool_value(value) {
+        Some(flag) => return flag
+        None => return false
+      }
+    None => ()
+  }
+  false
 }
 
 ///|
@@ -655,6 +678,19 @@ async fn handle_index_pack(args : Array[String]) -> Unit {
           }
           None => {
             @stdio.stderr.write("bit: SHA256 object format is not supported\n")
+            @sys.exit(1)
+          }
+        }
+      }
+      if pack_write_reverse_index_enabled(git_dir) {
+        match real_git_path() {
+          Some(real_git) => {
+            let real_args = real_git_args_from_cli()
+            let code = @process.run(real_git, real_args)
+            @sys.exit(code)
+          }
+          None => {
+            @stdio.stderr.write("bit: unsupported index-pack options\n")
             @sys.exit(1)
           }
         }
