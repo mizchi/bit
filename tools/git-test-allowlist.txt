@@ -76,29 +76,69 @@ t7102-reset.sh
 t7500-commit-template-squash-signoff.sh
 t7508-status.sh
 
+# archive (t5000)
+t5000-tar-tree.sh
+t5001-archive-attr.sh
+t5002-archive-attr-pattern.sh
+t5003-archive-zip.sh
+t5004-archive-corner-cases.sh
+
+# mailinfo / request-pull / server-info
+t5100-mailinfo.sh
+t5150-request-pull.sh
+t5200-update-server-info.sh
+
 # pack / idx (strict mode compatible)
 t5300-pack-object.sh
+t5301-sliding-window.sh
 t5302-pack-index.sh
+t5303-pack-corruption-resilience.sh
+t5304-prune.sh
+t5305-include-tag.sh
 t5306-pack-nobase.sh
 t5307-pack-missing-commit.sh
 t5308-pack-detect-duplicates.sh
+t5309-pack-delta-cycles.sh
+# t5310-pack-bitmaps.sh  # 13 failed among 233 — bitmap reuse tests fail in shim
+t5311-pack-bitmaps-shallow.sh
+t5312-prune-corruption.sh
 t5313-pack-bounds-checks.sh
+t5314-pack-cycle-detection.sh
 t5315-pack-objects-compression.sh
-t5303-pack-corruption-resilience.sh
-# t5309-pack-delta-cycles.sh  # thin-pack/pack failover tests fail in shim
-# t5310-pack-bitmaps.sh  # bitmap/pack reuse tests fail in shim
-# t5311-pack-bitmaps-shallow.sh  # shallow bitmap tests fail in shim
-# t5314-pack-cycle-detection.sh  # pack cycle detection tests fail in shim
-# t5316-pack-delta-depth.sh  # pack delta depth tests fail in shim
-# t5319-multi-pack-index.sh  # multi-pack-index preferred packs fail in shim
+# t5316-pack-delta-depth.sh  # 2 failed among 5 — delta depth tests fail in shim
+# t5317-pack-objects-filter-objects.sh  # 3 failed among 33 — filter-objects tests fail in shim
+t5318-commit-graph.sh
+t5319-multi-pack-index.sh
+t5320-delta-islands.sh
 t5321-pack-large-objects.sh
-# t5326-multi-pack-bitmaps.sh  # midx/bitmap progress tests fail in shim
-# t5327-multi-pack-bitmaps-rev.sh  # midx base ordering tests fail in shim
-# t5329-pack-objects-cruft.sh  # cruft pack tests fail in shim
-# t5331-pack-objects-stdin.sh  # pack-objects --stdin-packs parsing mismatch
-# t5332-multi-pack-reuse.sh  # midx/bitmap reuse tests fail in shim
-# t5334-incremental-multi-pack-index.sh  # incremental midx tests fail in shim
+t5322-pack-objects-sparse.sh
+t5323-pack-redundant.sh
+t5324-split-commit-graph.sh
+t5325-reverse-index.sh
+t5326-multi-pack-bitmaps.sh
+t5327-multi-pack-bitmaps-rev.sh
+t5328-commit-graph-64bit-time.sh
+t5329-pack-objects-cruft.sh
+t5330-no-lazy-fetch-with-commit-graph.sh
+t5331-pack-objects-stdin.sh
+# t5332-multi-pack-reuse.sh  # 3 failed among 14 — multi-pack reuse tests fail in shim
+t5333-pseudo-merge-bitmaps.sh
+t5334-incremental-multi-pack-index.sh
 t5351-unpack-large-objects.sh
+
+# send-pack / hooks
+# t5400-send-pack.sh  # 11 failed among 17 — send-pack tests fail in shim
+t5401-update-hooks.sh
+t5402-post-merge-hook.sh
+t5403-post-checkout-hook.sh
+t5404-tracking-branches.sh
+t5405-send-pack-rewind.sh
+t5406-remote-rejects.sh
+t5407-post-rewrite-hook.sh
+t5408-send-pack-stdin.sh
+t5409-colorize-remote-messages.sh
+t5410-receive-pack.sh
+t5411-proc-receive-hook.sh
 
 # fetch / push / refs (strict mode compatible)
 t5500-fetch-pack.sh
@@ -110,6 +150,7 @@ t5505-remote.sh
 t5506-remote-groups.sh
 t5507-remote-environment.sh
 t5509-fetch-push-namespaces.sh
+t5510-fetch.sh
 t5511-refspec.sh
 t5512-ls-remote.sh
 t5513-fetch-track.sh
@@ -125,34 +166,78 @@ t5522-pull-symlink.sh
 t5523-push-upstream.sh
 t5524-pull-msg.sh
 t5525-fetch-tagopt.sh
+t5526-fetch-submodules.sh
 t5527-fetch-odd-refs.sh
 t5528-push-default.sh
 t5529-push-errors.sh
-# t5510-fetch.sh  # boundary commit exclusion test fails in shim
 t5530-upload-pack-error.sh
+t5531-deep-submodule-push.sh
+t5532-fetch-proxy.sh
 t5533-push-cas.sh
+t5534-push-signed.sh
 t5535-fetch-push-symref.sh
 t5536-fetch-conflicts.sh
 t5537-fetch-shallow.sh
 t5538-push-shallow.sh
 t5539-fetch-http-shallow.sh
+t5540-http-push-webdav.sh
 t5541-http-push-smart.sh
+t5542-push-http-shallow.sh
 t5543-atomic-push.sh
+t5544-pack-objects-hook.sh
 t5545-push-options.sh
 t5546-receive-limits.sh
+t5547-push-quarantine.sh
+t5548-push-porcelain.sh
+t5549-fetch-push-http.sh
+t5550-http-fetch-dumb.sh
+t5551-http-fetch-smart.sh
+t5552-skipping-fetch-negotiator.sh
+t5553-set-upstream.sh
+t5554-noop-fetch-negotiator.sh
+t5555-http-smart-common.sh
+t5557-http-get.sh
+t5558-clone-bundle-uri.sh
+t5559-http-fetch-smart-http2.sh
+t5560-http-backend-noserver.sh
+t5561-http-backend.sh
+t5562-http-backend-content-length.sh
+t5563-simple-http-auth.sh
+t5564-http-proxy.sh
+t5565-push-multiple.sh
+t5570-git-daemon.sh
+t5571-pre-push-hook.sh
+t5572-pull-submodule.sh
+t5573-pull-verify-signatures.sh
+t5574-fetch-output.sh
+t5580-unc-paths.sh
+t5581-http-curl-verbose.sh
+t5582-fetch-negative-refspec.sh
+t5583-push-branches.sh
 
 # clone (strict mode compatible)
 t5600-clone-fail-cleanup.sh
+t5601-clone.sh
 t5602-clone-remote-exec.sh
 t5603-clone-dirname.sh
 t5604-clone-reference.sh
 t5605-clone-local.sh
 t5606-clone-options.sh
 t5607-clone-bundle.sh
+t5608-clone-2gb.sh
 t5609-clone-branch.sh
 t5610-clone-detached.sh
 t5611-clone-config.sh
 t5612-clone-refspec.sh
+t5613-info-alternate.sh
+t5614-clone-submodules-shallow.sh
+t5615-alternate-env.sh
+t5616-partial-clone.sh
+t5617-clone-submodules-remote.sh
+t5618-alternate-refs.sh
+t5619-clone-local-ambiguous-transport.sh
+t5620-backfill.sh
+t5621-clone-revision.sh
 
 # protocol v1/v2 (strict mode compatible)
 t5700-protocol-v1.sh
@@ -166,6 +251,17 @@ t5730-protocol-v2-bundle-uri-file.sh
 t5731-protocol-v2-bundle-uri-git.sh
 t5732-protocol-v2-bundle-uri-http.sh
 t5750-bundle-uri-parse.sh
+
+# remote helpers / proto-disable / repo-selection
+t5801-remote-helpers.sh
+t5802-connect-helper.sh
+t5810-proto-disable-local.sh
+t5811-proto-disable-git.sh
+t5812-proto-disable-http.sh
+t5813-proto-disable-ssh.sh
+t5814-proto-disable-ext.sh
+t5815-submodule-protos.sh
+t5900-repo-selection.sh
 
 # worktree
 t2400-worktree-add.sh
