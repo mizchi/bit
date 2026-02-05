@@ -33,13 +33,17 @@ pub fn Collab::submit_review(
   let final_review = PrReview::new(
     review_id, pr_id, author, verdict, body, timestamp, commit_id,
   )
-  let event = CollabEvent::new(
-    "pr.review",
-    "pr/" + pr_id,
-    timestamp,
-    final_review.serialize(),
+  ignore(
+    self.store.put_record(
+      fs,
+      backing_fs,
+      pr_review_key(pr_id, review_id),
+      "pr.review",
+      final_review.serialize(),
+      author,
+      timestamp,
+    ),
   )
-  append_event(fs, backing_fs, self.git_dir, event)
   ignore(compressed)
   final_review
 }
@@ -50,17 +54,14 @@ pub fn Collab::list_reviews(
   self : Collab,
   backing_fs : &@git.RepoFileSystem,
   pr_id : String,
-) -> Array[PrReview] raise @git.GitError {
+) -> Array[PrReview] {
   let result : Array[PrReview] = []
-  let events = load_events(backing_fs, self.git_dir)
-  for event in events {
-    if event.kind() != "pr.review" {
+  let records = self.store.list_records(backing_fs, pr_review_prefix(pr_id))
+  for record in records {
+    if record.kind != "pr.review" {
       continue
     }
-    let review = parse_pr_review(event.payload()) catch { _ => continue }
-    if review.pr_id != pr_id {
-      continue
-    }
+    let review = parse_pr_review(record.payload) catch { _ => continue }
     result.push(review)
   }
   result.sort_by(fn(a, b) {
@@ -81,7 +82,7 @@ pub fn Collab::is_approved(
   self : Collab,
   backing_fs : &@git.RepoFileSystem,
   pr_id : String,
-) -> Bool raise @git.GitError {
+) -> Bool {
   let reviews = self.list_reviews(backing_fs, pr_id)
   if reviews.length() == 0 {
     return false

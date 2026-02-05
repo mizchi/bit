@@ -1,91 +1,33 @@
 ///| Collab - Git-native collaboration system (Pull Requests, Issues)
 
 ///|
-/// The _collab branch reference (preferred)
-let collab_ref : String = "refs/heads/_collab"
-
-///|
-/// Legacy _den branch reference (read/compat only)
-let legacy_den_ref : String = "refs/heads/_den"
-
-///|
-/// Collab manages Pull Requests and Issues stored in the _collab branch
+/// Collab manages Pull Requests and Issues stored in git notes
 pub struct Collab {
   git_dir : String
-  mut next_id : Int
+  mut store : CollabStore
 }
 
 ///|
-/// Load an existing Collab from the _collab branch
+/// Load an existing Collab from git notes
 pub fn Collab::load(
   backing_fs : &@git.RepoFileSystem,
   git_dir : String,
+  node_id? : String = "local",
 ) -> Collab raise @git.GitError {
-  let next_id = load_counter(backing_fs, git_dir)
-  { git_dir, next_id }
+  let store = CollabStore::load(backing_fs, git_dir, node_id~)
+  { git_dir, store }
 }
 
 ///|
-/// Initialize a new Collab, creating the _collab branch if needed
+/// Initialize a new Collab
 pub fn Collab::init(
   fs : &@git.FileSystem,
   backing_fs : &@git.RepoFileSystem,
   git_dir : String,
+  node_id? : String = "local",
 ) -> Collab raise @git.GitError {
-  let collab_commit = @lib.resolve_ref(backing_fs, git_dir, collab_ref)
-  if collab_commit is None {
-    let legacy_commit = @lib.resolve_ref(backing_fs, git_dir, legacy_den_ref)
-    match legacy_commit {
-      Some(id) => write_collab_ref(fs, backing_fs, git_dir, id)
-      None => {
-        // Create initial tree structure
-        let counter_content = "1\n"
-        let (counter_id, counter_compressed) = @git.create_blob_string(
-          counter_content,
-        )
-        write_object_bytes(fs, git_dir, counter_id, counter_compressed)
-        let (issue_counter_id, issue_counter_compressed) = @git.create_blob_string(
-          counter_content,
-        )
-        write_object_bytes(
-          fs, git_dir, issue_counter_id, issue_counter_compressed,
-        )
-        // Create meta directory tree with both counters
-        let meta_entries = [
-          @git.TreeEntry::new("100644", "counter", counter_id),
-          @git.TreeEntry::new("100644", "issue_counter", issue_counter_id),
-        ]
-        let (meta_tree_id, meta_compressed) = @git.create_tree(meta_entries)
-        write_object_bytes(fs, git_dir, meta_tree_id, meta_compressed)
-        // Create empty events directory
-        let (empty_tree_id, empty_compressed) = @git.create_tree([])
-        write_object_bytes(fs, git_dir, empty_tree_id, empty_compressed)
-        // Create root tree (events + meta)
-        let root_entries = [
-          @git.TreeEntry::new("040000", "events", empty_tree_id),
-          @git.TreeEntry::new("040000", "meta", meta_tree_id),
-        ]
-        let (root_tree_id, root_compressed) = @git.create_tree(root_entries)
-        write_object_bytes(fs, git_dir, root_tree_id, root_compressed)
-        // Create initial commit
-        let commit = @git.Commit::new(
-          root_tree_id,
-          [],
-          "Collab <collab@local>",
-          0L,
-          "+0000",
-          "Collab <collab@local>",
-          0L,
-          "+0000",
-          "Initialize collab system\n",
-        )
-        let (commit_id, commit_compressed) = @git.create_commit(commit)
-        write_object_bytes(fs, git_dir, commit_id, commit_compressed)
-        write_collab_ref(fs, backing_fs, git_dir, commit_id)
-      }
-    }
-  }
-  Collab::load(backing_fs, git_dir)
+  ignore(fs)
+  Collab::load(backing_fs, git_dir, node_id~)
 }
 
 ///|
@@ -124,9 +66,13 @@ pub fn Collab::create_pr(
       "Target branch not found: \{target_branch}",
     )
   }
-  // Generate PR ID
-  let pr_id = self.next_id.to_string()
-  self.next_id = self.next_id + 1
+  // Generate PR ID (stable, content-derived)
+  let pr_id = generate_entity_id(
+    "pr",
+    author,
+    timestamp,
+    source_branch + "\n" + target_branch + "\n" + title + "\n" + body,
+  )
   // Create PullRequest object
   let pr = PullRequest::new(
     pr_id,
@@ -142,8 +88,17 @@ pub fn Collab::create_pr(
     PrState::Open,
     [],
   )
-  let event = CollabEvent::new("pr", "pr/" + pr_id, timestamp, pr.serialize())
-  append_event(fs, backing_fs, self.git_dir, event, counter=Some(self.next_id))
+  ignore(
+    self.store.put_record(
+      fs,
+      backing_fs,
+      pr_meta_key(pr_id),
+      "pr",
+      pr.serialize(),
+      author,
+      timestamp,
+    ),
+  )
   pr
 }
 
@@ -153,25 +108,20 @@ pub fn Collab::get_pr(
   self : Collab,
   backing_fs : &@git.RepoFileSystem,
   pr_id : String,
-) -> PullRequest? raise @git.GitError {
-  let events = load_events(backing_fs, self.git_dir)
-  let mut latest_ts : Int64 = -1
-  let mut latest : PullRequest? = None
-  for event in events {
-    if event.kind() != "pr" {
-      continue
-    }
-    let pr = parse_pull_request(event.payload()) catch { _ => continue }
-    if pr.id != pr_id {
-      continue
-    }
-    let ts = event.timestamp()
-    if ts >= latest_ts {
-      latest_ts = ts
-      latest = Some(pr)
+) -> PullRequest? {
+  let record = self.store.get_record(backing_fs, pr_meta_key(pr_id))
+  match record {
+    None => None
+    Some(r) => {
+      let result : Result[PullRequest, PrError] = try? parse_pull_request(
+        r.payload,
+      )
+      match result {
+        Ok(pr) => Some(pr)
+        Err(_) => None
+      }
     }
   }
-  latest
 }
 
 ///|
@@ -180,37 +130,28 @@ pub fn Collab::list_prs(
   self : Collab,
   backing_fs : &@git.RepoFileSystem,
   state? : PrState? = None,
-) -> Array[PullRequest] raise @git.GitError {
-  let events = load_events(backing_fs, self.git_dir)
-  let latest_map : Map[String, PullRequest] = {}
-  let latest_ts : Map[String, Int64] = {}
-  for event in events {
-    if event.kind() != "pr" {
+) -> Array[PullRequest] {
+  let result : Array[PullRequest] = []
+  let records = self.store.list_records(backing_fs, "collab/pr/")
+  for record in records {
+    if not(record.key.has_suffix("/meta")) || record.kind != "pr" {
       continue
     }
-    let pr = parse_pull_request(event.payload()) catch { _ => continue }
-    let ts = event.timestamp()
-    match latest_ts.get(pr.id) {
-      Some(existing_ts) =>
-        if ts >= existing_ts {
-          latest_ts[pr.id] = ts
-          latest_map[pr.id] = pr
-        }
-      None => {
-        latest_ts[pr.id] = ts
-        latest_map[pr.id] = pr
-      }
-    }
-  }
-  let result : Array[PullRequest] = []
-  for item in latest_map.to_array() {
-    let (_, pr) = item
+    let pr = parse_pull_request(record.payload) catch { _ => continue }
     match state {
       None => result.push(pr)
       Some(s) => if pr.state == s { result.push(pr) }
     }
   }
-  result.sort_by(fn(a, b) { parse_int(a.id) - parse_int(b.id) })
+  result.sort_by(fn(a, b) {
+    if a.created_at < b.created_at {
+      -1
+    } else if a.created_at > b.created_at {
+      1
+    } else {
+      0
+    }
+  })
   result
 }
 
@@ -256,13 +197,17 @@ pub fn Collab::update_pr(
     existing.state,
     new_labels,
   )
-  let event = CollabEvent::new(
-    "pr",
-    "pr/" + pr_id,
-    timestamp,
-    updated.serialize(),
+  ignore(
+    self.store.put_record(
+      fs,
+      backing_fs,
+      pr_meta_key(pr_id),
+      "pr",
+      updated.serialize(),
+      existing.author,
+      timestamp,
+    ),
   )
-  append_event(fs, backing_fs, self.git_dir, event)
   updated
 }
 
@@ -297,45 +242,37 @@ pub fn Collab::close_pr(
     PrState::Closed,
     existing.labels,
   )
-  let event = CollabEvent::new(
-    "pr",
-    "pr/" + pr_id,
-    timestamp,
-    updated.serialize(),
+  ignore(
+    self.store.put_record(
+      fs,
+      backing_fs,
+      pr_meta_key(pr_id),
+      "pr",
+      updated.serialize(),
+      existing.author,
+      timestamp,
+    ),
   )
-  append_event(fs, backing_fs, self.git_dir, event)
 }
 
 ///|
-fn load_counter(
-  backing_fs : &@git.RepoFileSystem,
-  git_dir : String,
-) -> Int raise @git.GitError {
-  let db = @lib.ObjectDb::load_lazy(backing_fs, git_dir)
-  let collab_commit = get_collab_commit(backing_fs, git_dir)
-  guard collab_commit is Some(commit_id) else { return 1 }
-  let collab_tree = get_commit_tree(db, backing_fs, commit_id)
-  guard collab_tree is Some(tree_id) else { return 1 }
-  let meta_id = find_tree_entry(db, backing_fs, tree_id, "meta")
-  guard meta_id is Some(mid) else { return 1 }
-  let counter_id = find_tree_entry(db, backing_fs, mid, "counter")
-  guard counter_id is Some(cid) else { return 1 }
-  let obj = db.get(backing_fs, cid)
-  guard obj is Some(counter_obj) else { return 1 }
-  let text = @utf8.decode_lossy(counter_obj.data[:])
-  parse_int(trim_whitespace(text))
+fn generate_entity_id(
+  kind : String,
+  author : String,
+  timestamp : Int64,
+  seed : String,
+) -> String {
+  let base = kind + "\n" + author + "\n" + timestamp.to_string() + "\n" + seed
+  let (id, _compressed) = @git.create_blob_string(base)
+  short_hex_id(id.to_hex(), 8)
 }
 
 ///|
-fn get_collab_commit(
-  backing_fs : &@git.RepoFileSystem,
-  git_dir : String,
-) -> @git.ObjectId? raise @git.GitError {
-  let collab_commit = @lib.resolve_ref(backing_fs, git_dir, collab_ref)
-  if collab_commit is Some(_) {
-    collab_commit
+fn short_hex_id(hex : String, n : Int) -> String {
+  if hex.length() <= n {
+    hex
   } else {
-    @lib.resolve_ref(backing_fs, git_dir, legacy_den_ref)
+    String::unsafe_substring(hex, start=0, end=n)
   }
 }
 
@@ -352,76 +289,6 @@ fn get_commit_tree(
   }
   let info = @git.parse_commit(commit_obj.data)
   Some(info.tree)
-}
-
-///|
-fn find_tree_entry(
-  db : @lib.ObjectDb,
-  backing_fs : &@git.RepoFileSystem,
-  tree_id : @git.ObjectId,
-  name : String,
-) -> @git.ObjectId? raise @git.GitError {
-  let obj = db.get(backing_fs, tree_id)
-  guard obj is Some(tree_obj) else { return None }
-  if tree_obj.obj_type != @git.ObjectType::Tree {
-    return None
-  }
-  let entries = @git.parse_tree(tree_obj.data)
-  for entry in entries {
-    if entry.name == name {
-      return Some(entry.id)
-    }
-  }
-  None
-}
-
-///|
-fn trim_whitespace(s : String) -> String {
-  let chars = s.to_array()
-  let mut start = 0
-  let mut end = chars.length()
-  while start < end {
-    let c = chars[start]
-    if c == ' ' || c == '\n' || c == '\r' || c == '\t' {
-      start = start + 1
-    } else {
-      break
-    }
-  }
-  while end > start {
-    let c = chars[end - 1]
-    if c == ' ' || c == '\n' || c == '\r' || c == '\t' {
-      end = end - 1
-    } else {
-      break
-    }
-  }
-  if start >= end {
-    ""
-  } else {
-    String::unsafe_substring(s, start~, end~)
-  }
-}
-
-///|
-
-///|
-fn write_collab_ref(
-  fs : &@git.FileSystem,
-  backing_fs : &@git.RepoFileSystem,
-  git_dir : String,
-  commit_id : @git.ObjectId,
-) -> Unit raise @git.GitError {
-  let refs_dir = join_path(git_dir, "refs/heads")
-  fs.mkdir_p(refs_dir)
-  fs.write_string(join_path(git_dir, collab_ref), commit_id.to_hex() + "\n")
-  let legacy_commit = @lib.resolve_ref(backing_fs, git_dir, legacy_den_ref)
-  if legacy_commit is Some(_) {
-    fs.write_string(
-      join_path(git_dir, legacy_den_ref),
-      commit_id.to_hex() + "\n",
-    )
-  }
 }
 
 ///|

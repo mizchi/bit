@@ -1,4 +1,4 @@
-///| PR System sync operations (fetch/push)
+///| Collab notes sync operations (fetch/push)
 
 ///|
 pub struct PrSyncResult {
@@ -29,31 +29,32 @@ pub fn PrSyncResult::remote_commit(self : PrSyncResult) -> @git.ObjectId? {
 }
 
 ///|
-/// Push _collab branch to remote
+/// Push collab notes ref to remote
 pub async fn Collab::push(
   self : Collab,
   rfs : &@git.RepoFileSystem,
   remote_url : String,
 ) -> PrSyncResult raise @git.GitError {
-  let local_commit = get_collab_commit(rfs, self.git_dir)
+  let ref_name = collab_notes_ref_name()
+  let local_commit = @lib.resolve_ref(rfs, self.git_dir, ref_name)
   guard local_commit is Some(local_id) else {
     return {
       success: false,
-      message: "No local _collab branch found",
+      message: "No local collab notes ref found",
       local_commit: None,
       remote_commit: None,
     }
   }
-  // Collect all objects reachable from _collab
+  // Collect all objects reachable from notes ref
   let db = @lib.ObjectDb::load(rfs, self.git_dir)
   let objects = @lib.collect_reachable_objects(db, rfs, local_id)
   let pack = @git.create_packfile(objects)
   // Discover remote refs
   let remote = @git.Remote::new(remote_url)
   let refs = @git.discover_receive_refs_http(remote)
-  let (old_id, ref_name) = find_remote_collab_ref(refs)
+  let (old_id, push_ref) = find_remote_notes_ref(refs)
   // Push
-  let req = @git.PushRequest::new(old_id, local_id, ref_name, pack)
+  let req = @git.PushRequest::new(old_id, local_id, push_ref, pack)
   let result = @git.push(remote, req)
   if result.has_prefix("unpack ok") ||
     result.has_prefix("ok ") ||
@@ -75,21 +76,22 @@ pub async fn Collab::push(
 }
 
 ///|
-/// Fetch _collab branch from remote and merge
+/// Fetch collab notes ref from remote and merge
 pub async fn Collab::fetch(
   self : Collab,
   fs : &@git.FileSystem,
   rfs : &@git.RepoFileSystem,
   remote_url : String,
 ) -> PrSyncResult raise @git.GitError {
+  let ref_name = collab_notes_ref_name()
   // Discover remote refs
   let (refs, _, _, _) = @git.discover_upload_refs_http(remote_url, true)
-  let remote_id = find_upload_collab_ref(refs)
-  guard remote_id is Some((rid, ref_name)) else {
+  let remote_id = find_upload_notes_ref(refs)
+  guard remote_id is Some((rid, remote_ref)) else {
     return {
       success: false,
-      message: "No remote _collab branch found",
-      local_commit: get_collab_commit(rfs, self.git_dir),
+      message: "No remote collab notes ref found",
+      local_commit: @lib.resolve_ref(rfs, self.git_dir, ref_name),
       remote_commit: None,
     }
   }
@@ -97,8 +99,8 @@ pub async fn Collab::fetch(
   let pack = @git.fetch_pack_http(remote_url, [rid], true)
   let objects = @git.parse_packfile(pack)
   @git.write_packfile_with_index(fs, self.git_dir, pack, objects)
-  // Update remote tracking ref
-  let remote_short = short_ref_name(ref_name)
+  // Update remote tracking ref (best-effort)
+  let remote_short = short_ref_name(remote_ref)
   let remote_ref_path = join_path(
     self.git_dir,
     "refs/remotes/origin/" + remote_short,
@@ -107,16 +109,18 @@ pub async fn Collab::fetch(
   fs.mkdir_p(dir)
   fs.write_string(remote_ref_path, rid.to_hex() + "\n")
   // Get local commit
-  let local_commit = get_collab_commit(rfs, self.git_dir)
+  let local_commit = @lib.resolve_ref(rfs, self.git_dir, ref_name)
   match local_commit {
     None => {
-      // No local _collab, just set to remote
-      write_collab_ref(fs, rfs, self.git_dir, rid)
-      // Reload counter
-      self.next_id = load_counter(rfs, self.git_dir)
+      write_notes_ref(fs, self.git_dir, rid)
+      self.store = CollabStore::load(
+        rfs,
+        self.git_dir,
+        node_id=self.store.node_id(),
+      )
       {
         success: true,
-        message: "Fetched remote _collab branch",
+        message: "Fetched remote collab notes ref",
         local_commit: Some(rid),
         remote_commit: Some(rid),
       }
@@ -130,15 +134,13 @@ pub async fn Collab::fetch(
           remote_commit: Some(rid),
         }
       } else {
-        // Need to merge
-        merge_collab_branches(self, fs, rfs, lid, rid)
+        merge_notes_commits(self, fs, rfs, lid, rid)
       }
   }
 }
 
 ///|
-/// Merge remote _collab into local _collab
-fn merge_collab_branches(
+fn merge_notes_commits(
   prs : Collab,
   fs : &@git.FileSystem,
   rfs : &@git.RepoFileSystem,
@@ -146,11 +148,10 @@ fn merge_collab_branches(
   remote_id : @git.ObjectId,
 ) -> PrSyncResult raise @git.GitError {
   let db = @lib.ObjectDb::load(rfs, prs.git_dir)
-  // Check if fast-forward possible (local is ancestor of remote)
-  if is_collab_ancestor(db, rfs, local_id, remote_id) {
-    // Fast-forward to remote
-    write_collab_ref(fs, rfs, prs.git_dir, remote_id)
-    prs.next_id = load_counter(rfs, prs.git_dir)
+  // Fast-forward if possible
+  if is_commit_ancestor(db, rfs, local_id, remote_id) {
+    write_notes_ref(fs, prs.git_dir, remote_id)
+    prs.store = CollabStore::load(rfs, prs.git_dir, node_id=prs.store.node_id())
     return {
       success: true,
       message: "Fast-forward to remote",
@@ -158,8 +159,7 @@ fn merge_collab_branches(
       remote_commit: Some(remote_id),
     }
   }
-  // Check if remote is ancestor of local (nothing to do, just push later)
-  if is_collab_ancestor(db, rfs, remote_id, local_id) {
+  if is_commit_ancestor(db, rfs, remote_id, local_id) {
     return {
       success: true,
       message: "Local is ahead of remote",
@@ -167,25 +167,15 @@ fn merge_collab_branches(
       remote_commit: Some(remote_id),
     }
   }
-  // Need real merge - collect PR data from both
   let local_tree = get_commit_tree(db, rfs, local_id)
   guard local_tree is Some(ltree) else {
-    raise @git.GitError::InvalidObject("Cannot read local _collab tree")
+    raise @git.GitError::InvalidObject("Cannot read local notes tree")
   }
   let remote_tree = get_commit_tree(db, rfs, remote_id)
   guard remote_tree is Some(rtree) else {
-    raise @git.GitError::InvalidObject("Cannot read remote _collab tree")
+    raise @git.GitError::InvalidObject("Cannot read remote notes tree")
   }
-  // Merge the trees
-  let merged_tree_id = merge_collab_trees(
-    fs,
-    rfs,
-    prs.git_dir,
-    db,
-    ltree,
-    rtree,
-  )
-  // Create merge commit
+  let merged_tree_id = merge_notes_trees(fs, rfs, prs.git_dir, db, ltree, rtree)
   let commit = @git.Commit::new(
     merged_tree_id,
     [local_id, remote_id],
@@ -195,24 +185,22 @@ fn merge_collab_branches(
     "Collab <collab@local>",
     0L,
     "+0000",
-    "Merge remote _collab branch\n",
+    "Merge collab notes\n",
   )
   let (commit_id, commit_compressed) = @git.create_commit(commit)
   write_object_bytes(fs, prs.git_dir, commit_id, commit_compressed)
-  // Update ref
-  write_collab_ref(fs, rfs, prs.git_dir, commit_id)
-  // Reload counter
-  prs.next_id = load_counter(rfs, prs.git_dir)
+  write_notes_ref(fs, prs.git_dir, commit_id)
+  prs.store = CollabStore::load(rfs, prs.git_dir, node_id=prs.store.node_id())
   {
     success: true,
-    message: "Merged remote _collab branch",
+    message: "Merged remote collab notes",
     local_commit: Some(commit_id),
     remote_commit: Some(remote_id),
   }
 }
 
 ///|
-fn merge_collab_trees(
+fn merge_notes_trees(
   fs : &@git.FileSystem,
   rfs : &@git.RepoFileSystem,
   git_dir : String,
@@ -220,229 +208,74 @@ fn merge_collab_trees(
   local_tree : @git.ObjectId,
   remote_tree : @git.ObjectId,
 ) -> @git.ObjectId raise @git.GitError {
-  // Read both root trees
   let local_entries = read_tree_entries(db, rfs, local_tree)
   let remote_entries = read_tree_entries(db, rfs, remote_tree)
-  // Build entry maps
-  let local_map : Map[String, @git.TreeEntry] = {}
-  for e in local_entries {
-    local_map[e.name] = e
-  }
-  let remote_map : Map[String, @git.TreeEntry] = {}
-  for e in remote_entries {
-    remote_map[e.name] = e
-  }
-  // Merge entries
-  let merged : Array[@git.TreeEntry] = []
-  // Process 'meta' - merge counters
-  let local_meta = local_map.get("meta")
-  let remote_meta = remote_map.get("meta")
-  let merged_meta = merge_meta_trees(
-    fs, rfs, git_dir, db, local_meta, remote_meta,
-  )
-  merged.push(@git.TreeEntry::new("040000", "meta", merged_meta))
-  // Process 'events' - union of all events
-  let local_events = local_map.get("events")
-  let remote_events = remote_map.get("events")
-  let merged_events = merge_content_addressed_dir(
-    fs, rfs, git_dir, db, local_events, remote_events,
-  )
-  merged.push(@git.TreeEntry::new("040000", "events", merged_events))
-  // Preserve other entries (local wins on conflict)
-  let other_map : Map[String, @git.TreeEntry] = {}
-  for entry in remote_entries {
-    if entry.name != "meta" && entry.name != "events" {
-      other_map[entry.name] = entry
-    }
-  }
+  let local_map : Map[String, @git.ObjectId] = {}
   for entry in local_entries {
-    if entry.name != "meta" && entry.name != "events" {
-      other_map[entry.name] = entry
+    local_map[entry.name] = entry.id
+  }
+  let remote_map : Map[String, @git.ObjectId] = {}
+  for entry in remote_entries {
+    remote_map[entry.name] = entry.id
+  }
+  let keys : Map[String, Bool] = {}
+  for item in local_map.to_array() {
+    let (key, _) = item
+    keys[key] = true
+  }
+  for item in remote_map.to_array() {
+    let (key, _) = item
+    keys[key] = true
+  }
+  let merged_entries : Array[@git.TreeEntry] = []
+  for item in keys.to_array() {
+    let (key, _) = item
+    match (local_map.get(key), remote_map.get(key)) {
+      (Some(lid), Some(rid)) =>
+        if lid == rid {
+          merged_entries.push(@git.TreeEntry::new("100644", key, lid))
+        } else {
+          let ours = db.get(rfs, lid)
+          let theirs = db.get(rfs, rid)
+          match (ours, theirs) {
+            (Some(o), Some(t)) => {
+              let merged_bytes = merge_record_bytes(o.data, t.data)
+              let merged_text = @utf8.decode_lossy(merged_bytes[:])
+              let (blob_id, compressed) = @git.create_blob_string(merged_text)
+              write_object_bytes(fs, git_dir, blob_id, compressed)
+              merged_entries.push(@git.TreeEntry::new("100644", key, blob_id))
+            }
+            _ => merged_entries.push(@git.TreeEntry::new("100644", key, lid))
+          }
+        }
+      (Some(lid), None) =>
+        merged_entries.push(@git.TreeEntry::new("100644", key, lid))
+      (None, Some(rid)) =>
+        merged_entries.push(@git.TreeEntry::new("100644", key, rid))
+      _ => ()
     }
   }
-  for item in other_map.to_array() {
-    let (_, entry) = item
-    merged.push(entry)
-  }
-  merged.sort_by(fn(a, b) { String::compare(a.name, b.name) })
-  let (tree_id, compressed) = @git.create_tree(merged)
-  write_object_bytes(fs, git_dir, tree_id, compressed)
-  tree_id
+  merged_entries.sort_by(fn(a, b) { String::compare(a.name, b.name) })
+  let (new_tree_id, tree_compressed) = @git.create_tree(merged_entries)
+  write_object_bytes(fs, git_dir, new_tree_id, tree_compressed)
+  new_tree_id
 }
-
-///|
-fn merge_meta_trees(
-  fs : &@git.FileSystem,
-  rfs : &@git.RepoFileSystem,
-  git_dir : String,
-  db : @lib.ObjectDb,
-  local_meta : @git.TreeEntry?,
-  remote_meta : @git.TreeEntry?,
-) -> @git.ObjectId raise @git.GitError {
-  // Get counters from both
-  let local_counter = match local_meta {
-    Some(m) => read_counter_from_meta(db, rfs, m.id)
-    None => 1
-  }
-  let remote_counter = match remote_meta {
-    Some(m) => read_counter_from_meta(db, rfs, m.id)
-    None => 1
-  }
-  let local_issue_counter = match local_meta {
-    Some(m) => read_issue_counter_from_meta(db, rfs, m.id)
-    None => 1
-  }
-  let remote_issue_counter = match remote_meta {
-    Some(m) => read_issue_counter_from_meta(db, rfs, m.id)
-    None => 1
-  }
-  // Use max to avoid collisions
-  let merged_counter = if local_counter > remote_counter {
-    local_counter
-  } else {
-    remote_counter
-  }
-  let merged_issue_counter = if local_issue_counter > remote_issue_counter {
-    local_issue_counter
-  } else {
-    remote_issue_counter
-  }
-  // Build merged meta entries (preserve unknown keys)
-  let local_entries = match local_meta {
-    Some(m) => read_tree_entries(db, rfs, m.id)
-    None => []
-  }
-  let remote_entries = match remote_meta {
-    Some(m) => read_tree_entries(db, rfs, m.id)
-    None => []
-  }
-  let meta_map : Map[String, @git.TreeEntry] = {}
-  for e in local_entries {
-    meta_map[e.name] = e
-  }
-  for e in remote_entries {
-    if not(meta_map.contains(e.name)) {
-      meta_map[e.name] = e
-    }
-  }
-  let counter_content = merged_counter.to_string() + "\n"
-  let (counter_id, counter_compressed) = @git.create_blob_string(
-    counter_content,
-  )
-  write_object_bytes(fs, git_dir, counter_id, counter_compressed)
-  let issue_counter_content = merged_issue_counter.to_string() + "\n"
-  let (issue_counter_id, issue_counter_compressed) = @git.create_blob_string(
-    issue_counter_content,
-  )
-  write_object_bytes(fs, git_dir, issue_counter_id, issue_counter_compressed)
-  meta_map["counter"] = @git.TreeEntry::new("100644", "counter", counter_id)
-  meta_map["issue_counter"] = @git.TreeEntry::new(
-    "100644", "issue_counter", issue_counter_id,
-  )
-  let meta_entries : Array[@git.TreeEntry] = []
-  for item in meta_map.to_array() {
-    let (_, entry) = item
-    meta_entries.push(entry)
-  }
-  meta_entries.sort_by(fn(a, b) { String::compare(a.name, b.name) })
-  let (meta_id, meta_compressed) = @git.create_tree(meta_entries)
-  write_object_bytes(fs, git_dir, meta_id, meta_compressed)
-  meta_id
-}
-
-///|
-fn read_counter_from_meta(
-  db : @lib.ObjectDb,
-  rfs : &@git.RepoFileSystem,
-  meta_tree : @git.ObjectId,
-) -> Int raise @git.GitError {
-  let counter_id = find_tree_entry(db, rfs, meta_tree, "counter")
-  guard counter_id is Some(cid) else { return 1 }
-  let obj = db.get(rfs, cid)
-  guard obj is Some(blob) else { return 1 }
-  let text = @utf8.decode_lossy(blob.data[:])
-  parse_int(trim_whitespace(text))
-}
-
-///|
-fn read_issue_counter_from_meta(
-  db : @lib.ObjectDb,
-  rfs : &@git.RepoFileSystem,
-  meta_tree : @git.ObjectId,
-) -> Int raise @git.GitError {
-  let counter_id = find_tree_entry(db, rfs, meta_tree, "issue_counter")
-  guard counter_id is Some(cid) else { return 1 }
-  let obj = db.get(rfs, cid)
-  guard obj is Some(blob) else { return 1 }
-  let text = @utf8.decode_lossy(blob.data[:])
-  parse_int(trim_whitespace(text))
-}
-
-///|
-fn merge_content_addressed_dir(
-  fs : &@git.FileSystem,
-  _rfs : &@git.RepoFileSystem,
-  git_dir : String,
-  db : @lib.ObjectDb,
-  local_dir : @git.TreeEntry?,
-  remote_dir : @git.TreeEntry?,
-) -> @git.ObjectId raise @git.GitError {
-  let local_entries = match local_dir {
-    Some(d) => {
-      let obj = db.get(_rfs, d.id)
-      match obj {
-        Some(o) => @git.parse_tree(o.data)
-        None => []
-      }
-    }
-    None => []
-  }
-  let remote_entries = match remote_dir {
-    Some(d) => {
-      let obj = db.get(_rfs, d.id)
-      match obj {
-        Some(o) => @git.parse_tree(o.data)
-        None => []
-      }
-    }
-    None => []
-  }
-  // Union by name (content-addressed, so same name = same content)
-  let all : Map[String, @git.TreeEntry] = {}
-  for e in local_entries {
-    all[e.name] = e
-  }
-  for e in remote_entries {
-    all[e.name] = e
-  }
-  let merged : Array[@git.TreeEntry] = []
-  for item in all.to_array() {
-    let (_, e) = item
-    merged.push(e)
-  }
-  merged.sort_by(fn(a, b) { String::compare(a.name, b.name) })
-  let (tree_id, compressed) = @git.create_tree(merged)
-  write_object_bytes(fs, git_dir, tree_id, compressed)
-  tree_id
-}
-
-///|
 
 ///|
 fn read_tree_entries(
   db : @lib.ObjectDb,
   rfs : &@git.RepoFileSystem,
   tree_id : @git.ObjectId,
-) -> Array[@git.TreeEntry] raise @git.GitError {
-  let obj = db.get(rfs, tree_id)
+) -> Array[@git.TreeEntry] {
+  let obj = db.get(rfs, tree_id) catch { _ => None }
   match obj {
-    Some(o) => @git.parse_tree(o.data)
+    Some(tree_obj) => @git.parse_tree(tree_obj.data) catch { _ => [] }
     None => []
   }
 }
 
 ///|
-fn is_collab_ancestor(
+fn is_commit_ancestor(
   db : @lib.ObjectDb,
   rfs : &@git.RepoFileSystem,
   ancestor : @git.ObjectId,
@@ -451,74 +284,66 @@ fn is_collab_ancestor(
   if ancestor == commit {
     return true
   }
-  let stack : Array[@git.ObjectId] = [commit]
-  let seen : Map[String, Bool] = {}
-  while stack.length() > 0 {
-    let id = stack.pop()
-    guard id is Some(current) else { break }
-    let hex = current.to_hex()
-    if seen.contains(hex) {
-      continue
-    }
-    seen[hex] = true
-    if current == ancestor {
+  let obj = db.get(rfs, commit)
+  guard obj is Some(commit_obj) else { return false }
+  if commit_obj.obj_type != @git.ObjectType::Commit {
+    return false
+  }
+  let info = @git.parse_commit(commit_obj.data)
+  for parent in info.parents {
+    if is_commit_ancestor(db, rfs, ancestor, parent) {
       return true
-    }
-    let obj = db.get(rfs, current)
-    guard obj is Some(o) else { continue }
-    if o.obj_type != @git.ObjectType::Commit {
-      continue
-    }
-    let info = @git.parse_commit(o.data)
-    for p in info.parents {
-      stack.push(p)
     }
   }
   false
 }
 
 ///|
-fn find_remote_collab_ref(
+fn find_remote_notes_ref(
   refs : Array[(@git.ObjectId, String)],
 ) -> (@git.ObjectId, String) {
+  let ref_name = collab_notes_ref_name()
   for item in refs {
     let (id, name) = item
-    if name == collab_ref {
-      return (id, collab_ref)
+    if name == ref_name {
+      return (id, name)
     }
   }
-  for item in refs {
-    let (id, name) = item
-    if name == legacy_den_ref {
-      return (id, legacy_den_ref)
-    }
-  }
-  (@git.ObjectId::zero(), collab_ref)
+  (@git.ObjectId::zero(), ref_name)
 }
 
 ///|
-fn find_upload_collab_ref(
+fn find_upload_notes_ref(
   refs : Array[(@git.ObjectId, String)],
 ) -> (@git.ObjectId, String)? {
+  let ref_name = collab_notes_ref_name()
   for item in refs {
     let (id, name) = item
-    if name == collab_ref {
-      return Some((id, collab_ref))
-    }
-  }
-  for item in refs {
-    let (id, name) = item
-    if name == legacy_den_ref {
-      return Some((id, legacy_den_ref))
+    if name == ref_name {
+      return Some((id, name))
     }
   }
   None
 }
 
 ///|
+fn write_notes_ref(
+  fs : &@git.FileSystem,
+  git_dir : String,
+  commit_id : @git.ObjectId,
+) -> Unit raise @git.GitError {
+  let refs_dir = join_path(git_dir, "refs/notes")
+  fs.mkdir_p(refs_dir)
+  fs.write_string(
+    join_path(git_dir, collab_notes_ref_name()),
+    commit_id.to_hex() + "\n",
+  )
+}
+
+///|
 fn short_ref_name(refname : String) -> String {
-  if refname.has_prefix("refs/heads/") {
-    String::unsafe_substring(refname, start=11, end=refname.length())
+  if refname.has_prefix("refs/") {
+    String::unsafe_substring(refname, start=5, end=refname.length())
   } else {
     refname
   }
@@ -526,9 +351,17 @@ fn short_ref_name(refname : String) -> String {
 
 ///|
 fn parent_path(path : String) -> String {
-  match path.rev_find("/") {
-    None => "/"
-    Some(0) => "/"
-    Some(i) => String::unsafe_substring(path, start=0, end=i)
+  let chars = path.to_array()
+  let mut i = chars.length()
+  while i > 0 {
+    let idx = i - 1
+    if chars[idx] == '/' {
+      if idx == 0 {
+        return "."
+      }
+      return String::unsafe_substring(path, start=0, end=idx)
+    }
+    i = i - 1
   }
+  "."
 }

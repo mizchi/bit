@@ -47,13 +47,17 @@ pub fn Collab::add_comment(
     line_number~,
     commit_id~,
   )
-  let event = CollabEvent::new(
-    "pr.comment",
-    "pr/" + pr_id,
-    timestamp,
-    final_comment.serialize(),
+  ignore(
+    self.store.put_record(
+      fs,
+      backing_fs,
+      pr_comment_key(pr_id, comment_id),
+      "pr.comment",
+      final_comment.serialize(),
+      author,
+      timestamp,
+    ),
   )
-  append_event(fs, backing_fs, self.git_dir, event)
   ignore(compressed)
   final_comment
 }
@@ -73,17 +77,14 @@ pub fn Collab::list_comments(
   self : Collab,
   backing_fs : &@git.RepoFileSystem,
   pr_id : String,
-) -> Array[PrComment] raise @git.GitError {
+) -> Array[PrComment] {
   let result : Array[PrComment] = []
-  let events = load_events(backing_fs, self.git_dir)
-  for event in events {
-    if event.kind() != "pr.comment" {
+  let records = self.store.list_records(backing_fs, pr_comment_prefix(pr_id))
+  for record in records {
+    if record.kind != "pr.comment" {
       continue
     }
-    let comment = parse_pr_comment(event.payload()) catch { _ => continue }
-    if comment.pr_id != pr_id {
-      continue
-    }
+    let comment = parse_pr_comment(record.payload) catch { _ => continue }
     result.push(comment)
   }
   result.sort_by(fn(a, b) {

@@ -1,23 +1,10 @@
-///| Whitebox tests for collab sync merge logic
+///| Whitebox tests for collab notes merge logic
 
 ///|
 fn setup_sync_repo() -> (@git.TestFs, String) {
   let fs = @git.TestFs::new()
   fs.mkdir_p("/repo/.git")
   (fs, "/repo/.git")
-}
-
-///|
-fn write_blob(
-  fs : @git.TestFs,
-  git_dir : String,
-  content : String,
-) -> @git.ObjectId {
-  let (id, compressed) = @git.create_blob_string(content)
-  write_object_bytes(fs, git_dir, id, compressed) catch {
-    _ => panic()
-  }
-  id
 }
 
 ///|
@@ -45,72 +32,100 @@ fn read_blob_string(
 }
 
 ///|
-fn parse_int_simple(s : String) -> Int {
-  let mut result = 0
-  for c in s {
-    if c >= '0' && c <= '9' {
-      result = result * 10 + (c.to_int() - '0'.to_int())
-    }
+fn write_record_blob(
+  fs : @git.TestFs,
+  git_dir : String,
+  record : CollabRecord,
+) -> @git.ObjectId {
+  let (id, compressed) = @git.create_blob_string(record.serialize())
+  write_object_bytes(fs, git_dir, id, compressed) catch {
+    _ => panic()
   }
-  result
+  id
 }
 
 ///|
-test "sync: merge events unions content-addressed blobs" {
+fn find_tree_entry(
+  db : @lib.ObjectDb,
+  fs : @git.TestFs,
+  tree_id : @git.ObjectId,
+  name : String,
+) -> @git.ObjectId? {
+  let entries = read_tree_entries(db, fs, tree_id)
+  for entry in entries {
+    if entry.name == name {
+      return Some(entry.id)
+    }
+  }
+  None
+}
+
+///|
+test "sync: merge notes unions entries" {
   let (fs, git_dir) = setup_sync_repo()
   let db = @lib.ObjectDb::load_lazy(fs, git_dir)
-  let event1 = "kind pr\nentity pr/1\nts 1\n\npr 1\n"
-  let event2 = "kind pr\nentity pr/2\nts 2\n\npr 2\n"
-  let blob1 = write_blob(fs, git_dir, event1)
-  let blob2 = write_blob(fs, git_dir, event2)
-  let local_events = write_tree(fs, git_dir, [
-    @git.TreeEntry::new("100644", blob1.to_hex(), blob1),
+  let key1 = "collab/pr/1/meta"
+  let key2 = "collab/pr/2/meta"
+  let (key1_id, key1_compressed) = @git.create_blob_string(key1)
+  write_object_bytes(fs, git_dir, key1_id, key1_compressed) catch {
+    _ => panic()
+  }
+  let (key2_id, key2_compressed) = @git.create_blob_string(key2)
+  write_object_bytes(fs, git_dir, key2_id, key2_compressed) catch {
+    _ => panic()
+  }
+  let record1 = CollabRecord::new(key1, "pr", "payload 1", "nodeA", 1L)
+  let record2 = CollabRecord::new(key2, "pr", "payload 2", "nodeB", 2L)
+  let blob1 = write_record_blob(fs, git_dir, record1)
+  let blob2 = write_record_blob(fs, git_dir, record2)
+  let local_notes = write_tree(fs, git_dir, [
+    @git.TreeEntry::new("100644", key1_id.to_hex(), blob1),
   ])
-  let remote_events = write_tree(fs, git_dir, [
-    @git.TreeEntry::new("100644", blob2.to_hex(), blob2),
+  let remote_notes = write_tree(fs, git_dir, [
+    @git.TreeEntry::new("100644", key2_id.to_hex(), blob2),
   ])
-  let merged = merge_content_addressed_dir(
-    fs,
-    fs,
-    git_dir,
-    db,
-    Some(@git.TreeEntry::new("040000", "events", local_events)),
-    Some(@git.TreeEntry::new("040000", "events", remote_events)),
-  )
+  let merged = merge_notes_trees(fs, fs, git_dir, db, local_notes, remote_notes)
   let merged_entries = read_tree_entries(db, fs, merged)
   assert_eq(merged_entries.length(), 2)
 }
 
 ///|
-test "sync: merge meta keeps issue_counter" {
+test "sync: merge notes uses LWW by clock and timestamp" {
   let (fs, git_dir) = setup_sync_repo()
   let db = @lib.ObjectDb::load_lazy(fs, git_dir)
-  let local_counter = write_blob(fs, git_dir, "5\n")
-  let local_issue_counter = write_blob(fs, git_dir, "7\n")
-  let remote_counter = write_blob(fs, git_dir, "3\n")
-  let remote_issue_counter = write_blob(fs, git_dir, "9\n")
-  let local_meta = write_tree(fs, git_dir, [
-    @git.TreeEntry::new("100644", "counter", local_counter),
-    @git.TreeEntry::new("100644", "issue_counter", local_issue_counter),
-  ])
-  let remote_meta = write_tree(fs, git_dir, [
-    @git.TreeEntry::new("100644", "counter", remote_counter),
-    @git.TreeEntry::new("100644", "issue_counter", remote_issue_counter),
-  ])
-  let merged = merge_meta_trees(
-    fs,
-    fs,
-    git_dir,
-    db,
-    Some(@git.TreeEntry::new("040000", "meta", local_meta)),
-    Some(@git.TreeEntry::new("040000", "meta", remote_meta)),
+  let key = "collab/pr/1/meta"
+  let (key_id, key_compressed) = @git.create_blob_string(key)
+  write_object_bytes(fs, git_dir, key_id, key_compressed) catch {
+    _ => panic()
+  }
+  let local_record = CollabRecord::new(
+    key,
+    "pr",
+    "payload local",
+    "nodeA",
+    1L,
+    clock={ "nodeA": 1 },
   )
-  let merged_counter_id = find_tree_entry(db, fs, merged, "counter")
-  let merged_issue_id = find_tree_entry(db, fs, merged, "issue_counter")
-  guard merged_counter_id is Some(cid) else { panic() }
-  guard merged_issue_id is Some(iid) else { panic() }
-  let counter_text = read_blob_string(db, fs, cid)
-  let issue_text = read_blob_string(db, fs, iid)
-  assert_eq(parse_int_simple(counter_text), 5)
-  assert_eq(parse_int_simple(issue_text), 9)
+  let remote_record = CollabRecord::new(
+    key,
+    "pr",
+    "payload remote",
+    "nodeB",
+    2L,
+    clock={ "nodeA": 1, "nodeB": 1 },
+  )
+  let local_blob = write_record_blob(fs, git_dir, local_record)
+  let remote_blob = write_record_blob(fs, git_dir, remote_record)
+  let local_notes = write_tree(fs, git_dir, [
+    @git.TreeEntry::new("100644", key_id.to_hex(), local_blob),
+  ])
+  let remote_notes = write_tree(fs, git_dir, [
+    @git.TreeEntry::new("100644", key_id.to_hex(), remote_blob),
+  ])
+  let merged = merge_notes_trees(fs, fs, git_dir, db, local_notes, remote_notes)
+  let merged_entry = find_tree_entry(db, fs, merged, key_id.to_hex())
+  guard merged_entry is Some(mid) else { panic() }
+  let merged_text = read_blob_string(db, fs, mid)
+  let merged_record = parse_collab_record(merged_text)
+  assert_eq(merged_record.payload, "payload remote")
 }

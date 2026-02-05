@@ -31,54 +31,30 @@ pub fn Collab::import_prs(
   if prs.length() == 0 {
     return ImportStats::new(0, 0)
   }
-  let events = load_events(backing_fs, self.git_dir)
-  let latest_ts : Map[String, Int64] = {}
-  for event in events {
-    if event.kind() != "pr" {
-      continue
-    }
-    let pr = parse_pull_request(event.payload()) catch { _ => continue }
-    let ts = event.timestamp()
-    match latest_ts.get(pr.id) {
-      Some(existing_ts) => if ts >= existing_ts { latest_ts[pr.id] = ts }
-      None => latest_ts[pr.id] = ts
-    }
-  }
-  let current = load_counter(backing_fs, self.git_dir)
-  let mut max_id = current - 1
-  for pr in prs {
-    let value = parse_int(pr.id())
-    if value > max_id {
-      max_id = value
-    }
-  }
-  let mut next_id = current
-  if max_id >= next_id {
-    next_id = max_id + 1
-  }
   let mut created = 0
   let mut updated = 0
   for pr in prs {
-    let existing_ts = latest_ts.get(pr.id())
-    let event_ts = match existing_ts {
-      Some(ts) => if pr.updated_at <= ts { ts + 1 } else { pr.updated_at }
-      None => pr.updated_at
-    }
-    let event = CollabEvent::new(
-      "pr",
-      "pr/" + pr.id(),
-      event_ts,
-      pr.serialize(),
-    )
-    append_event(fs, backing_fs, self.git_dir, event, counter=Some(next_id))
-    match existing_ts {
-      Some(_) => updated += 1
+    let existing = self.store.get_record(backing_fs, pr_meta_key(pr.id()))
+    match existing {
+      Some(r) =>
+        if r.timestamp >= pr.updated_at {
+          continue
+        } else {
+          updated += 1
+        }
       None => created += 1
     }
-    latest_ts[pr.id()] = event_ts
-  }
-  if next_id > self.next_id {
-    self.next_id = next_id
+    ignore(
+      self.store.put_record(
+        fs,
+        backing_fs,
+        pr_meta_key(pr.id()),
+        "pr",
+        pr.serialize(),
+        pr.author(),
+        pr.updated_at,
+      ),
+    )
   }
   ImportStats::new(created, updated)
 }
@@ -93,57 +69,30 @@ pub fn Collab::import_issues(
   if issues.length() == 0 {
     return ImportStats::new(0, 0)
   }
-  let events = load_events(backing_fs, self.git_dir)
-  let latest_ts : Map[String, Int64] = {}
-  for event in events {
-    if event.kind() != "issue" {
-      continue
-    }
-    let issue = parse_issue(event.payload()) catch { _ => continue }
-    let ts = event.timestamp()
-    match latest_ts.get(issue.id) {
-      Some(existing_ts) => if ts >= existing_ts { latest_ts[issue.id] = ts }
-      None => latest_ts[issue.id] = ts
-    }
-  }
-  let current = load_issue_counter(backing_fs, self.git_dir)
-  let mut max_id = current - 1
-  for issue in issues {
-    let value = parse_int(issue.id())
-    if value > max_id {
-      max_id = value
-    }
-  }
-  let mut next_id = current
-  if max_id >= next_id {
-    next_id = max_id + 1
-  }
   let mut created = 0
   let mut updated = 0
   for issue in issues {
-    let existing_ts = latest_ts.get(issue.id())
-    let event_ts = match existing_ts {
-      Some(ts) => if issue.updated_at <= ts { ts + 1 } else { issue.updated_at }
-      None => issue.updated_at
-    }
-    let event = CollabEvent::new(
-      "issue",
-      "issue/" + issue.id(),
-      event_ts,
-      issue.serialize(),
-    )
-    append_event(
-      fs,
-      backing_fs,
-      self.git_dir,
-      event,
-      issue_counter=Some(next_id),
-    )
-    match existing_ts {
-      Some(_) => updated += 1
+    let existing = self.store.get_record(backing_fs, issue_meta_key(issue.id()))
+    match existing {
+      Some(r) =>
+        if r.timestamp >= issue.updated_at {
+          continue
+        } else {
+          updated += 1
+        }
       None => created += 1
     }
-    latest_ts[issue.id()] = event_ts
+    ignore(
+      self.store.put_record(
+        fs,
+        backing_fs,
+        issue_meta_key(issue.id()),
+        "issue",
+        issue.serialize(),
+        issue.author(),
+        issue.updated_at,
+      ),
+    )
   }
   ImportStats::new(created, updated)
 }

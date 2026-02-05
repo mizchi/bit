@@ -1,5 +1,7 @@
 import {
   "mizchi/bit" as @git,
+  "mizchi/bit/x/fs" as @fs,
+  "mizchi/bit/x/kv" as @kv,
   "mizchi/bit/lib" as @lib,
   "moonbitlang/core/encoding/utf8" as @utf8,
 }
@@ -13,7 +15,6 @@ options(
     "collab.mbt": [ "native" ],
     "collab_test.mbt": [ "native" ],
     "comment.mbt": [ "native" ],
-    "events.mbt": [ "native" ],
     "format.mbt": [ "native" ],
     "import.mbt": [ "native" ],
     "import_test.mbt": [ "native" ],
@@ -21,6 +22,7 @@ options(
     "merge.mbt": [ "native" ],
     "notes.mbt": [ "native" ],
     "review.mbt": [ "native" ],
+    "store.mbt": [ "native" ],
     "sync.mbt": [ "native" ],
     "sync_wbtest.mbt": [ "native" ],
     "types.mbt": [ "native" ],

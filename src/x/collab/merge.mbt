@@ -618,11 +618,15 @@ fn mark_pr_merged(
     PrState::Merged,
     existing.labels,
   )
-  let event = CollabEvent::new(
-    "pr",
-    "pr/" + pr_id,
-    timestamp,
-    updated.serialize(),
+  ignore(
+    prs.store.put_record(
+      fs,
+      backing_fs,
+      pr_meta_key(pr_id),
+      "pr",
+      updated.serialize(),
+      existing.author,
+      timestamp,
+    ),
   )
-  append_event(fs, backing_fs, prs.git_dir, event)
 }

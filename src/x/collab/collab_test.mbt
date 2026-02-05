@@ -87,11 +87,15 @@ fn short_hex_test(hex : String, start : Int, end : Int) -> String {
 }
 
 ///|
-test "pr: init creates _collab branch" {
+test "pr: init creates notes ref on first write" {
   let fs = setup_repo_with_branch()
-  let prs = Collab::init(fs, fs, "/repo/.git")
-  assert_true(fs.is_file("/repo/.git/refs/heads/_collab"))
-  assert_eq(prs.next_id, 1)
+  let collab = Collab::init(fs, fs, "/repo/.git")
+  assert_false(fs.is_file("/repo/.git/refs/notes/bit-collab"))
+  let _ = collab.create_pr(
+    fs, fs, "Init PR", "Body", "refs/heads/feature", "refs/heads/main", "alice@example.com",
+    1706745600L,
+  )
+  assert_true(fs.is_file("/repo/.git/refs/notes/bit-collab"))
 }
 
 ///|
@@ -102,11 +106,12 @@ test "pr: create and get PR" {
     fs, fs, "Fix authentication bug", "This PR fixes the auth issue.\n\nDetails here.",
     "refs/heads/feature", "refs/heads/main", "alice@example.com", 1706745600L,
   )
-  assert_eq(pr.id(), "1")
+  let pr_id = pr.id()
+  assert_true(pr_id.length() > 0)
   assert_eq(pr.title(), "Fix authentication bug")
   assert_eq(pr.state(), PrState::Open)
   // Retrieve PR
-  let retrieved = prs.get_pr(fs, "1")
+  let retrieved = prs.get_pr(fs, pr_id)
   assert_true(retrieved is Some(_))
   guard retrieved is Some(r) else { panic() }
   assert_eq(r.title(), "Fix authentication bug")
@@ -136,12 +141,13 @@ test "pr: list PRs" {
 test "pr: close PR" {
   let fs = setup_repo_with_branch()
   let prs = Collab::init(fs, fs, "/repo/.git")
-  let _ = prs.create_pr(
+  let pr = prs.create_pr(
     fs, fs, "Test PR", "Body", "refs/heads/feature", "refs/heads/main", "alice@example.com",
     1706745600L,
   )
-  prs.close_pr(fs, fs, "1", 1706918400L)
-  let closed = prs.get_pr(fs, "1")
+  let pr_id = pr.id()
+  prs.close_pr(fs, fs, pr_id, 1706918400L)
+  let closed = prs.get_pr(fs, pr_id)
   guard closed is Some(pr) else { panic() }
   assert_eq(pr.state(), PrState::Closed)
 }
@@ -150,15 +156,16 @@ test "pr: close PR" {
 test "pr: update PR" {
   let fs = setup_repo_with_branch()
   let collab = Collab::init(fs, fs, "/repo/.git")
-  let _ = collab.create_pr(
+  let pr = collab.create_pr(
     fs, fs, "Original Title", "Original body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com", 1706745600L,
   )
+  let pr_id = pr.id()
   // Update title and body
   let updated = collab.update_pr(
     fs,
     fs,
-    "1",
+    pr_id,
     1706832000L,
     title=Some("Updated Title"),
     body=Some("Updated body with more details"),
@@ -166,7 +173,7 @@ test "pr: update PR" {
   assert_eq(updated.title(), "Updated Title")
   assert_eq(updated.body(), "Updated body with more details")
   // Verify persisted
-  let retrieved = collab.get_pr(fs, "1")
+  let retrieved = collab.get_pr(fs, pr_id)
   guard retrieved is Some(pr) else { panic() }
   assert_eq(pr.title(), "Updated Title")
 }
@@ -175,15 +182,16 @@ test "pr: update PR" {
 test "pr: update PR labels" {
   let fs = setup_repo_with_branch()
   let collab = Collab::init(fs, fs, "/repo/.git")
-  let _ = collab.create_pr(
+  let pr = collab.create_pr(
     fs, fs, "Test PR", "Body", "refs/heads/feature", "refs/heads/main", "alice@example.com",
     1706745600L,
   )
+  let pr_id = pr.id()
   // Add labels
   let updated = collab.update_pr(
     fs,
     fs,
-    "1",
+    pr_id,
     1706832000L,
     labels=Some(["bug", "urgent"]),
   )
@@ -195,15 +203,18 @@ test "pr: update PR labels" {
 test "pr: add and list comments" {
   let fs = setup_repo_with_branch()
   let prs = Collab::init(fs, fs, "/repo/.git")
-  let _ = prs.create_pr(
+  let pr = prs.create_pr(
     fs, fs, "Test PR", "Body", "refs/heads/feature", "refs/heads/main", "alice@example.com",
     1706745600L,
   )
-  let c1 = prs.add_comment(fs, fs, "1", "bob@example.com", "LGTM!", 1706832000L)
+  let pr_id = pr.id()
+  let c1 = prs.add_comment(
+    fs, fs, pr_id, "bob@example.com", "LGTM!", 1706832000L,
+  )
   let c2 = prs.add_comment(
     fs,
     fs,
-    "1",
+    pr_id,
     "carol@example.com",
     "One minor issue",
     1706918400L,
@@ -212,7 +223,7 @@ test "pr: add and list comments" {
   )
   assert_true(c1.id().length() > 0)
   assert_true(c2.file_path() is Some(_))
-  let comments = prs.list_comments(fs, "1")
+  let comments = prs.list_comments(fs, pr_id)
   assert_eq(comments.length(), 2)
   assert_eq(comments[0].body(), "LGTM!")
 }
@@ -221,16 +232,17 @@ test "pr: add and list comments" {
 test "pr: submit and list reviews" {
   let fs = setup_repo_with_branch()
   let prs = Collab::init(fs, fs, "/repo/.git")
-  let _ = prs.create_pr(
+  let pr = prs.create_pr(
     fs, fs, "Test PR", "Body", "refs/heads/feature", "refs/heads/main", "alice@example.com",
     1706745600L,
   )
+  let pr_id = pr.id()
   let feature_id = @lib.resolve_ref(fs, "/repo/.git", "refs/heads/feature")
   guard feature_id is Some(fid) else { panic() }
   let r1 = prs.submit_review(
     fs,
     fs,
-    "1",
+    pr_id,
     "bob@example.com",
     ReviewVerdict::Approved,
     "Looks good!",
@@ -238,60 +250,62 @@ test "pr: submit and list reviews" {
     1706832000L,
   )
   assert_eq(r1.verdict(), ReviewVerdict::Approved)
-  let reviews = prs.list_reviews(fs, "1")
+  let reviews = prs.list_reviews(fs, pr_id)
   assert_eq(reviews.length(), 1)
-  assert_true(prs.is_approved(fs, "1"))
+  assert_true(prs.is_approved(fs, pr_id))
 }
 
 ///|
 test "pr: is_approved with request changes" {
   let fs = setup_repo_with_branch()
   let prs = Collab::init(fs, fs, "/repo/.git")
-  let _ = prs.create_pr(
+  let pr = prs.create_pr(
     fs, fs, "Test PR", "Body", "refs/heads/feature", "refs/heads/main", "alice@example.com",
     1706745600L,
   )
+  let pr_id = pr.id()
   let feature_id = @lib.resolve_ref(fs, "/repo/.git", "refs/heads/feature")
   guard feature_id is Some(fid) else { panic() }
   // First approval
   let _ = prs.submit_review(
     fs,
     fs,
-    "1",
+    pr_id,
     "bob@example.com",
     ReviewVerdict::Approved,
     "LGTM",
     fid,
     1706832000L,
   )
-  assert_true(prs.is_approved(fs, "1"))
+  assert_true(prs.is_approved(fs, pr_id))
   // Request changes
   let _ = prs.submit_review(
     fs,
     fs,
-    "1",
+    pr_id,
     "carol@example.com",
     ReviewVerdict::RequestChanges,
     "Please fix X",
     fid,
     1706918400L,
   )
-  assert_false(prs.is_approved(fs, "1"))
+  assert_false(prs.is_approved(fs, pr_id))
 }
 
 ///|
 test "pr: merge fast-forward" {
   let fs = setup_repo_with_branch()
   let prs = Collab::init(fs, fs, "/repo/.git")
-  let _ = prs.create_pr(
+  let pr = prs.create_pr(
     fs, fs, "Test PR", "Body", "refs/heads/feature", "refs/heads/main", "alice@example.com",
     1706745600L,
   )
-  assert_true(prs.can_merge(fs, "1"))
+  let pr_id = pr.id()
+  assert_true(prs.can_merge(fs, pr_id))
   let result = prs.merge_pr(
     fs,
     fs,
-    "1",
+    pr_id,
     "alice@example.com",
     1707004800L,
     strategy=PrMergeStrategy::FastForward,
@@ -300,7 +314,7 @@ test "pr: merge fast-forward" {
   assert_true(result.commit_id() is Some(_))
   assert_eq(result.message(), "Fast-forward merge completed")
   // Verify PR is marked as merged
-  let merged = prs.get_pr(fs, "1")
+  let merged = prs.get_pr(fs, pr_id)
   guard merged is Some(pr) else { panic() }
   assert_eq(pr.state(), PrState::Merged)
 }
@@ -309,14 +323,15 @@ test "pr: merge fast-forward" {
 test "pr: merge squash" {
   let fs = setup_repo_with_branch()
   let collab = Collab::init(fs, fs, "/repo/.git")
-  let _ = collab.create_pr(
+  let pr = collab.create_pr(
     fs, fs, "Test PR", "Body", "refs/heads/feature", "refs/heads/main", "alice@example.com",
     1706745600L,
   )
+  let pr_id = pr.id()
   let result = collab.merge_pr(
     fs,
     fs,
-    "1",
+    pr_id,
     "alice@example.com",
     1707004800L,
     strategy=PrMergeStrategy::Squash,
@@ -324,7 +339,7 @@ test "pr: merge squash" {
   assert_true(result.success())
   assert_eq(result.message(), "Squash merge completed")
   // Verify PR is marked as merged
-  let merged = collab.get_pr(fs, "1")
+  let merged = collab.get_pr(fs, pr_id)
   guard merged is Some(pr) else { panic() }
   assert_eq(pr.state(), PrState::Merged)
 }
@@ -333,14 +348,15 @@ test "pr: merge squash" {
 test "pr: merge commit" {
   let fs = setup_repo_with_branch()
   let collab = Collab::init(fs, fs, "/repo/.git")
-  let _ = collab.create_pr(
+  let pr = collab.create_pr(
     fs, fs, "Test PR", "Body", "refs/heads/feature", "refs/heads/main", "alice@example.com",
     1706745600L,
   )
+  let pr_id = pr.id()
   let result = collab.merge_pr(
     fs,
     fs,
-    "1",
+    pr_id,
     "alice@example.com",
     1707004800L,
     strategy=PrMergeStrategy::Merge,
@@ -348,7 +364,7 @@ test "pr: merge commit" {
   assert_true(result.success())
   assert_eq(result.message(), "Merge commit created")
   // Verify PR is marked as merged
-  let merged = collab.get_pr(fs, "1")
+  let merged = collab.get_pr(fs, pr_id)
   guard merged is Some(pr) else { panic() }
   assert_eq(pr.state(), PrState::Merged)
 }
@@ -427,11 +443,12 @@ test "issue: create and get issue" {
     1706745600L,
     labels=["bug"],
   )
-  assert_eq(issue.id(), "1")
+  let issue_id = issue.id()
+  assert_true(issue_id.length() > 0)
   assert_eq(issue.title(), "Bug report")
   assert_eq(issue.state(), IssueState::Open)
   // Retrieve issue
-  let retrieved = prs.get_issue(fs, "1")
+  let retrieved = prs.get_issue(fs, issue_id)
   assert_true(retrieved is Some(_))
   guard retrieved is Some(i) else { panic() }
   assert_eq(i.title(), "Bug report")
@@ -458,11 +475,12 @@ test "issue: list issues" {
 test "issue: close issue" {
   let fs = setup_repo_with_branch()
   let prs = Collab::init(fs, fs, "/repo/.git")
-  let _ = prs.create_issue(
+  let issue = prs.create_issue(
     fs, fs, "Test Issue", "Body", "alice@example.com", 1706745600L,
   )
-  prs.close_issue(fs, fs, "1", 1706918400L)
-  let closed = prs.get_issue(fs, "1")
+  let issue_id = issue.id()
+  prs.close_issue(fs, fs, issue_id, 1706918400L)
+  let closed = prs.get_issue(fs, issue_id)
   guard closed is Some(issue) else { panic() }
   assert_eq(issue.state(), IssueState::Closed)
 }
@@ -471,18 +489,19 @@ test "issue: close issue" {
 test "issue: add and list comments" {
   let fs = setup_repo_with_branch()
   let prs = Collab::init(fs, fs, "/repo/.git")
-  let _ = prs.create_issue(
+  let issue = prs.create_issue(
     fs, fs, "Test Issue", "Body", "alice@example.com", 1706745600L,
   )
+  let issue_id = issue.id()
   let c1 = prs.add_issue_comment(
-    fs, fs, "1", "bob@example.com", "Thanks for reporting!", 1706832000L,
+    fs, fs, issue_id, "bob@example.com", "Thanks for reporting!", 1706832000L,
   )
   let c2 = prs.add_issue_comment(
-    fs, fs, "1", "carol@example.com", "I can reproduce this", 1706918400L,
+    fs, fs, issue_id, "carol@example.com", "I can reproduce this", 1706918400L,
   )
   assert_true(c1.id().length() > 0)
   assert_true(c2.id().length() > 0)
-  let comments = prs.list_issue_comments(fs, "1")
+  let comments = prs.list_issue_comments(fs, issue_id)
   assert_eq(comments.length(), 2)
 }
 
@@ -497,25 +516,28 @@ test "issue: link PR to issue" {
     fs, fs, "Fix bug", "Fixes #1", "refs/heads/feature", "refs/heads/main", "bob@example.com",
     1706832000L,
   )
-  prs.link_pr_to_issue(fs, fs, issue.id(), pr.id(), 1706918400L)
-  let updated = prs.get_issue(fs, "1")
+  let issue_id = issue.id()
+  let pr_id = pr.id()
+  prs.link_pr_to_issue(fs, fs, issue_id, pr_id, 1706918400L)
+  let updated = prs.get_issue(fs, issue_id)
   guard updated is Some(i) else { panic() }
   assert_eq(i.linked_prs().length(), 1)
-  assert_true(i.linked_prs().contains("1"))
+  assert_true(i.linked_prs().contains(pr_id))
 }
 
 ///|
 test "issue: update issue" {
   let fs = setup_repo_with_branch()
   let collab = Collab::init(fs, fs, "/repo/.git")
-  let _ = collab.create_issue(
+  let issue = collab.create_issue(
     fs, fs, "Original Title", "Original body", "alice@example.com", 1706745600L,
   )
+  let issue_id = issue.id()
   // Update title and body
   let updated = collab.update_issue(
     fs,
     fs,
-    "1",
+    issue_id,
     1706832000L,
     title=Some("Updated Title"),
     body=Some("Updated body"),
@@ -523,7 +545,7 @@ test "issue: update issue" {
   assert_eq(updated.title(), "Updated Title")
   assert_eq(updated.body(), "Updated body")
   // Verify persisted
-  let retrieved = collab.get_issue(fs, "1")
+  let retrieved = collab.get_issue(fs, issue_id)
   guard retrieved is Some(issue) else { panic() }
   assert_eq(issue.title(), "Updated Title")
 }
@@ -532,14 +554,15 @@ test "issue: update issue" {
 test "issue: update issue labels and assignees" {
   let fs = setup_repo_with_branch()
   let collab = Collab::init(fs, fs, "/repo/.git")
-  let _ = collab.create_issue(
+  let issue = collab.create_issue(
     fs, fs, "Bug", "Details", "alice@example.com", 1706745600L,
   )
+  let issue_id = issue.id()
   // Update labels and assignees
   let updated = collab.update_issue(
     fs,
     fs,
-    "1",
+    issue_id,
     1706832000L,
     labels=Some(["bug", "critical"]),
     assignees=Some(["bob@example.com"]),
