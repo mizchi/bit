@@ -8,7 +8,7 @@ pub fn read_promisor_remote(
   fs : &@git.RepoFileSystem,
   git_dir : String,
 ) -> String? {
-  let promisor_path = join_path(git_dir, "objects/info/promisor")
+  let promisor_path = promisor_join_path(git_dir, "objects/info/promisor")
   if not(fs.is_file(promisor_path)) {
     return None
   }
@@ -30,7 +30,7 @@ pub fn is_partial_clone(fs : &@git.RepoFileSystem, git_dir : String) -> Bool {
 ///|
 /// Promisor-aware object database that can fetch missing objects
 pub struct PromisorDb {
-  db : ObjectDb
+  db : @gitlib.ObjectDb
   git_dir : String
   promisor_remote : String?
   // Cache for fetched objects (to avoid duplicate fetches)
@@ -44,9 +44,9 @@ pub fn PromisorDb::new(
   lazy_load? : Bool = true,
 ) -> PromisorDb raise @git.GitError {
   let db = if lazy_load {
-    ObjectDb::load_lazy(fs, git_dir)
+    @gitlib.ObjectDb::load_lazy(fs, git_dir)
   } else {
-    ObjectDb::load(fs, git_dir)
+    @gitlib.ObjectDb::load(fs, git_dir)
   }
   let promisor_remote = read_promisor_remote(fs, git_dir)
   { db, git_dir, promisor_remote, fetched: {} }
@@ -112,7 +112,12 @@ pub async fn PromisorDb::fetch_missing(
   let objects = @git.fetch_objects_http(remote, to_fetch, true, depth=0)
   // Write to local storage
   for obj in objects {
-    let _ = write_loose_object(write_fs, self.git_dir, obj.obj_type, obj.data)
+    let _ = @gitlib.write_loose_object(
+      write_fs,
+      self.git_dir,
+      obj.obj_type,
+      obj.data,
+    )
 
   }
   objects
@@ -159,4 +164,13 @@ pub async fn PromisorDb::get_or_fetch(
   }
   // Fetch and return
   self.fetch_one(write_fs, id)
+}
+
+///|
+fn promisor_join_path(root : String, path : String) -> String {
+  if root.has_suffix("/") {
+    root + path
+  } else {
+    root + "/" + path
+  }
 }

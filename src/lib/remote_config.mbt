@@ -326,10 +326,9 @@ pub fn split_config_key(
 ///|
 pub fn parse_config_override_pairs() -> Array[(String, String)] {
   let out : Array[(String, String)] = []
-  let overrides = @sys.get_env_var("GIT_CONFIG_OVERRIDES")
+  let overrides = env_get("GIT_CONFIG_OVERRIDES")
   guard overrides is Some(env_value) else { return out }
-  for line_view in env_value.split("\n") {
-    let line = line_view.to_string()
+  for line in split_by_newline(env_value) {
     if line.length() == 0 {
       continue
     }

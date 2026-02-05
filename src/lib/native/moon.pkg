@@ -1,0 +1,35 @@
+import {
+  "mizchi/bit" as @git,
+  "mizchi/bit/lib" as @gitlib,
+  "moonbitlang/async" as @async,
+  "moonbitlang/async/fs" as @afs,
+  "moonbitlang/async/http" as @http,
+  "moonbitlang/async/process" as @process,
+  "mizchi/zlib",
+  "moonbitlang/core/encoding/utf8" as @utf8,
+  "moonbitlang/core/env" as @env,
+  "moonbitlang/x/sys" as @sys,
+  "moonbitlang/x/fs",
+}
+
+import "test" {
+  "moonbitlang/core/bench" as @bench,
+  "mizchi/bit/osfs" as @osfs,
+}
+
+import "wbtest" {
+  "moonbitlang/core/bench" as @bench,
+  "mizchi/bit/osfs" as @osfs,
+}
+
+options(
+  targets: {
+    "promisor.mbt": [ "native" ],
+    "remote_ref.mbt": [ "native" ],
+    "sync_http.mbt": [ "native" ],
+    "worktree_modes.mbt": [ "native" ],
+    "worktree_probe_native.mbt": [ "native" ],
+    "env_native.mbt": [ "native" ],
+    "gitignore_async_test.mbt": [ "native" ],
+  },
+)

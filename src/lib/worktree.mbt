@@ -532,11 +532,11 @@ fn read_autocrlf_setting(
   git_dir : String,
 ) -> AutoCrlf {
   let mut value : AutoCrlf? = None
-  match @sys.get_env_var("HOME") {
+  match env_get("HOME") {
     None => ()
     Some(home) => {
       let candidates : Array[String] = []
-      match @sys.get_env_var("XDG_CONFIG_HOME") {
+      match env_get("XDG_CONFIG_HOME") {
         Some(base) => candidates.push(base + "/git/config")
         None => ()
       }
@@ -633,7 +633,7 @@ fn parse_autocrlf_value(value : String) -> AutoCrlf {
 
 ///|
 fn racy_git_enabled() -> Bool {
-  match @sys.get_env_var("BIT_RACY_GIT") {
+  match env_get("BIT_RACY_GIT") {
     Some(v) => v != "" && v != "0"
     None => false
   }

@@ -11,10 +11,10 @@ pub async fn clone_http(
 ) -> @git.ObjectId? raise @git.GitError {
   // 1. Create destination directory and init
   fs.mkdir_p(dest)
-  init_repo(fs, dest)
+  @gitlib.init_repo(fs, dest)
   // 2. Save remote URL
-  let git_dir = join_path(dest, ".git")
-  let config_path = join_path(git_dir, "config")
+  let git_dir = sync_join_path(dest, ".git")
+  let config_path = sync_join_path(git_dir, "config")
   let config_content = "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n[remote \"origin\"]\n\turl = \{remote_url}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n"
   fs.write_string(config_path, config_content)
   // 3. Fetch refs and packfile
@@ -35,21 +35,21 @@ pub async fn clone_http(
       } else {
         "main"
       }
-      let head_path = join_path(git_dir, "HEAD")
+      let head_path = sync_join_path(git_dir, "HEAD")
       fs.write_string(head_path, "ref: refs/heads/\{branch_name}\n")
       // Create local branch
-      let branch_ref_path = join_path(git_dir, "refs/heads/\{branch_name}")
+      let branch_ref_path = sync_join_path(git_dir, "refs/heads/\{branch_name}")
       let branch_dir = sync_parent_dir(branch_ref_path)
       fs.mkdir_p(branch_dir)
       fs.write_string(branch_ref_path, commit_id.to_hex() + "\n")
       // Create remote tracking ref
       let remote_ref = sync_remote_refname(refname)
-      let remote_path = join_path(git_dir, remote_ref)
+      let remote_path = sync_join_path(git_dir, remote_ref)
       let remote_dir = sync_parent_dir(remote_path)
       fs.mkdir_p(remote_dir)
       fs.write_string(remote_path, commit_id.to_hex() + "\n")
       // 5. Checkout working tree
-      fast_forward_to(fs, rfs, dest, commit_id)
+      @gitlib.fast_forward_to(fs, rfs, dest, commit_id)
       Some(commit_id)
     }
   }
@@ -73,24 +73,24 @@ pub async fn pull_http(
     Some((refname, commit_id)) => {
       let pack = @git.fetch_pack_http(remote, [commit_id], prefer_v2)
       let objects = @git.parse_packfile(pack)
-      let git_dir = join_path(root, ".git")
+      let git_dir = sync_join_path(root, ".git")
       @git.write_packfile_with_index(fs, git_dir, pack, objects)
       // update remote tracking ref
       let remote_ref = sync_remote_refname(refname)
-      let remote_path = join_path(git_dir, remote_ref)
+      let remote_path = sync_join_path(git_dir, remote_ref)
       let dir = sync_parent_dir(remote_path)
       fs.mkdir_p(dir)
       fs.write_string(remote_path, commit_id.to_hex() + "\n")
       if rebase {
-        let _ = rebase_onto(fs, rfs, root, commit_id)
+        let _ = @gitlib.rebase_onto(fs, rfs, root, commit_id)
 
       } else {
-        let head = resolve_head_commit(rfs, git_dir)
+        let head = @gitlib.resolve_head_commit(rfs, git_dir)
         match head {
-          None => fast_forward_to(fs, rfs, root, commit_id)
+          None => @gitlib.fast_forward_to(fs, rfs, root, commit_id)
           Some(h) =>
             if sync_is_ancestor(rfs, git_dir, h, commit_id) {
-              fast_forward_to(fs, rfs, root, commit_id)
+              @gitlib.fast_forward_to(fs, rfs, root, commit_id)
             } else {
               raise @git.GitError::InvalidObject("Non-fast-forward pull")
             }
@@ -108,18 +108,18 @@ pub async fn push_http(
   remote_url : String,
   refname : String,
 ) -> String raise @git.GitError {
-  let git_dir = join_path(root, ".git")
+  let git_dir = sync_join_path(root, ".git")
   let actual_git_dir = if rfs.is_file(git_dir) {
-    resolve_gitdir(rfs, git_dir)
+    @gitlib.resolve_gitdir(rfs, git_dir)
   } else {
     git_dir
   }
-  let head = resolve_head_commit(rfs, actual_git_dir)
+  let head = @gitlib.resolve_head_commit(rfs, actual_git_dir)
   match head {
     None => raise @git.GitError::InvalidObject("HEAD not found")
     Some(head_id) => {
-      let db = ObjectDb::load(rfs, actual_git_dir)
-      let objects = collect_reachable_objects(db, rfs, head_id)
+      let db = @gitlib.ObjectDb::load(rfs, actual_git_dir)
+      let objects = @gitlib.collect_reachable_objects(db, rfs, head_id)
       let pack = @git.create_packfile(objects)
       let remote = @git.Remote::new(remote_url)
       let refs = @git.discover_receive_refs_http(remote)
@@ -139,9 +139,9 @@ pub async fn push_http_from_commit(
   commit_id : @git.ObjectId,
   refname : String,
 ) -> String raise @git.GitError {
-  let git_dir = join_path(root, ".git")
-  let db = ObjectDb::load(rfs, git_dir)
-  let objects = collect_reachable_objects(db, rfs, commit_id)
+  let git_dir = sync_join_path(root, ".git")
+  let db = @gitlib.ObjectDb::load(rfs, git_dir)
+  let objects = @gitlib.collect_reachable_objects(db, rfs, commit_id)
   let pack = @git.create_packfile(objects)
   let remote = @git.Remote::new(remote_url)
   let refs = @git.discover_receive_refs_http(remote)
@@ -162,10 +162,10 @@ pub async fn push_http_tree_only(
   old_commit_id : @git.ObjectId,
   refname : String,
 ) -> String raise @git.GitError {
-  let git_dir = join_path(root, ".git")
-  let db = ObjectDb::load(rfs, git_dir)
+  let git_dir = sync_join_path(root, ".git")
+  let db = @gitlib.ObjectDb::load(rfs, git_dir)
   // Collect only the diff objects (new/modified since base)
-  let objects = collect_diff_objects(db, rfs, old_commit_id, commit_id)
+  let objects = @gitlib.collect_diff_objects(db, rfs, old_commit_id, commit_id)
   let pack = @git.create_packfile(objects)
   let remote = @git.Remote::new(remote_url)
   let req = @git.PushRequest::new(old_commit_id, commit_id, refname, pack)
@@ -193,7 +193,7 @@ fn sync_is_ancestor(
   base : @git.ObjectId,
   target : @git.ObjectId,
 ) -> Bool raise @git.GitError {
-  let db = ObjectDb::load(fs, git_dir)
+  let db = @gitlib.ObjectDb::load(fs, git_dir)
   let mut current = target
   while true {
     if current == base {
@@ -235,5 +235,14 @@ fn sync_parent_dir(path : String) -> String {
     None => "/"
     Some(0) => "/"
     Some(i) => String::unsafe_substring(path, start=0, end=i)
+  }
+}
+
+///|
+fn sync_join_path(root : String, path : String) -> String {
+  if root.has_suffix("/") {
+    root + path
+  } else {
+    root + "/" + path
   }
 }

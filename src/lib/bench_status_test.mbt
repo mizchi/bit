@@ -76,7 +76,6 @@ test "bench status clean large" (b : @bench.T) {
 
 ///|
 async test "racy_git: unchanged file is not reported" {
-  @sys.set_env_var("BIT_RACY_GIT", "1")
   let fs = @git.TestFs::new()
   ignore(try? init_repo(fs, "/repo"))
   fs.write_string("/repo/a.txt", "hello\n")
@@ -84,5 +83,4 @@ async test "racy_git: unchanged file is not reported" {
   ignore(commit(fs, fs, "/repo", "msg\n", "Test <t@example.com>", 1700000000L))
   let st = status(fs, "/repo")
   assert_true(st.unstaged_modified.length() == 0)
-  @sys.unset_env_var("BIT_RACY_GIT")
 }

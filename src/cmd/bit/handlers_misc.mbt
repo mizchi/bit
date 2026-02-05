@@ -2761,7 +2761,7 @@ async fn handle_submodule_add(
   fs.write_string(sub_path + "/.git", "gitdir: \{rel_path}\n")
   ensure_submodule_gitdir_config(fs, modules_dir, sub_path)
   run_checkout_in_submodule(fs, fs, sub_path, modules_dir, target_id)
-  @gitlib.apply_worktree_modes_from_commit(
+  @gitlibnative.apply_worktree_modes_from_commit(
     fs, fs, sub_path, modules_dir, target_id,
   ) catch {
     err =>
@@ -3065,7 +3065,7 @@ async fn handle_submodule_update(
     )
     // Use checkout command
     run_checkout_in_submodule(wfs, rfs, sub_path, sub_git_dir, target_id)
-    @gitlib.apply_worktree_modes_from_commit(
+    @gitlibnative.apply_worktree_modes_from_commit(
       fs, fs, sub_path, sub_git_dir, target_id,
     ) catch {
       err =>

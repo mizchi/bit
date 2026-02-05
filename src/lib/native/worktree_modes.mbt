@@ -8,22 +8,22 @@ pub async fn apply_worktree_modes_from_commit(
   git_dir : String,
   commit_id : @git.ObjectId,
 ) -> Unit raise @git.GitError {
-  let db = ObjectDb::load(rfs, git_dir)
-  let files = collect_tree_files_from_commit(db, rfs, commit_id)
+  let db = @gitlib.ObjectDb::load(rfs, git_dir)
+  let files = @gitlib.collect_tree_files_from_commit(db, rfs, commit_id)
   apply_worktree_modes_from_files(db, rfs, fs, root, files)
 }
 
 ///|
 async fn apply_worktree_modes_from_files(
-  db : ObjectDb,
+  db : @gitlib.ObjectDb,
   rfs : &@git.RepoFileSystem,
   fs : &@git.FileSystem,
   root : String,
-  files : Map[String, TreeFileEntry],
+  files : Map[String, @gitlib.TreeFileEntry],
 ) -> Unit raise @git.GitError {
   for item in files.to_array() {
     let (path, info) = item
-    let full_path = join_path(root, path)
+    let full_path = worktree_modes_join_path(root, path)
     if is_gitlink_mode_int(info.mode) {
       fs.mkdir_p(full_path)
       continue
@@ -45,7 +45,7 @@ async fn apply_worktree_modes_from_files(
 
 ///|
 fn read_symlink_target(
-  db : ObjectDb,
+  db : @gitlib.ObjectDb,
   rfs : &@git.RepoFileSystem,
   id : @git.ObjectId,
 ) -> String raise @git.GitError {
@@ -123,4 +123,18 @@ fn is_symlink_mode_int(mode : Int) -> Bool {
 ///|
 fn is_regular_file_mode_int(mode : Int) -> Bool {
   mode == 0o100644 || mode == 0o100755
+}
+
+///|
+fn is_gitlink_mode_int(mode : Int) -> Bool {
+  mode == 0o160000
+}
+
+///|
+fn worktree_modes_join_path(root : String, path : String) -> String {
+  if root.has_suffix("/") {
+    root + path
+  } else {
+    root + "/" + path
+  }
 }

@@ -21,7 +21,7 @@ async fn resolve_remote_ref_id(
   remote_url : String,
   ref_spec : String,
 ) -> (@git.ObjectId, String?)? raise Error {
-  @gitlib.resolve_remote_ref_id(remote_url, ref_spec)
+  @gitlibnative.resolve_remote_ref_id(remote_url, ref_spec)
 }
 
 ///|
@@ -2592,7 +2592,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
         let git_dir = target + "/.git"
         match @gitlib.resolve_head_commit(fs, git_dir) {
           Some(commit_id) =>
-            @gitlib.apply_worktree_modes_from_commit(
+            @gitlibnative.apply_worktree_modes_from_commit(
               fs, fs, target, git_dir, commit_id,
             )
           None => ()
@@ -2617,7 +2617,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
         let git_dir = target + "/.git"
         match @gitlib.resolve_head_commit(fs, git_dir) {
           Some(commit_id) =>
-            @gitlib.apply_worktree_modes_from_commit(
+            @gitlibnative.apply_worktree_modes_from_commit(
               fs, fs, target, git_dir, commit_id,
             )
           None => ()
@@ -3031,7 +3031,7 @@ async fn handle_push(args : Array[String]) -> Unit raise Error {
         }
         None => {
           ignore(force) // TODO: implement force push
-          let result = @gitlib.push_http(fs, root, url, refname)
+          let result = @gitlibnative.push_http(fs, root, url, refname)
           print_line(result)
         }
       }
@@ -3106,7 +3106,7 @@ async fn handle_subdir_push(
   // Step 7: Push the transformed commits (tree only, not parent history)
   let transformed_head : @git.ObjectId = parent
   print_line("  Pushing transformed commits...")
-  let result = @gitlib.push_http_tree_only(
+  let result = @gitlibnative.push_http_tree_only(
     fs, root, remote_url, transformed_head, upstream_base, refname,
   )
   print_line("  \{result}")

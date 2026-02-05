@@ -2,7 +2,7 @@
 
 ///|
 fn profile_enabled() -> Bool {
-  match @sys.get_env_var("BIT_PROFILE") {
+  match env_get("BIT_PROFILE") {
     Some(v) => v != "" && v != "0"
     None => false
   }

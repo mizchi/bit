@@ -18,8 +18,6 @@ pub fn apply_receive_pack(&@bit.FileSystem, &@bit.RepoFileSystem, String, Receiv
 
 pub fn apply_template(&@bit.FileSystem, &@bit.RepoFileSystem, String, String) -> Unit raise @bit.GitError
 
-pub async fn apply_worktree_modes_from_commit(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, @bit.ObjectId) -> Unit raise @bit.GitError
-
 pub fn build_receive_pack_advertisement(&@bit.RepoFileSystem, String, agent? : String) -> Bytes raise @bit.GitError
 
 pub fn build_upload_pack_advertisement(&@bit.RepoFileSystem, String, agent? : String) -> Bytes raise @bit.GitError
@@ -33,8 +31,6 @@ pub fn checkout(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, detach? 
 pub fn cherry_pick(&@bit.FileSystem, &@bit.RepoFileSystem, String, @bit.ObjectId, String, Int64) -> CherryPickResult raise @bit.GitError
 
 pub fn clear_rebase_state(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> Unit raise @bit.GitError
-
-pub async fn clone_http(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, Bool) -> @bit.ObjectId? raise @bit.GitError
 
 pub fn collect_commit_tree_only(ObjectDb, &@bit.RepoFileSystem, @bit.ObjectId) -> Array[@bit.PackObject] raise @bit.GitError
 
@@ -96,6 +92,10 @@ pub fn diff_text(Array[DiffFile]) -> Array[String]
 
 pub async fn diff_worktree(&@bit.RepoFileSystem, String) -> Array[DiffFile] raise @bit.GitError
 
+pub fn env_current_dir() -> String?
+
+pub fn env_get(String) -> String?
+
 pub fn fast_forward_to(&@bit.FileSystem, &@bit.RepoFileSystem, String, @bit.ObjectId) -> Unit raise @bit.GitError
 
 pub fn find_tree_entry(ObjectDb, &@bit.RepoFileSystem, @bit.ObjectId, String) -> @bit.TreeEntry? raise @bit.GitError
@@ -131,8 +131,6 @@ pub fn is_branch_checked_out(&@bit.RepoFileSystem, String, String) -> String? ra
 pub fn is_ignored_path(&@bit.RepoFileSystem, String, String, Bool) -> Bool raise @bit.GitError
 
 pub fn is_mirror_fetch_config(RemoteConfig) -> Bool
-
-pub fn is_partial_clone(&@bit.RepoFileSystem, String) -> Bool
 
 pub fn is_rebase_in_progress(&@bit.RepoFileSystem, String) -> Bool
 
@@ -234,14 +232,6 @@ pub fn prune_repo(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> PruneResult
 
 pub fn prune_worktrees(&@bit.FileSystem, &@bit.RepoFileSystem, String, dry_run? : Bool) -> Array[String] raise @bit.GitError
 
-pub async fn pull_http(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, Bool, rebase? : Bool) -> @bit.ObjectId? raise @bit.GitError
-
-pub async fn push_http(&@bit.RepoFileSystem, String, String, String) -> String raise @bit.GitError
-
-pub async fn push_http_from_commit(&@bit.RepoFileSystem, String, String, @bit.ObjectId, String) -> String raise @bit.GitError
-
-pub async fn push_http_tree_only(&@bit.RepoFileSystem, String, String, @bit.ObjectId, @bit.ObjectId, String) -> String raise @bit.GitError
-
 pub fn read_config_bool(&@bit.RepoFileSystem, String, String, String) -> Bool?
 
 pub fn read_config_content(&@bit.RepoFileSystem, String) -> String
@@ -254,8 +244,6 @@ pub fn read_index_entries(&@bit.RepoFileSystem, String) -> Array[IndexEntry] rai
 
 pub fn read_local_remote_head_state(&@bit.RepoFileSystem, String, String) -> RemoteHeadState
 
-pub fn read_promisor_remote(&@bit.RepoFileSystem, String) -> String?
-
 pub fn read_reflog(&@bit.RepoFileSystem, String, String) -> Array[ReflogEntry] raise @bit.GitError
 
 pub fn read_remote_head_branch(&@bit.RepoFileSystem, String) -> String?
@@ -265,6 +253,8 @@ pub fn read_repo_config(&@bit.RepoFileSystem, String) -> (Map[String, RemoteConf
 pub fn read_sparse_patterns(&@bit.RepoFileSystem, String) -> Array[String] raise @bit.GitError
 
 pub fn read_subdir_attributes(&@bit.RepoFileSystem, String) -> (String, String, String)?
+
+pub fn read_symlink_target_path(String) -> String?
 
 pub fn rebase_abort(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> Unit raise @bit.GitError
 
@@ -326,8 +316,6 @@ pub fn resolve_ref(&@bit.RepoFileSystem, String, String) -> @bit.ObjectId? raise
 
 pub fn resolve_ref_for_subdir(&@bit.RepoFileSystem, String, String) -> @bit.ObjectId? raise @bit.GitError
 
-pub async fn resolve_remote_ref_id(String, String) -> (@bit.ObjectId, String?)? raise @bit.GitError
-
 pub fn restore_paths(&@bit.FileSystem, &@bit.RepoFileSystem, String, Array[String]) -> Unit raise @bit.GitError
 
 pub fn rev_parse(&@bit.RepoFileSystem, String, String) -> @bit.ObjectId? raise @bit.GitError
@@ -337,6 +325,10 @@ pub fn rewrite_packed_refs(&@bit.FileSystem, &@bit.RepoFileSystem, String, (Stri
 pub fn rm_paths(&@bit.FileSystem, &@bit.RepoFileSystem, String, Array[String], cached? : Bool, force? : Bool, recursive? : Bool) -> Unit raise @bit.GitError
 
 pub fn set_config_key(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, String, String) -> Unit raise @bit.GitError
+
+pub fn set_env_provider(EnvProvider) -> Unit
+
+pub fn set_worktree_probe(WorktreeProbeProvider) -> Unit
 
 pub fn should_log_ref(&@bit.RepoFileSystem, String, String, Bool) -> (Bool, Bool) raise @bit.GitError
 
@@ -396,7 +388,11 @@ pub fn upload_pack(&@bit.RepoFileSystem, String, UploadPackRequest) -> Bytes rai
 
 pub fn upload_pack_v2(&@bit.RepoFileSystem, String, UploadPackRequestV2, UploadPackConfig) -> Bytes raise @bit.GitError
 
-pub async fn working_files_cache(String) -> Array[String]? noraise
+pub fn working_files_cache(String) -> Array[String]?
+
+pub async fn worktree_entry(&@bit.RepoFileSystem, String) -> WorktreeEntry? noraise
+
+pub async fn worktree_entry_meta(&@bit.RepoFileSystem, String) -> WorktreeEntryMeta? noraise
 
 pub fn write_index_entries(&@bit.FileSystem, String, Array[IndexEntry]) -> Unit raise @bit.GitError
 
@@ -462,6 +458,13 @@ pub enum DiffKind {
   Modified
   Deleted
 }
+
+pub struct EnvProvider {
+  get : (String) -> String?
+  current_dir : () -> String?
+}
+pub fn EnvProvider::new((String) -> String?, () -> String?) -> Self
+pub fn EnvProvider::none() -> Self
 
 pub(all) struct FetchRefspec {
   negative : Bool
@@ -567,21 +570,6 @@ pub fn PackIndex::find_id_by_offset(Self, Int64) -> String?
 pub fn PackIndex::find_offset(Self, @bit.ObjectId) -> Int64?
 pub fn PackIndex::find_offset_hex(Self, String) -> Int64?
 
-pub struct PromisorDb {
-  db : ObjectDb
-  git_dir : String
-  promisor_remote : String?
-  fetched : Map[String, Bool]
-}
-pub async fn PromisorDb::fetch_missing(Self, &@bit.FileSystem, Array[@bit.ObjectId]) -> Array[@bit.PackObject] raise @bit.GitError
-pub async fn PromisorDb::fetch_one(Self, &@bit.FileSystem, @bit.ObjectId) -> @bit.PackObject? raise @bit.GitError
-pub fn PromisorDb::get(Self, &@bit.RepoFileSystem, @bit.ObjectId) -> @bit.PackObject? raise @bit.GitError
-pub async fn PromisorDb::get_or_fetch(Self, &@bit.RepoFileSystem, &@bit.FileSystem, @bit.ObjectId) -> @bit.PackObject? raise @bit.GitError
-pub fn PromisorDb::get_promisor_remote(Self) -> String?
-pub fn PromisorDb::has_local(Self, &@bit.RepoFileSystem, @bit.ObjectId) -> Bool raise @bit.GitError
-pub fn PromisorDb::has_promisor(Self) -> Bool
-pub fn PromisorDb::new(&@bit.RepoFileSystem, String, lazy_load? : Bool) -> Self raise @bit.GitError
-
 pub struct PruneResult {
   pruned : Array[@bit.ObjectId]
 }
@@ -590,6 +578,12 @@ pub(all) struct PushRefspec {
   force : Bool
   src : String
   dst : String
+}
+
+pub struct PushUpdate {
+  refname : String
+  old_id : @bit.ObjectId?
+  new_id : @bit.ObjectId?
 }
 
 pub struct RebaseResult {
@@ -721,6 +715,23 @@ pub struct UploadPackRequestV2 {
   packfile_uris : String?
 }
 
+pub struct WorktreeEntry {
+  kind : WorktreeKind
+  mode : Int
+  size : Int?
+  mtime_sec : Int?
+  mtime_nsec : Int?
+}
+
+pub struct WorktreeEntryMeta {
+  kind : WorktreeKindMeta
+  mode : Int
+  size : Int?
+  mtime_sec : Int?
+  mtime_nsec : Int?
+}
+pub fn WorktreeEntryMeta::new(WorktreeKindMeta, Int, Int?, Int?, Int?) -> Self
+
 pub(all) struct WorktreeInfo {
   path : String
   head_id : @bit.ObjectId?
@@ -729,7 +740,50 @@ pub(all) struct WorktreeInfo {
   is_main : Bool
 }
 
+pub enum WorktreeKind {
+  Regular
+  Symlink(target~ : String)
+}
+
+pub enum WorktreeKindMeta {
+  Regular
+  Symlink
+}
+pub fn WorktreeKindMeta::regular() -> Self
+pub fn WorktreeKindMeta::symlink() -> Self
+
+pub struct WorktreeProbeProvider {
+  entry_meta : async (&@bit.RepoFileSystem, String) -> WorktreeEntryMeta? noraise
+  symlink_target : (String) -> String?
+}
+pub fn WorktreeProbeProvider::new(async (&@bit.RepoFileSystem, String) -> WorktreeEntryMeta? noraise, (String) -> String?) -> Self
+pub fn WorktreeProbeProvider::none() -> Self
+
 // Type aliases
 
 // Traits
+pub(open) trait Clock {
+  now(Self) -> Int64
+}
+
+pub(open) trait ObjectStore {
+  get(Self, @bit.ObjectId) -> @bit.PackObject? raise @bit.GitError
+  put(Self, @bit.ObjectType, Bytes) -> @bit.ObjectId raise @bit.GitError
+  has(Self, @bit.ObjectId) -> Bool raise @bit.GitError
+}
+
+pub(open) trait Random {
+  short(Self) -> String
+}
+
+pub(open) trait RefStore {
+  resolve(Self, String) -> @bit.ObjectId? raise @bit.GitError
+  update(Self, String, @bit.ObjectId?) -> Unit raise @bit.GitError
+  list(Self, String) -> Array[String] raise @bit.GitError
+}
+
+pub(open) trait Transport {
+  fetch(Self, String, Array[@bit.ObjectId]) -> Bytes raise @bit.GitError
+  push(Self, String, Array[PushUpdate]) -> Result[Unit, String] raise @bit.GitError
+}
 

@@ -2,6 +2,7 @@
 
 ///|
 async test "gitignore async: symlink dir is not traversed" {
+  init_worktree_probe()
   let fs = @osfs.OsFs::new()
   let mk = @process.collect_output(
     "mktemp",
@@ -29,7 +30,7 @@ async test "gitignore async: symlink dir is not traversed" {
   if ln_code != 0 {
     return ()
   }
-  let files = list_working_files_async(fs, root)
+  let files = @gitlib.list_working_files_async(fs, root)
   assert_true(files.contains("real/file.txt"))
   assert_true(files.contains("link"))
   assert_true(not(files.contains("link/file.txt")))

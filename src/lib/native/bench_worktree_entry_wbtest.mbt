@@ -79,7 +79,7 @@ test "bench worktree_entry regular" (b : @bench.T) {
   @async.run_async_main(async fn() {
     let start = @bench.monotonic_clock_start()
     for _ in 0..<iterations {
-      ignore(worktree_entry(fs, bench_wt_regular))
+      ignore(@gitlib.worktree_entry(fs, bench_wt_regular))
     }
     let elapsed = @bench.monotonic_clock_end(start)
     let total_ms = elapsed / 1000.0
@@ -99,7 +99,7 @@ test "bench worktree_entry symlink" (b : @bench.T) {
   @async.run_async_main(async fn() {
     let start = @bench.monotonic_clock_start()
     for _ in 0..<iterations {
-      ignore(worktree_entry(fs, bench_wt_symlink))
+      ignore(@gitlib.worktree_entry(fs, bench_wt_symlink))
     }
     let elapsed = @bench.monotonic_clock_end(start)
     let total_ms = elapsed / 1000.0
@@ -119,7 +119,7 @@ test "bench worktree_entry missing" (b : @bench.T) {
   @async.run_async_main(async fn() {
     let start = @bench.monotonic_clock_start()
     for _ in 0..<iterations {
-      ignore(worktree_entry(fs, bench_wt_missing))
+      ignore(@gitlib.worktree_entry(fs, bench_wt_missing))
     }
     let elapsed = @bench.monotonic_clock_end(start)
     let total_ms = elapsed / 1000.0

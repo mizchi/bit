@@ -4,6 +4,7 @@ package "mizchi/bit/x/fs"
 import {
   "mizchi/bit",
   "mizchi/bit/lib",
+  "mizchi/bit/lib/native",
 }
 
 // Values
@@ -23,7 +24,7 @@ pub struct Fs {
   cache : ObjectCache
   config : FsConfig
   mut cached_db : @lib.ObjectDb?
-  mut cached_promisor_db : @lib.PromisorDb?
+  mut cached_promisor_db : @native.PromisorDb?
   lazy_mode : Bool
 }
 pub fn Fs::add_layer(Self, &@bit.RepoFileSystem, @bit.ObjectId, String, commit_id? : @bit.ObjectId?) -> Unit raise @bit.GitError
@@ -43,7 +44,7 @@ pub fn Fs::from_tree(String, @bit.ObjectId, config? : FsConfig) -> Self
 pub fn Fs::get_db(Self, &@bit.RepoFileSystem) -> @lib.ObjectDb raise @bit.GitError
 pub fn Fs::get_deleted_files(Self) -> Array[String]
 pub fn Fs::get_pending_fetches(Self, &@bit.RepoFileSystem, Int) -> Array[String] raise @bit.GitError
-pub fn Fs::get_promisor_db(Self, &@bit.RepoFileSystem) -> @lib.PromisorDb? raise @bit.GitError
+pub fn Fs::get_promisor_db(Self, &@bit.RepoFileSystem) -> @native.PromisorDb? raise @bit.GitError
 pub fn Fs::get_promisor_remote(Self, &@bit.RepoFileSystem) -> String?
 pub fn Fs::get_working_files(Self) -> Array[String]
 pub fn Fs::git_dir(Self) -> String

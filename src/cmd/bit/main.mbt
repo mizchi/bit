@@ -632,6 +632,8 @@ async fn main_async() -> Unit {
     show_help()
     return ()
   }
+  @gitlibnative.init_env_provider()
+  @gitlibnative.init_worktree_probe()
   // Handle --version and --help early (can appear anywhere before command)
   for i in 1..<args.length() {
     match args[i] {

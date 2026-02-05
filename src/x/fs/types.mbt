@@ -50,7 +50,7 @@ pub struct Fs {
   cache : ObjectCache
   config : FsConfig
   mut cached_db : @lib.ObjectDb?
-  mut cached_promisor_db : @lib.PromisorDb?
+  mut cached_promisor_db : @libnative.PromisorDb?
   lazy_mode : Bool // If true, use lazy object loading
 }
 

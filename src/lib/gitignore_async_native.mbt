@@ -6,20 +6,7 @@ pub async fn list_working_files_async(
   fs : &@git.RepoFileSystem,
   root : String,
 ) -> Array[String] raise @git.GitError {
-  let cache_enabled = cache_enabled_by_env() && cache_available(root)
-  let clear_cache = cache_clear_requested()
-  if cache_enabled && clear_cache {
-    let cache_path = cache_file_path(root)
-    ignore(try? @afs.remove(cache_path))
-  }
-  if cache_enabled {
-    if not(clear_cache) {
-      match try_read_cache(root) {
-        Some(cache) => if validate_cache(root, cache) { return cache.files }
-        None => ()
-      }
-    }
-  }
+  let cache_enabled = false
   let matcher = @ignore.Matcher::new()
   let out : Array[String] = []
   let dirs : Array[PathMtime] = []
@@ -32,7 +19,7 @@ pub async fn list_working_files_async(
 }
 
 ///|
-pub async fn working_files_cache(root : String) -> Array[String]? noraise {
+pub fn working_files_cache(root : String) -> Array[String]? noraise {
   let cache_enabled = cache_enabled_by_env() && cache_available(root)
   if not(cache_enabled) || cache_clear_requested() {
     return None
@@ -60,19 +47,6 @@ async fn walk_dir_async(
   ignores : Array[PathMtime],
 ) -> Unit raise @git.GitError {
   let dir = if rel == "" { root } else { join_path(root, rel) }
-  if cache_enabled {
-    let mtime_result : Result[(Int64, Int), Error] = try? @afs.mtime(
-      dir,
-      follow_symlink=false,
-    )
-    match mtime_result {
-      Ok((sec, nsec)) => {
-        let rel_path = if rel == "" { "." } else { rel }
-        dirs.push({ path: rel_path, sec: sec.to_int(), nsec })
-      }
-      Err(_) => ()
-    }
-  }
   // Skip submodules (directories containing .git file or directory)
   if rel != "" {
     let git_marker = join_path(dir, ".git")
@@ -102,23 +76,6 @@ async fn walk_dir_async(
     let ignore_path = join_path(dir, ".gitignore")
     let content = @utf8.decode_lossy(fs.read_file(ignore_path)[:])
     matcher.add_rules(rel, content)
-    if cache_enabled {
-      let mtime_result : Result[(Int64, Int), Error] = try? @afs.mtime(
-        ignore_path,
-        follow_symlink=false,
-      )
-      match mtime_result {
-        Ok((sec, nsec)) => {
-          let rel_path = if rel == "" {
-            ".gitignore"
-          } else {
-            rel + "/.gitignore"
-          }
-          ignores.push({ path: rel_path, sec: sec.to_int(), nsec })
-        }
-        Err(_) => ()
-      }
-    }
   }
   for name in entries {
     if name == "." || name == ".." || name == ".git" || name == ".jj" {
@@ -126,16 +83,8 @@ async fn walk_dir_async(
     }
     let child_rel = if rel == "" { name } else { rel + "/" + name }
     let child_path = join_path(root, child_rel)
-    let mut is_dir = false
-    let kind_result : Result[@afs.FileKind, Error] = try? @afs.kind(
-      child_path,
-      follow_symlink=false,
-    )
-    match kind_result {
-      Ok(@afs.FileKind::Directory) => is_dir = true
-      Ok(_) => is_dir = false
-      Err(_) => is_dir = fs.is_dir(child_path)
-    }
+    let is_symlink = read_symlink_target_path(child_path) is Some(_)
+    let is_dir = if is_symlink { false } else { fs.is_dir(child_path) }
     if matcher.is_ignored(child_rel, is_dir) {
       if is_dir && matcher.has_negation() {
         walk_dir_async(
@@ -171,29 +120,21 @@ priv struct WorkingFilesCache {
 
 ///|
 fn cache_enabled_by_env() -> Bool {
-  match @sys.get_env_var("BIT_UNTRACKED_CACHE") {
-    Some(v) => v != "" && v != "0"
-    None => true
-  }
+  false
 }
 
 ///|
 fn cache_clear_requested() -> Bool {
-  match @sys.get_env_var("BIT_UNTRACKED_CACHE_CLEAR") {
-    Some(v) => v != "" && v != "0"
-    None => false
-  }
+  false
 }
 
 ///|
-async fn cache_available(root : String) -> Bool noraise {
-  let git_dir = join_path(root, ".git")
-  let kind_result : Result[@afs.FileKind, Error] = try? @afs.kind(git_dir)
-  match kind_result {
-    Ok(@afs.FileKind::Directory) => true
-    Ok(_) => false
-    Err(_) => false
-  }
+fn cache_available(root : String) -> Bool noraise {
+  let _ = root
+  let _ = cache_file_path
+  let _ = parse_cache
+  let _ = encode_cache
+  false
 }
 
 ///|
@@ -202,16 +143,9 @@ fn cache_file_path(root : String) -> String {
 }
 
 ///|
-async fn try_read_cache(root : String) -> WorkingFilesCache? noraise {
-  let cache_path = cache_file_path(root)
-  let data_result = try? @afs.read_file(cache_path)
-  match data_result {
-    Ok(data) => {
-      let text = data.text() catch { _ => return None }
-      parse_cache(text)
-    }
-    Err(_) => None
-  }
+fn try_read_cache(root : String) -> WorkingFilesCache? noraise {
+  let _ = root
+  None
 }
 
 ///|
@@ -320,53 +254,27 @@ fn parse_mtime_line(line : StringView) -> PathMtime? {
 }
 
 ///|
-async fn validate_cache(
+fn validate_cache(
   root : String,
   cache : WorkingFilesCache,
 ) -> Bool noraise {
-  for entry in cache.dirs {
-    let abs = if entry.path == "." { root } else { join_path(root, entry.path) }
-    let mtime_result : Result[(Int64, Int), Error] = try? @afs.mtime(
-      abs,
-      follow_symlink=false,
-    )
-    match mtime_result {
-      Ok((sec, nsec)) =>
-        if sec.to_int() != entry.sec || nsec != entry.nsec {
-          return false
-        }
-      Err(_) => return false
-    }
-  }
-  for entry in cache.ignores {
-    let abs = join_path(root, entry.path)
-    let mtime_result : Result[(Int64, Int), Error] = try? @afs.mtime(
-      abs,
-      follow_symlink=false,
-    )
-    match mtime_result {
-      Ok((sec, nsec)) =>
-        if sec.to_int() != entry.sec || nsec != entry.nsec {
-          return false
-        }
-      Err(_) => return false
-    }
-  }
-  true
+  let _ = root
+  let _ = cache.dirs
+  let _ = cache.ignores
+  false
 }
 
 ///|
-async fn write_cache(
+fn write_cache(
   root : String,
   dirs : Array[PathMtime],
   ignores : Array[PathMtime],
   files : Array[String],
 ) -> Unit noraise {
-  let cache_dir = join_path(root, ".git/bit")
-  ignore(try? @afs.mkdir(cache_dir, permission=0o755, recursive=true))
-  let cache_path = cache_file_path(root)
-  let text = encode_cache(dirs, ignores, files)
-  ignore(try? @afs.write_file(cache_path, @utf8.encode(text), create=0o644))
+  let _ = root
+  let _ = dirs
+  let _ = ignores
+  let _ = files
 }
 
 ///|

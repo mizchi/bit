@@ -15,12 +15,12 @@ test "partial_clone: mount and list files" {
   }
 
   // Check if it's a partial clone
-  let is_partial = @lib.is_partial_clone(osfs, git_dir)
+  let is_partial = @libnative.is_partial_clone(osfs, git_dir)
   println("Is partial clone: \{is_partial}")
   assert_true(is_partial)
 
   // Get promisor remote
-  let remote = @lib.read_promisor_remote(osfs, git_dir)
+  let remote = @libnative.read_promisor_remote(osfs, git_dir)
   println("Promisor remote: \{remote}")
   assert_true(remote is Some(_))
 

@@ -80,13 +80,13 @@ pub fn resolve_local_repo_path(
     return Some(parent_candidate)
   }
   {
-    let base = match @env.current_dir() {
+    let base = match env_current_dir() {
       Some(dir) => dir
       None =>
-        match @sys.get_env_var("PWD") {
+        match env_get("PWD") {
           Some(dir) => dir
           None =>
-            match @sys.get_env_var("GIT_SHIM_PWD") {
+            match env_get("GIT_SHIM_PWD") {
               Some(dir) => dir
               None => "."
             }

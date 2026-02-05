@@ -125,14 +125,14 @@ pub fn Fs::get_db(
 pub fn Fs::get_promisor_db(
   self : Fs,
   backing_fs : &@git.RepoFileSystem,
-) -> @lib.PromisorDb? raise @git.GitError {
+) -> @libnative.PromisorDb? raise @git.GitError {
   if not(self.config.enable_promisor) {
     return None
   }
   match self.cached_promisor_db {
     Some(db) => Some(db)
     None => {
-      let db = @lib.PromisorDb::new(
+      let db = @libnative.PromisorDb::new(
         backing_fs,
         self.git_dir,
         lazy_load=self.lazy_mode,
@@ -149,7 +149,7 @@ pub fn Fs::has_promisor(self : Fs, backing_fs : &@git.RepoFileSystem) -> Bool {
   if not(self.config.enable_promisor) {
     return false
   }
-  @lib.is_partial_clone(backing_fs, self.git_dir)
+  @libnative.is_partial_clone(backing_fs, self.git_dir)
 }
 
 ///|
@@ -161,7 +161,7 @@ pub fn Fs::get_promisor_remote(
   if not(self.config.enable_promisor) {
     return None
   }
-  @lib.read_promisor_remote(backing_fs, self.git_dir)
+  @libnative.read_promisor_remote(backing_fs, self.git_dir)
 }
 
 ///|
