@@ -260,7 +260,7 @@ fn is_gitlink_mode(mode : String) -> Bool {
 }
 
 ///|
-fn join_path(root : String, path : String) -> String {
+pub fn join_path(root : String, path : String) -> String {
   if root.length() == 0 || root == "/" {
     if path.has_prefix("/") {
       path

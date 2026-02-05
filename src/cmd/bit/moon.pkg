@@ -1,5 +1,6 @@
 import {
   "mizchi/bit" as @git,
+  "mizchi/bit/native" as @gitnative,
   "mizchi/bit/lib" as @gitlib,
   "mizchi/bit/lib/native" as @gitlibnative,
   "mizchi/bit/x/collab" as @collab,

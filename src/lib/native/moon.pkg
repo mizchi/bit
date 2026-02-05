@@ -1,5 +1,6 @@
 import {
   "mizchi/bit" as @git,
+  "mizchi/bit/native" as @gitnative,
   "mizchi/bit/lib" as @gitlib,
   "moonbitlang/async" as @async,
   "moonbitlang/async/fs" as @afs,

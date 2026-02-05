@@ -18,14 +18,14 @@ pub async fn clone_http(
   let config_content = "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n[remote \"origin\"]\n\turl = \{remote_url}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n"
   fs.write_string(config_path, config_content)
   // 3. Fetch refs and packfile
-  let (refs, _caps, _version, symrefs) = @git.discover_upload_refs_http(
+  let (refs, _caps, _version, symrefs) = @gitnative.discover_upload_refs_http(
     remote_url, prefer_v2,
   )
   let default_ref = @git.select_default_ref(refs, symrefs)
   match default_ref {
     None => return None
     Some((refname, commit_id)) => {
-      let pack = @git.fetch_pack_http(remote_url, [commit_id], prefer_v2)
+      let pack = @gitnative.fetch_pack_http(remote_url, [commit_id], prefer_v2)
       let objects = @git.parse_packfile(pack)
       @git.write_packfile_with_index(fs, git_dir, pack, objects)
       // 4. Update refs
@@ -64,14 +64,14 @@ pub async fn pull_http(
   prefer_v2 : Bool,
   rebase? : Bool = false,
 ) -> @git.ObjectId? raise @git.GitError {
-  let (refs, _caps, _version, symrefs) = @git.discover_upload_refs_http(
+  let (refs, _caps, _version, symrefs) = @gitnative.discover_upload_refs_http(
     remote, prefer_v2,
   )
   let default_ref = @git.select_default_ref(refs, symrefs)
   match default_ref {
     None => return None
     Some((refname, commit_id)) => {
-      let pack = @git.fetch_pack_http(remote, [commit_id], prefer_v2)
+      let pack = @gitnative.fetch_pack_http(remote, [commit_id], prefer_v2)
       let objects = @git.parse_packfile(pack)
       let git_dir = sync_join_path(root, ".git")
       @git.write_packfile_with_index(fs, git_dir, pack, objects)
@@ -122,10 +122,10 @@ pub async fn push_http(
       let objects = @gitlib.collect_reachable_objects(db, rfs, head_id)
       let pack = @git.create_packfile(objects)
       let remote = @git.Remote::new(remote_url)
-      let refs = @git.discover_receive_refs_http(remote)
+      let refs = @gitnative.discover_receive_refs_http(remote)
       let old_id = sync_find_ref(refs, refname)
       let req = @git.PushRequest::new(old_id, head_id, refname, pack)
-      @git.push(remote, req)
+      @gitnative.push(remote, req)
     }
   }
 }
@@ -144,10 +144,10 @@ pub async fn push_http_from_commit(
   let objects = @gitlib.collect_reachable_objects(db, rfs, commit_id)
   let pack = @git.create_packfile(objects)
   let remote = @git.Remote::new(remote_url)
-  let refs = @git.discover_receive_refs_http(remote)
+  let refs = @gitnative.discover_receive_refs_http(remote)
   let old_id = sync_find_ref(refs, refname)
   let req = @git.PushRequest::new(old_id, commit_id, refname, pack)
-  @git.push(remote, req)
+  @gitnative.push(remote, req)
 }
 
 ///|
@@ -169,7 +169,7 @@ pub async fn push_http_tree_only(
   let pack = @git.create_packfile(objects)
   let remote = @git.Remote::new(remote_url)
   let req = @git.PushRequest::new(old_commit_id, commit_id, refname, pack)
-  @git.push(remote, req)
+  @gitnative.push(remote, req)
 }
 
 ///|

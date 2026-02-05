@@ -35,7 +35,7 @@ async fn fetch_raw_file(url : String, target : String) -> Unit raise Error {
   }
   // Use HTTP fetch
   let headers : Map[String, String] = {}
-  let (response, content) = @git.native_http_get(url, headers)
+  let (response, content) = @gitnative.native_http_get(url, headers)
   if response.code != 200 {
     raise @git.GitError::InvalidObject(
       "HTTP \{response.code}: failed to fetch \{url}",
@@ -1681,7 +1681,7 @@ async fn fetch_from_remote(
     None => ()
   }
   // Fallback to HTTP fetch
-  let (refs, _caps, _version, symrefs) = @git.discover_upload_refs_http(
+  let (refs, _caps, _version, symrefs) = @gitnative.discover_upload_refs_http(
     remote_url, true,
   )
   let default_ref = @git.select_default_ref(refs, symrefs)
@@ -1718,7 +1718,7 @@ async fn fetch_from_remote(
         return ()
       }
       print_line("Fetching from \{remote_url}...")
-      let pack = @git.fetch_pack_http(remote_url, [commit_id], true)
+      let pack = @gitnative.fetch_pack_http(remote_url, [commit_id], true)
       let objects = @git.parse_packfile(pack)
       @git.write_packfile_with_index(fs, git_dir, pack, objects)
       let dir = match remote_path.rev_find("/") {
@@ -2605,7 +2605,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
       print_line("done.")
     }
     None => {
-      let refs = @git.clone_http_to_fs(
+      let refs = @gitnative.clone_http_to_fs(
         remote_url,
         true,
         fs,
@@ -2630,7 +2630,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
               let git_dir = target + "/.git"
               let mut db = @gitlib.ObjectDb::load_lazy(fs, git_dir)
               if db.get(fs, commit_id) is None {
-                let pack = @git.fetch_pack_http(remote_url, [commit_id], true)
+                let pack = @gitnative.fetch_pack_http(remote_url, [commit_id], true)
                 let objects = @git.parse_packfile(pack)
                 @git.write_packfile_with_index(fs, git_dir, pack, objects)
                 db = @gitlib.ObjectDb::load_lazy(fs, git_dir)
@@ -2877,7 +2877,7 @@ async fn handle_pull(args : Array[String]) -> Unit raise Error {
       None =>
         match resolve_remote_ref_id(url, upstream_ref) {
           Some((id, _)) => {
-            let pack = @git.fetch_pack_http(url, [id], true)
+            let pack = @gitnative.fetch_pack_http(url, [id], true)
             let objects = @git.parse_packfile(pack)
             @git.write_packfile_with_index(fs, git_dir, pack, objects)
             write_ref_file(fs, git_dir, target_ref, id)
@@ -3087,7 +3087,7 @@ async fn handle_subdir_push(
   print_line("  Upstream base: \{upstream_base.to_hex()}")
   // Step 5: Fetch upstream base commit and its tree from remote
   print_line("  Fetching upstream objects...")
-  let pack = @git.fetch_pack_http(remote_url, [upstream_base], true)
+  let pack = @gitnative.fetch_pack_http(remote_url, [upstream_base], true)
   let objects = @git.parse_packfile(pack)
   @git.write_packfile_with_index(fs, git_dir, pack, objects)
   print_line("  Fetched \{objects.length()} objects")

@@ -143,7 +143,7 @@ async fn handle_tree(args : Array[String]) -> Unit raise Error {
   let normalized_filters = normalize_ls_tree_filters(path_filters, "")
   let temp_dir = make_temp_dir(fs, "bit-tree")
   try {
-    let _ = @git.clone_http_to_fs(
+    let _ = @gitnative.clone_http_to_fs(
       remote_url,
       true,
       fs,
@@ -170,7 +170,7 @@ async fn handle_tree(args : Array[String]) -> Unit raise Error {
     }
     let mut db = @gitlib.ObjectDb::load_lazy(fs, git_dir)
     if db.get(fs, commit_id) is None {
-      let pack = @git.fetch_pack_http(remote_url, [commit_id], true)
+      let pack = @gitnative.fetch_pack_http(remote_url, [commit_id], true)
       let objects = @git.parse_packfile(pack)
       @git.write_packfile_with_index(fs, git_dir, pack, objects)
       db = @gitlib.ObjectDb::load_lazy(fs, git_dir)
@@ -227,7 +227,7 @@ async fn handle_cat(args : Array[String]) -> Unit raise Error {
   match shorthand {
     Some(File(raw_url, _filename)) => {
       let headers : Map[String, String] = {}
-      let (response, content) = @git.native_http_get(raw_url, headers)
+      let (response, content) = @gitnative.native_http_get(raw_url, headers)
       if response.code != 200 {
         raise @git.GitError::InvalidObject(
           "HTTP \{response.code}: failed to fetch \{raw_url}",
@@ -270,7 +270,7 @@ async fn handle_cat(args : Array[String]) -> Unit raise Error {
   let path = @gitlib.normalize_repo_path(raw_path)
   let temp_dir = make_temp_dir(fs, "bit-cat")
   try {
-    let _ = @git.clone_http_to_fs(
+    let _ = @gitnative.clone_http_to_fs(
       remote_url,
       true,
       fs,
@@ -297,7 +297,7 @@ async fn handle_cat(args : Array[String]) -> Unit raise Error {
     }
     let mut db = @gitlib.ObjectDb::load_lazy(fs, git_dir)
     if db.get(fs, commit_id) is None {
-      let pack = @git.fetch_pack_http(remote_url, [commit_id], true)
+      let pack = @gitnative.fetch_pack_http(remote_url, [commit_id], true)
       let objects = @git.parse_packfile(pack)
       @git.write_packfile_with_index(fs, git_dir, pack, objects)
       db = @gitlib.ObjectDb::load_lazy(fs, git_dir)
@@ -318,7 +318,7 @@ async fn handle_cat(args : Array[String]) -> Unit raise Error {
     let mut obj = db.get(fs, found.id)
     if obj is None {
       let wants : Array[@git.ObjectId] = [found.id]
-      let pack = @git.fetch_pack_http(remote_url, wants, true)
+      let pack = @gitnative.fetch_pack_http(remote_url, wants, true)
       let objects = @git.parse_packfile(pack)
       @git.write_packfile_with_index(fs, git_dir, pack, objects)
       let db2 = @gitlib.ObjectDb::load_lazy(fs, git_dir)

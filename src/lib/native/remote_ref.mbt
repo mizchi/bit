@@ -48,7 +48,7 @@ pub async fn resolve_remote_ref_id(
     Some(id) => return Some((id, None))
     None => ()
   }
-  let (refs, _caps, _version, symrefs) = @git.discover_upload_refs_http(
+  let (refs, _caps, _version, symrefs) = @gitnative.discover_upload_refs_http(
     remote_url, true,
   )
   if is_hex_string(ref_spec) && ref_spec.length() >= 4 {

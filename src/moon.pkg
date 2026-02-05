@@ -1,27 +1,22 @@
 import {
-  "moonbitlang/async" as @async,
   "mizchi/zlib",
-  "mizchi/tempfile",
-  "moonbitlang/async/process" as @process,
-  "moonbitlang/async/io" as @io,
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/strconv" as @strconv,
+}
+
+import "test" {
+  "moonbitlang/async" as @async,
+  "moonbitlang/async/process" as @process,
   "moonbitlang/x/fs",
-  "moonbitlang/async/http" as @http,
-  "moonbitlang/x/codec/base64" as @base64,
+  "mizchi/tempfile",
 }
 
 options(
   targets: {
     "git_oracle_pack_test.mbt": [ "native" ],
-    "http_client_native.mbt": [ "native" ],
     "integration_test.mbt": [ "wasm-gc", "wasm" ],
     "pack_index_write_test.mbt": [ "native" ],
-    "remote.mbt": [ "native" ],
     "remote_test.mbt": [ "native" ],
-    "upload_pack_http.mbt": [ "native" ],
-    "upload_pack_process.mbt": [ "native" ],
-    "upload_pack_remote_native.mbt": [ "native" ],
     "upload_pack_remote_wasm.mbt": [ "wasm-gc", "wasm" ],
   },
 )

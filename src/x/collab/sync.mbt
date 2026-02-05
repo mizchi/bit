@@ -137,11 +137,11 @@ pub async fn Collab::push(
   let pack = @git.create_packfile(objects)
   // Discover remote refs
   let remote = @git.Remote::new(remote_url)
-  let refs = @git.discover_receive_refs_http(remote)
+  let refs = @gitnative.discover_receive_refs_http(remote)
   let (old_id, push_ref) = find_remote_notes_ref(refs)
   // Push
   let req = @git.PushRequest::new(old_id, local_id, push_ref, pack)
-  let result = @git.push(remote, req)
+  let result = @gitnative.push(remote, req)
   if result.has_prefix("unpack ok") ||
     result.has_prefix("ok ") ||
     result.has_prefix("Push successful") {
@@ -172,7 +172,7 @@ pub async fn Collab::fetch(
 ) -> PrSyncResult raise @git.GitError {
   let ref_name = collab_notes_ref_name()
   // Discover remote refs
-  let (refs, _, _, _) = @git.discover_upload_refs_http(remote_url, true)
+  let (refs, _, _, _) = @gitnative.discover_upload_refs_http(remote_url, true)
   let remote_id = find_upload_notes_ref(refs)
   guard remote_id is Some((rid, remote_ref)) else {
     return {
@@ -183,7 +183,7 @@ pub async fn Collab::fetch(
     }
   }
   // Fetch pack
-  let pack = @git.fetch_pack_http(remote_url, [rid], true)
+  let pack = @gitnative.fetch_pack_http(remote_url, [rid], true)
   let objects = @git.parse_packfile(pack)
   @git.write_packfile_with_index(fs, git_dir, pack, objects)
   // Update remote tracking ref (best-effort)

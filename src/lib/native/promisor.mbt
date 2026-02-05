@@ -109,7 +109,7 @@ pub async fn PromisorDb::fetch_missing(
     return []
   }
   // Fetch from remote
-  let objects = @git.fetch_objects_http(remote, to_fetch, true, depth=0)
+  let objects = @gitnative.fetch_objects_http(remote, to_fetch, true, depth=0)
   // Write to local storage
   for obj in objects {
     let _ = @gitlib.write_loose_object(
