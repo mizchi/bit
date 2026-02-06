@@ -223,8 +223,7 @@ pub fn delete_branch(
     let head_commit = resolve_head_commit(rfs, git_dir)
     let branch_id = match resolve_ref(rfs, git_dir, refname) {
       Some(id) => id
-      None =>
-        raise @git.GitError::InvalidObject("branch '\{name}' not found")
+      None => raise @git.GitError::InvalidObject("branch '\{name}' not found")
     }
     match head_commit {
       Some(head_id) =>

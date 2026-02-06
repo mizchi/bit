@@ -469,9 +469,7 @@ async fn handle_log(args : Array[String]) -> Unit raise Error {
       }
       _ if arg.has_prefix("--until=") => {
         let val = (try! arg[8:]).to_string()
-        until_ts = @strconv.parse_int64(val) catch {
-          _ => 9223372036854775807L
-        }
+        until_ts = @strconv.parse_int64(val) catch { _ => 9223372036854775807L }
       }
       _ if arg.has_prefix("-") => warn_unimplemented_arg("log", arg)
       _ => ()
@@ -492,14 +490,22 @@ async fn handle_log(args : Array[String]) -> Unit raise Error {
     log_with_graph(rfs, git_dir, max_count, oneline, all_refs, decorate)
   } else if oneline {
     let lines = @gitlib.log_head_oneline(
-      fs, git_dir, max_count~, since=since_ts, until=until_ts,
+      fs,
+      git_dir,
+      max_count~,
+      since=since_ts,
+      until=until_ts,
     )
     for line in lines {
       print_line(line)
     }
   } else {
     let entries = @gitlib.log_head(
-      fs, git_dir, max_count~, since=since_ts, until=until_ts,
+      fs,
+      git_dir,
+      max_count~,
+      since=since_ts,
+      until=until_ts,
     )
     for entry in entries {
       print_line("commit " + entry.id.to_hex())
@@ -509,7 +515,10 @@ async fn handle_log(args : Array[String]) -> Unit raise Error {
       print_line("")
       if show_stat || show_patch {
         let diff_files = @gitlib.diff_trees(
-          rfs, git_dir, entry.parent_tree, entry.tree,
+          rfs,
+          git_dir,
+          entry.parent_tree,
+          entry.tree,
         )
         if show_stat {
           let stat_lines = @gitlib.diff_stat(diff_files)

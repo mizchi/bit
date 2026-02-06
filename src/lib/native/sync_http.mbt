@@ -107,7 +107,7 @@ pub async fn push_http(
   root : String,
   remote_url : String,
   refname : String,
-  force~ : Bool = false,
+  force? : Bool = false,
 ) -> String raise @git.GitError {
   let git_dir = sync_join_path(root, ".git")
   let actual_git_dir = if rfs.is_file(git_dir) {

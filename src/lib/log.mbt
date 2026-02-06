@@ -55,12 +55,7 @@ pub fn log_head(
               break
             }
             if entry.timestamp <= until {
-              result.push(
-                {
-                  ..entry,
-                  parent_tree,
-                },
-              )
+              result.push({ ..entry, parent_tree, })
               count += 1
             }
             current = if info.parents.length() > 0 {
