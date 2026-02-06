@@ -6,6 +6,8 @@ pub struct LogEntry {
   message : String
   author : String
   timestamp : Int64
+  tree : @git.ObjectId
+  parent_tree : @git.ObjectId?
 }
 
 ///|
@@ -14,6 +16,8 @@ pub fn log_head(
   fs : &@git.RepoFileSystem,
   git_dir : String,
   max_count? : Int = 100,
+  since? : Int64 = 0L,
+  until? : Int64 = 9223372036854775807L,
 ) -> Array[LogEntry] raise @git.GitError {
   let result : Array[LogEntry] = []
   let mut current = resolve_head_commit(fs, git_dir)
@@ -30,15 +34,40 @@ pub fn log_head(
             if o.obj_type != @git.ObjectType::Commit {
               raise @git.GitError::InvalidObject("Object is not a commit")
             }
-            let entry = parse_log_entry(id, o.data)
-            result.push(entry)
             let info = @git.parse_commit(o.data)
+            let entry = parse_log_entry(id, o.data, info.tree)
+            // Get parent tree for diff
+            let parent_tree : @git.ObjectId? = if info.parents.length() > 0 {
+              let parent_obj = db.get(fs, info.parents[0])
+              match parent_obj {
+                Some(po) => {
+                  let parent_info = @git.parse_commit(po.data)
+                  Some(parent_info.tree)
+                }
+                None => None
+              }
+            } else {
+              None
+            }
+            // Filter by since/until
+            if entry.timestamp < since {
+              // Older than since, stop traversal
+              break
+            }
+            if entry.timestamp <= until {
+              result.push(
+                {
+                  ..entry,
+                  parent_tree,
+                },
+              )
+              count += 1
+            }
             current = if info.parents.length() > 0 {
               Some(info.parents[0])
             } else {
               None
             }
-            count += 1
           }
         }
       }
@@ -53,8 +82,10 @@ pub fn log_head_oneline(
   fs : &@git.RepoFileSystem,
   git_dir : String,
   max_count? : Int = 100,
+  since? : Int64 = 0L,
+  until? : Int64 = 9223372036854775807L,
 ) -> Array[String] raise @git.GitError {
-  let entries = log_head(fs, git_dir, max_count~)
+  let entries = log_head(fs, git_dir, max_count~, since~, until~)
   let lines : Array[String] = []
   for e in entries {
     let short = log_shorten_hex(e.id.to_hex(), 7)
@@ -64,7 +95,11 @@ pub fn log_head_oneline(
 }
 
 ///|
-fn parse_log_entry(id : @git.ObjectId, data : Bytes) -> LogEntry {
+fn parse_log_entry(
+  id : @git.ObjectId,
+  data : Bytes,
+  tree : @git.ObjectId,
+) -> LogEntry {
   let text = @utf8.decode_lossy(data[:])
   let lines = text.split("\n")
   let mut author = ""
@@ -89,7 +124,7 @@ fn parse_log_entry(id : @git.ObjectId, data : Bytes) -> LogEntry {
     }
   }
   let message = if message_lines.length() > 0 { message_lines[0] } else { "" }
-  { id, message, author, timestamp }
+  { id, message, author, timestamp, tree, parent_tree: None }
 }
 
 ///|

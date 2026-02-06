@@ -284,13 +284,48 @@ fn Kv::create_merge_commit(
 ) -> @git.ObjectId raise @git.GitError {
   let hex = their_head.to_hex()
   let short_hex = String::unsafe_substring(hex, start=0, end=8)
-  let message = "Merge " + short_hex
-  // Commit the current working state
-  let commit_id = self.tree.snapshot(message, self.node_id.id, timestamp)
-  // TODO: Create proper merge commit with two parents
-  // For now, just use the snapshot commit
-  self.head = commit_id
-  commit_id
+  let message = "Merge " + short_hex + "\n"
+  // Snapshot to persist the current tree state
+  let snap_id = self.tree.snapshot(message, self.node_id.id, timestamp)
+  // Extract tree from snapshot commit
+  let store : &@lib.ObjectStore = self.store
+  let snap_obj = store.get(snap_id)
+  guard snap_obj is Some(obj) else {
+    // Fallback: use snapshot as-is
+    self.head = snap_id
+    return snap_id
+  }
+  let snap_info = @git.parse_commit(obj.data)
+  // Create proper merge commit with two parents
+  let author = self.node_id.id + " <" + self.node_id.id + ">"
+  let sb = StringBuilder::new()
+  sb.write_string("tree ")
+  sb.write_string(snap_info.tree.to_hex())
+  sb.write_char('\n')
+  sb.write_string("parent ")
+  sb.write_string(self.head.to_hex())
+  sb.write_char('\n')
+  sb.write_string("parent ")
+  sb.write_string(their_head.to_hex())
+  sb.write_char('\n')
+  sb.write_string("author ")
+  sb.write_string(author)
+  sb.write_string(" ")
+  sb.write_string(timestamp.to_string())
+  sb.write_string(" +0000\n")
+  sb.write_string("committer ")
+  sb.write_string(author)
+  sb.write_string(" ")
+  sb.write_string(timestamp.to_string())
+  sb.write_string(" +0000\n")
+  sb.write_char('\n')
+  sb.write_string(message)
+  let buf = @buffer.new()
+  buf.write_string(sb.to_string())
+  let commit_bytes = buf.to_bytes()
+  let merge_id = store.put(@git.ObjectType::Commit, commit_bytes)
+  self.head = merge_id
+  merge_id
 }
 
 ///|

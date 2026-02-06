@@ -3040,16 +3040,27 @@ async fn handle_push(args : Array[String]) -> Unit raise Error {
           print_line("Push successful")
         }
         None => {
-          ignore(force) // TODO: implement force push
-          let result = @gitlibnative.push_http(fs, root, url, refname)
+          let result = @gitlibnative.push_http(fs, root, url, refname, force~)
           print_line(result)
         }
       }
     }
   }
   if set_upstream {
-    // TODO: set tracking branch
-    print_line("Branch '\{refname}' set up to track remote branch.")
+    let branch_name = if refname.has_prefix("refs/heads/") {
+      (try! refname[11:]).to_string()
+    } else {
+      refname
+    }
+    @gitlib.set_config_key(
+      fs, fs, git_dir, "branch", branch_name, "remote", remote_name,
+    )
+    @gitlib.set_config_key(
+      fs, fs, git_dir, "branch", branch_name, "merge", refname,
+    )
+    print_line(
+      "Branch '\{branch_name}' set up to track remote branch '\{branch_name}' from '\{remote_name}'.",
+    )
   }
 }
 

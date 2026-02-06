@@ -107,6 +107,7 @@ pub async fn push_http(
   root : String,
   remote_url : String,
   refname : String,
+  force~ : Bool = false,
 ) -> String raise @git.GitError {
   let git_dir = sync_join_path(root, ".git")
   let actual_git_dir = if rfs.is_file(git_dir) {
@@ -124,6 +125,14 @@ pub async fn push_http(
       let remote = @protocol.Remote::new(remote_url)
       let refs = @gitnative.discover_receive_refs_http(remote)
       let old_id = sync_find_ref(refs, refname)
+      // Check fast-forward unless force
+      if not(force) && old_id != @git.ObjectId::zero() {
+        if not(sync_is_ancestor(rfs, actual_git_dir, old_id, head_id)) {
+          raise @git.GitError::InvalidObject(
+            "Updates were rejected because the tip of your current branch is behind\nits remote counterpart. If you want to force the update, use 'git push --force'.",
+          )
+        }
+      }
       let req = @protocol.PushRequest::new(old_id, head_id, refname, pack)
       @gitnative.push(remote, req)
     }

@@ -92,6 +92,8 @@ pub fn diff_stat(Array[DiffFile]) -> Array[String]
 
 pub fn diff_text(Array[DiffFile]) -> Array[String]
 
+pub fn diff_trees(&@bit.RepoFileSystem, String, @bit.ObjectId?, @bit.ObjectId) -> Array[DiffFile] raise @bit.GitError
+
 pub async fn diff_worktree(&@bit.RepoFileSystem, String) -> Array[DiffFile] raise @bit.GitError
 
 pub fn env_current_dir() -> String?
@@ -125,6 +127,8 @@ pub fn get_worktree_prunable_reason(&@bit.RepoFileSystem, String, String) -> Str
 pub fn init_repo(&@bit.FileSystem, String, default_branch? : String, bare? : Bool) -> Unit raise @bit.GitError
 
 pub fn init_repo_with_options(&@bit.FileSystem, String, InitOptions) -> Unit raise @bit.GitError
+
+pub fn is_ancestor_of(&@bit.RepoFileSystem, String, @bit.ObjectId, @bit.ObjectId) -> Bool
 
 pub fn is_bare_git_dir(String) -> Bool
 
@@ -180,9 +184,9 @@ pub fn load_rebase_state(&@bit.RepoFileSystem, String) -> RebaseState? raise @bi
 
 pub fn lock_worktree(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, reason? : String?) -> Unit raise @bit.GitError
 
-pub fn log_head(&@bit.RepoFileSystem, String, max_count? : Int) -> Array[LogEntry] raise @bit.GitError
+pub fn log_head(&@bit.RepoFileSystem, String, max_count? : Int, since? : Int64, until? : Int64) -> Array[LogEntry] raise @bit.GitError
 
-pub fn log_head_oneline(&@bit.RepoFileSystem, String, max_count? : Int) -> Array[String] raise @bit.GitError
+pub fn log_head_oneline(&@bit.RepoFileSystem, String, max_count? : Int, since? : Int64, until? : Int64) -> Array[String] raise @bit.GitError
 
 pub fn match_url_pattern(String, String) -> Bool
 
@@ -558,6 +562,8 @@ pub struct LogEntry {
   message : String
   author : String
   timestamp : Int64
+  tree : @bit.ObjectId
+  parent_tree : @bit.ObjectId?
 }
 
 pub enum MergeFavor {

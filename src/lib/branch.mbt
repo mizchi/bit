@@ -220,9 +220,21 @@ pub fn delete_branch(
   }
   // Check if branch is fully merged (unless force)
   if not(force) {
-    // TODO: implement merge check
-    // For now, skip this check
-    ()
+    let head_commit = resolve_head_commit(rfs, git_dir)
+    let branch_id = match resolve_ref(rfs, git_dir, refname) {
+      Some(id) => id
+      None =>
+        raise @git.GitError::InvalidObject("branch '\{name}' not found")
+    }
+    match head_commit {
+      Some(head_id) =>
+        if not(is_ancestor_of(rfs, git_dir, branch_id, head_id)) {
+          raise @git.GitError::InvalidObject(
+            "The branch '\{name}' is not fully merged.\nIf you are sure you want to delete it, run 'git branch -D \{name}'.",
+          )
+        }
+      None => ()
+    }
   }
   // Delete loose ref if it exists
   if rfs.is_file(ref_path) {
@@ -656,4 +668,44 @@ pub fn create_annotated_tag(
   fs.mkdir_p(tags_dir)
   let ref_path = join_path(git_dir, "refs/tags/" + name)
   fs.write_string(ref_path, tag_id.to_hex() + "\n")
+}
+
+///|
+/// Check if `ancestor` is an ancestor of `descendant` via BFS.
+pub fn is_ancestor_of(
+  fs : &@git.RepoFileSystem,
+  git_dir : String,
+  ancestor : @git.ObjectId,
+  descendant : @git.ObjectId,
+) -> Bool {
+  if ancestor == descendant {
+    return true
+  }
+  let db = ObjectDb::load(fs, git_dir) catch { _ => return false }
+  let ancestor_hex = ancestor.to_hex()
+  let visited : Map[String, Bool] = {}
+  let queue : Array[@git.ObjectId] = [descendant]
+  while queue.length() > 0 {
+    let current = queue.pop()
+    guard current is Some(cid) else { break }
+    let hex = cid.to_hex()
+    if hex == ancestor_hex {
+      return true
+    }
+    if visited.get(hex).unwrap_or(false) {
+      continue
+    }
+    visited[hex] = true
+    let obj = db.get(fs, cid) catch { _ => continue }
+    match obj {
+      Some(o) => {
+        let info = @git.parse_commit(o.data) catch { _ => continue }
+        for p in info.parents {
+          queue.push(p)
+        }
+      }
+      None => ()
+    }
+  }
+  false
 }

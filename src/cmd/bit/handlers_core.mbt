@@ -442,13 +442,19 @@ async fn handle_log(args : Array[String]) -> Unit raise Error {
   let mut graph = false
   let mut all_refs = false
   let mut decorate = false
+  let mut show_stat = false
+  let mut show_patch = false
   let mut max_count = 10
+  let mut since_ts = 0L
+  let mut until_ts = 9223372036854775807L
   for arg in args {
     match arg {
       "--oneline" => oneline = true
       "--graph" => graph = true
       "--all" => all_refs = true
       "--decorate" => decorate = true
+      "--stat" => show_stat = true
+      "-p" | "--patch" => show_patch = true
       _ if arg.has_prefix("-n") => {
         let num_str = (try! arg[2:]).to_string()
         max_count = @strconv.parse_int(num_str)
@@ -456,6 +462,16 @@ async fn handle_log(args : Array[String]) -> Unit raise Error {
       _ if arg.has_prefix("--max-count=") => {
         let num_str = (try! arg[12:]).to_string()
         max_count = @strconv.parse_int(num_str)
+      }
+      _ if arg.has_prefix("--since=") => {
+        let val = (try! arg[8:]).to_string()
+        since_ts = @strconv.parse_int64(val) catch { _ => 0L }
+      }
+      _ if arg.has_prefix("--until=") => {
+        let val = (try! arg[8:]).to_string()
+        until_ts = @strconv.parse_int64(val) catch {
+          _ => 9223372036854775807L
+        }
       }
       _ if arg.has_prefix("-") => warn_unimplemented_arg("log", arg)
       _ => ()
@@ -475,18 +491,41 @@ async fn handle_log(args : Array[String]) -> Unit raise Error {
   if graph {
     log_with_graph(rfs, git_dir, max_count, oneline, all_refs, decorate)
   } else if oneline {
-    let lines = @gitlib.log_head_oneline(fs, git_dir, max_count~)
+    let lines = @gitlib.log_head_oneline(
+      fs, git_dir, max_count~, since=since_ts, until=until_ts,
+    )
     for line in lines {
       print_line(line)
     }
   } else {
-    let entries = @gitlib.log_head(fs, git_dir, max_count~)
+    let entries = @gitlib.log_head(
+      fs, git_dir, max_count~, since=since_ts, until=until_ts,
+    )
     for entry in entries {
       print_line("commit " + entry.id.to_hex())
       print_line("Author: " + entry.author)
       print_line("")
       print_line("    " + entry.message)
       print_line("")
+      if show_stat || show_patch {
+        let diff_files = @gitlib.diff_trees(
+          rfs, git_dir, entry.parent_tree, entry.tree,
+        )
+        if show_stat {
+          let stat_lines = @gitlib.diff_stat(diff_files)
+          for line in stat_lines {
+            print_line(line)
+          }
+          print_line("")
+        }
+        if show_patch {
+          let patch_lines = @gitlib.diff_text(diff_files)
+          for line in patch_lines {
+            print_line(line)
+          }
+          print_line("")
+        }
+      }
     }
   }
 }

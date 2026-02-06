@@ -19,7 +19,7 @@ pub fn native_promisor_db(&@bit.RepoFileSystem, String, lazy_load? : Bool) -> @l
 
 pub async fn pull_http(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, Bool, rebase? : Bool) -> @bit.ObjectId? raise @bit.GitError
 
-pub async fn push_http(&@bit.RepoFileSystem, String, String, String) -> String raise @bit.GitError
+pub async fn push_http(&@bit.RepoFileSystem, String, String, String, force? : Bool) -> String raise @bit.GitError
 
 pub async fn push_http_from_commit(&@bit.RepoFileSystem, String, String, @bit.ObjectId, String) -> String raise @bit.GitError
 

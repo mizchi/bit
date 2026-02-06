@@ -480,3 +480,71 @@ fn diff_collect_tree(
 fn diff_is_tree_mode(mode : String) -> Bool {
   mode == "40000" || mode == "040000"
 }
+
+///|
+/// Diff two trees by their ObjectIds. Returns DiffFile array.
+pub fn diff_trees(
+  fs : &@git.RepoFileSystem,
+  git_dir : String,
+  old_tree : @git.ObjectId?,
+  new_tree : @git.ObjectId,
+) -> Array[DiffFile] raise @git.GitError {
+  let db = ObjectDb::load(fs, git_dir)
+  let out : Array[DiffFile] = []
+  let old_entries : Map[String, DiffHeadEntry] = {}
+  let new_entries : Map[String, DiffHeadEntry] = {}
+  match old_tree {
+    Some(ot) => diff_collect_tree(db, fs, ot, "", old_entries)
+    None => ()
+  }
+  diff_collect_tree(db, fs, new_tree, "", new_entries)
+  // Added and modified
+  for path, entry in new_entries {
+    match old_entries.get(path) {
+      None => {
+        let new_content = diff_read_blob(db, fs, entry.id)
+        if new_content is Some(_) {
+          out.push({
+            path,
+            kind: DiffKind::Added,
+            old_content: None,
+            new_content,
+            old_mode: None,
+            new_mode: Some(entry.mode),
+          })
+        }
+      }
+      Some(old_entry) =>
+        if old_entry.id != entry.id || old_entry.mode != entry.mode {
+          let old_content = diff_read_blob(db, fs, old_entry.id)
+          let new_content = diff_read_blob(db, fs, entry.id)
+          out.push({
+            path,
+            kind: DiffKind::Modified,
+            old_content,
+            new_content,
+            old_mode: Some(old_entry.mode),
+            new_mode: Some(entry.mode),
+          })
+        }
+    }
+  }
+  // Deleted
+  for path, entry in old_entries {
+    if not(new_entries.contains(path)) {
+      let old_content = diff_read_blob(db, fs, entry.id)
+      if old_content is Some(_) {
+        out.push({
+          path,
+          kind: DiffKind::Deleted,
+          old_content,
+          new_content: None,
+          old_mode: Some(entry.mode),
+          new_mode: None,
+        })
+      }
+    }
+  }
+  out.sort_by(fn(a, b) { String::compare(a.path, b.path) })
+  out
+}
