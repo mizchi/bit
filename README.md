@@ -20,6 +20,16 @@ just install  # requires MoonBit toolchain
 
 Installs to `~/.local/bin/bit`.
 
+## Shell Completion
+
+```bash
+# bash (~/.bashrc)
+eval "$(bit completion bash)"
+
+# zsh (~/.zshrc)
+eval "$(bit completion zsh)"
+```
+
 ## Subdirectory Clone
 
 Clone subdirectories directly from GitHub:
@@ -53,6 +63,30 @@ bit push origin feature
 - SHA-256 repositories and `--object-format=sha256` are not supported.
 - Git config: reads global aliases from `~/.gitconfig` (or `GIT_CONFIG_GLOBAL`) only.
 - Shell aliases (prefixed with `!`) are not supported.
+
+### Git Test Suite (git/t)
+
+706 test files from the official Git test suite are in the allowlist. Results on macOS:
+
+| | Count |
+|---|---|
+| success | 24,278 |
+| failed | 0 |
+| broken (prereq skip) | 178 |
+| total | 24,858 |
+
+178 broken tests are skipped due to missing prerequisites, not failures:
+
+| Category | Prereqs | Skips | Notes |
+|---|---|---|---|
+| Platform | MINGW, WINDOWS, NATIVE_CRLF, SYMLINKS_WINDOWS | ~72 | Windows-only tests |
+| GPG signing | GPG, GPG2, GPGSM, RFC1991 | ~127 | `brew install gnupg` to enable |
+| Terminal | TTY | ~33 | Requires interactive terminal |
+| Build config | EXPENSIVE, BIT_SHA256, PCRE, HTTP2, SANITIZE_LEAK, RUNTIME_PREFIX | ~30 | Optional build/test flags |
+| Filesystem | SETFACL, LONG_REF, TAR_HUGE, TAR_NEEDS_PAX_FALLBACK | ~10 | Platform-specific capabilities |
+| Negative prereqs | !AUTOIDENT, !CASE_INSENSITIVE_FS, !LONG_IS_64BIT, !PTHREADS, !SYMLINKS | ~7 | Tests requiring feature absence |
+
+5 test files are excluded from the allowlist: t5310 (bitmap), t5316 (delta depth), t5317 (filter-objects), t5332 (multi-pack reuse), t5400 (send-pack).
 
 ## Environment Variables
 
