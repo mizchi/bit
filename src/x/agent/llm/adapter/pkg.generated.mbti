@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/bit/x/agent/llm/adapter"
+
+import {
+  "mizchi/bit/lib",
+  "mizchi/bit/x/agent/llm",
+}
+
+// Values
+pub fn bit_kv_store(String, &@lib.WorkingTree, &@lib.ObjectStore) -> &@llm.KvStore
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

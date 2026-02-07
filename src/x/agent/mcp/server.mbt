@@ -231,6 +231,7 @@ fn handle_run_agent(id : Json, args : Json) -> String {
     agent_id: "",
     env: None,
     coord: None,
+    provider: None,
   }
   let buf = StringBuilder::new()
   log("[mcp] Running agent: task=" + task)

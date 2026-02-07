@@ -1,10 +1,6 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "mizchi/bit/x/agent/llm"
 
-import {
-  "mizchi/bit/lib",
-}
-
 // Values
 pub fn coord_append_event(String, String, CoordEvent) -> Unit
 
@@ -34,11 +30,11 @@ pub fn create_tool_registry(&ToolEnvironment) -> @mizchi/llm.ToolRegistry
 
 pub fn file_coordination_backend(String) -> &CoordinationBackend
 
-pub fn kv_coordination_backend(String, &@lib.WorkingTree, &@lib.ObjectStore) -> &CoordinationBackend
+pub fn kv_coordination_backend(String, () -> &KvStore) -> &CoordinationBackend
 
 pub fn native_tool_env(String) -> &ToolEnvironment
 
-pub fn run_llm_agent(LlmAgentConfig, on_output~ : (String) -> Unit) -> Unit
+pub fn run_llm_agent(LlmAgentConfig, on_output~ : (String) -> Unit, should_cancel? : () -> Bool) -> Unit
 
 pub fn run_orchestrator(OrchestratorConfig, on_output~ : (String) -> Unit) -> Unit
 
@@ -96,6 +92,7 @@ pub(all) struct LlmAgentConfig {
   agent_id : String
   env : &ToolEnvironment?
   coord : &CoordinationBackend?
+  provider : @mizchi/llm.BoxedProvider?
 }
 
 pub(all) struct OrchestratorConfig {
@@ -107,11 +104,18 @@ pub(all) struct OrchestratorConfig {
   target_branch : String
   auto_pr : Bool
   verbose : Bool
+  in_process : Bool
 }
 
 // Type aliases
 
 // Traits
+pub(open) trait AgentRunner {
+  spawn_agent(Self, LlmAgentConfig, String) -> String
+  wait_all(Self, String, Int, (String) -> Unit) -> Unit
+  cancel_agent(Self, String) -> Unit
+}
+
 pub(open) trait CoordinationBackend {
   init_session(Self, String) -> String
   init_agent(Self, String, String) -> Unit
@@ -124,6 +128,15 @@ pub(open) trait CoordinationBackend {
   read_all_agents(Self, String) -> Array[AgentSnapshot]
   read_events_since(Self, String, String, Int) -> Array[String]
   cleanup(Self, String) -> Unit
+}
+
+pub(open) trait KvStore {
+  get_string(Self, String) -> String
+  set_string(Self, String, String) -> Unit
+  delete(Self, String) -> Unit
+  list(Self, String) -> Array[String]
+  list_recursive(Self, String) -> Array[String]
+  commit(Self, String) -> Unit
 }
 
 pub(open) trait ToolEnvironment {

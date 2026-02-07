@@ -15,6 +15,7 @@ pub(all) struct LlmAgentConfig {
   agent_id : String // empty = no coordination
   env : &ToolEnvironment? // None = use NativeToolEnvironment
   coord : &CoordinationBackend? // None = use FileCoordinationBackend
+  provider : @llmlib.BoxedProvider? // None = create_provider(provider_name, model, ...)
 }
 
 ///|
@@ -156,14 +157,14 @@ pub fn create_provider(
 pub fn run_llm_agent(
   config : LlmAgentConfig,
   on_output~ : (String) -> Unit,
+  should_cancel? : () -> Bool = fn() { false },
 ) -> Unit {
   let log = fn(s : String) { on_output(s + "\n") }
   let system_prompt = build_system_prompt(config.work_dir, config.task)
-  let provider = create_provider(
-    config.provider_name,
-    config.model,
-    system_prompt,
-  )
+  let provider = match config.provider {
+    Some(p) => p
+    None => create_provider(config.provider_name, config.model, system_prompt)
+  }
   let env : &ToolEnvironment = match config.env {
     Some(e) => e
     None => native_tool_env(config.work_dir)
@@ -193,11 +194,12 @@ pub fn run_llm_agent(
   }
   let text_buf = StringBuilder::new()
   let mut tools_in_step = 0
-  @llmlib.run_agent(
+  @llmlib.run_agent_cancellable(
     provider,
     registry,
     messages,
     @llmlib.StopCondition::MaxSteps(config.max_steps),
+    should_cancel,
     fn(event) {
       match event {
         Stream(stream_event) =>

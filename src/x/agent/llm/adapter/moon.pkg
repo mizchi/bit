@@ -1,0 +1,18 @@
+import {
+  "mizchi/bit/x/agent/llm" as @agent,
+  "mizchi/bit/x/kv" as @kv,
+  "mizchi/bit" as @git,
+  "mizchi/bit/lib" as @lib,
+  "moonbitlang/core/encoding/utf8" as @utf8,
+}
+
+import "wbtest" {
+  "mizchi/bit/x/fs" as @fs,
+}
+
+options(
+  targets: {
+    "bit_kv_adapter.mbt": [ "native" ],
+    "bit_kv_adapter_wbtest.mbt": [ "native" ],
+  },
+)

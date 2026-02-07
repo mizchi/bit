@@ -1,4 +1,4 @@
-///| Tests for KV-based CoordinationBackend
+///| Tests for KV-based CoordinationBackend via BitKvAdapter
 
 ///|
 priv struct KvTestWorkingTree {
@@ -102,7 +102,7 @@ impl @lib.ObjectStore for KvTestObjectStore with has(self, id) {
 }
 
 ///|
-fn make_test_kv_coord() -> &CoordinationBackend {
+fn make_test_kv_coord() -> &@agent.CoordinationBackend {
   let testfs = @git.TestFs::new()
   let git_dir = "/repo/.git"
   let bitfs = @fs.Fs::empty(git_dir)
@@ -116,7 +116,7 @@ fn make_test_kv_coord() -> &CoordinationBackend {
     write_fs: testfs,
     git_dir,
   }
-  kv_coordination_backend("test-node", fn() {
+  @agent.kv_coordination_backend("test-node", fn() {
     bit_kv_store("test-node", tree, store)
   })
 }
@@ -128,7 +128,7 @@ test "kv coord write and read status" {
   coord.init_agent(session, "agent-0")
   coord.write_status(session, "agent-0", Running)
   let status = coord.read_status(session, "agent-0")
-  assert_true(status == Running)
+  assert_true(status == @agent.Running)
 }
 
 ///|
@@ -150,8 +150,16 @@ test "kv coord append and read events" {
   let coord = make_test_kv_coord()
   let session = coord.init_session("test-session")
   coord.init_agent(session, "agent-0")
-  coord.append_event(session, "agent-0", StepCompleted(step=1, tools_called=3))
-  coord.append_event(session, "agent-0", FileChanged(path="src/main.mbt"))
+  coord.append_event(
+    session,
+    "agent-0",
+    @agent.StepCompleted(step=1, tools_called=3),
+  )
+  coord.append_event(
+    session,
+    "agent-0",
+    @agent.FileChanged(path="src/main.mbt"),
+  )
   let events = coord.read_events_since(session, "agent-0", 0)
   assert_eq(events.length(), 2)
   assert_true(events[0].contains("step_completed"))

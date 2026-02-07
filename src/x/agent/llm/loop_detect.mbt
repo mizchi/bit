@@ -10,17 +10,20 @@ priv struct LoopTracker {
 
 ///|
 fn LoopTracker::new(
-  max_repeat~ : Int = 3,
-  write_nudge_threshold~ : Int = 10,
+  max_repeat? : Int = 3,
+  write_nudge_threshold? : Int = 10,
 ) -> LoopTracker {
-  { history: [], max_repeat, calls_since_write: 0, write_nudge_threshold, }
+  { history: [], max_repeat, calls_since_write: 0, write_nudge_threshold }
 }
 
 ///|
 fn extract_tool_key(name : String, input : Json) -> String {
   match name {
-    "read_file" | "write_file" | "remove_file" | "list_directory" |
-    "list_files_recursive" => json_get_str(input, "path")
+    "read_file"
+    | "write_file"
+    | "remove_file"
+    | "list_directory"
+    | "list_files_recursive" => json_get_str(input, "path")
     "search_text" => json_get_str(input, "pattern")
     "run_command" => json_get_str(input, "command")
     _ => ""

@@ -99,6 +99,7 @@ test "progress nudge does not fire on non-read-only tools" {
     let _ = tracker.check_and_record("run_command", {
       "command": "cmd" + i.to_string(),
     })
+
   }
   // run_command is not read-only, so no progress nudge
   let r = tracker.check_and_record("run_command", { "command": "cmd4" })

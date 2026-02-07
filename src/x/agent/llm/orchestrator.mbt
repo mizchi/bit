@@ -31,7 +31,12 @@ pub(open) trait AgentRunner {
   /// Spawn an agent. Returns a handle identifier (e.g., PID string or agent_id).
   spawn_agent(Self, config : LlmAgentConfig, log_file : String) -> String
   /// Wait for all spawned agents to complete. Polls/blocks until done or timeout.
-  wait_all(Self, session_dir : String, timeout_seconds : Int, log : (String) -> Unit) -> Unit
+  wait_all(
+    Self,
+    session_dir : String,
+    timeout_seconds : Int,
+    log : (String) -> Unit,
+  ) -> Unit
   /// Cancel a specific agent by its handle/id.
   cancel_agent(Self, handle : String) -> Unit
 }
@@ -51,15 +56,11 @@ fn ProcessAgentRunner::new(
   model : String,
   verbose : Bool,
 ) -> ProcessAgentRunner {
-  { bit_binary: find_bit_binary(), provider_name, model, verbose, }
+  { bit_binary: find_bit_binary(), provider_name, model, verbose }
 }
 
 ///|
-impl AgentRunner for ProcessAgentRunner with spawn_agent(
-  self,
-  config,
-  log_file,
-) {
+impl AgentRunner for ProcessAgentRunner with spawn_agent(self, config, log_file) {
   let cmd = "nohup " +
     shell_escape(self.bit_binary) +
     " agent llm" +
@@ -164,6 +165,7 @@ impl AgentRunner for ProcessAgentRunner with cancel_agent(_self, handle) {
 priv struct InProcessAgentRunner {
   verbose : Bool
   results : Map[String, Bool] // agent_id -> completed
+  cancelled : Map[String, Bool]
 }
 
 ///|
@@ -172,7 +174,7 @@ fn InProcessAgentRunner::new(
   _model : String,
   verbose : Bool,
 ) -> InProcessAgentRunner {
-  { verbose, results: {}, }
+  { verbose, results: {}, cancelled: {} }
 }
 
 ///|
@@ -181,14 +183,13 @@ impl AgentRunner for InProcessAgentRunner with spawn_agent(
   config,
   _log_file,
 ) {
-  // Run the agent immediately (blocking)
-  run_llm_agent(config, on_output=fn(s) {
-    if self.verbose {
-      ignore(s)
-    }
+  let agent_id = config.agent_id
+  // Run the agent immediately (blocking) with cancellation support
+  run_llm_agent(config, on_output=fn(s) { if self.verbose { ignore(s) } }, should_cancel=fn() {
+    self.cancelled.get(agent_id) == Some(true)
   })
-  self.results[config.agent_id] = true
-  config.agent_id
+  self.results[agent_id] = true
+  agent_id
 }
 
 ///|
@@ -202,11 +203,8 @@ impl AgentRunner for InProcessAgentRunner with wait_all(
 }
 
 ///|
-impl AgentRunner for InProcessAgentRunner with cancel_agent(
-  _self,
-  _handle,
-) {
-  // No-op: in-process agents run to completion
+impl AgentRunner for InProcessAgentRunner with cancel_agent(self, handle) {
+  self.cancelled[handle] = true
 }
 
 ///|
@@ -275,14 +273,15 @@ fn validate_file_overlap(plans : Array[SubtaskPlan]) -> Array[String] {
   for i, plan in plans {
     for file in plan.files {
       match seen.get(file) {
-        Some(prev) => conflicts.push(
-          file +
-          " (subtask " +
-          prev.to_string() +
-          " and " +
-          i.to_string() +
-          ")",
-        )
+        Some(prev) =>
+          conflicts.push(
+            file +
+            " (subtask " +
+            prev.to_string() +
+            " and " +
+            i.to_string() +
+            ")",
+          )
         None => seen[file] = i
       }
     }
@@ -354,9 +353,7 @@ fn plan_subtasks(
     if plan.files.is_empty() {
       tasks.push(plan.task)
     } else {
-      tasks.push(
-        plan.task + " (files: " + plan.files.join(", ") + ")",
-      )
+      tasks.push(plan.task + " (files: " + plan.files.join(", ") + ")")
     }
   }
   tasks
@@ -472,6 +469,7 @@ pub fn run_orchestrator(
       agent_id: "",
       env: None,
       coord: None,
+      provider: None,
     }
     run_llm_agent(agent_config, on_output~)
     return
@@ -552,6 +550,7 @@ pub fn run_orchestrator(
       agent_id: w.agent_id,
       env: None,
       coord: None,
+      provider: None,
     }
     let handle = runner.spawn_agent(agent_config, log_file)
     if not(config.in_process) {

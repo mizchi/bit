@@ -455,6 +455,7 @@ fn handle_agent_llm(args : Array[String]) -> Unit {
       agent_id: agent_id_flag,
       env: None,
       coord: None,
+      provider: None,
     }
     @agent_llm.run_llm_agent(config, on_output=output)
   }

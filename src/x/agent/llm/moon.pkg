@@ -6,22 +6,16 @@ import {
   "mizchi/llm/claude_code" as @claude_code,
   "moonbitlang/core/json" as @json,
   "moonbitlang/core/strconv" as @strconv,
-  "mizchi/bit/x/kv" as @kv,
-  "mizchi/bit" as @git,
-  "mizchi/bit/lib" as @lib,
-  "moonbitlang/core/encoding/utf8" as @utf8,
-}
-
-import "wbtest" {
-  "mizchi/bit/x/fs" as @fs,
 }
 
 options(
   targets: {
+    "agent_e2e_wbtest.mbt": [ "native" ],
     "coord.mbt": [ "native" ],
     "coord_kv.mbt": [ "native" ],
-    "coord_kv_wbtest.mbt": [ "native" ],
     "coord_wbtest.mbt": [ "native" ],
+    "loop_detect.mbt": [ "native" ],
+    "loop_detect_wbtest.mbt": [ "native" ],
     "orchestrator.mbt": [ "native" ],
     "runner.mbt": [ "native" ],
     "runner_wbtest.mbt": [ "native" ],
@@ -29,7 +23,5 @@ options(
     "tool_env_wbtest.mbt": [ "native" ],
     "tools.mbt": [ "native" ],
     "tools_wbtest.mbt": [ "native" ],
-    "loop_detect.mbt": [ "native" ],
-    "loop_detect_wbtest.mbt": [ "native" ],
   },
 )
