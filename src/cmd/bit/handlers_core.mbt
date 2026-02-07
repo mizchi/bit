@@ -207,6 +207,10 @@ async fn handle_status(args : Array[String]) -> Unit raise Error {
 
 ///|
 async fn handle_add(args : Array[String]) -> Unit raise Error {
+  if has_interactive_add_flag(args) {
+    run_add_interactive(args)
+    return
+  }
   let root = get_work_root()
   let fs = OsFs::new()
   let mut add_all = false

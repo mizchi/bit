@@ -514,14 +514,20 @@ async fn interactive_rebase_start(
   wfs.write_string(rebase_dir + "/onto", onto.to_hex() + "\n")
   // Generate todo file
   let todo = generate_rebase_todo(db, rfs, commits)
-  wfs.write_string(rebase_dir + "/git-rebase-todo", todo)
+  let todo_path = rebase_dir + "/git-rebase-todo"
+  wfs.write_string(todo_path, todo)
   // Also save done file (empty initially)
   wfs.write_string(rebase_dir + "/done", "")
   // Checkout onto
   ignore(@gitlib.checkout(wfs, rfs, root, onto.to_hex(), detach=true))
+  let edited = edit_rebase_todo(todo_path)
+  if edited {
+    interactive_rebase_continue(wfs, rfs, root, git_dir)
+    return
+  }
   print_line("Interactive rebase started.")
   print_line("")
-  print_line("Edit the todo file at: \{rebase_dir}/git-rebase-todo")
+  print_line("Edit the todo file at: \{todo_path}")
   print_line("")
   print_line("Commands:")
   print_line(" p, pick   = use commit")
@@ -531,7 +537,9 @@ async fn interactive_rebase_start(
   print_line(" f, fixup  = like squash, but discard commit message")
   print_line(" d, drop   = remove commit")
   print_line("")
-  print_line("Then run 'git rebase --continue' to proceed.")
+  print_line(
+    "Set GIT_SEQUENCE_EDITOR (or EDITOR), then run 'git rebase --continue'.",
+  )
 }
 
 ///|
@@ -567,7 +575,7 @@ fn generate_rebase_todo(
 ) -> String raise Error {
   let sb = StringBuilder::new()
   for commit in commits {
-    let short_hex = String::unsafe_substring(commit.to_hex(), start=0, end=7)
+    let full_hex = commit.to_hex()
     let obj = db.get(rfs, commit)
     let subject = match obj {
       Some(o) => {
@@ -577,7 +585,7 @@ fn generate_rebase_todo(
       None => "???"
     }
     sb.write_string("pick ")
-    sb.write_string(short_hex)
+    sb.write_string(full_hex)
     sb.write_string(" ")
     sb.write_string(subject)
     sb.write_string("\n")
