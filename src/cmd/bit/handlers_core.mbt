@@ -317,12 +317,19 @@ async fn handle_commit(args : Array[String]) -> Unit raise Error {
       @gitlib.add_paths_async(fs, fs, root, paths_to_add)
     }
   }
-  // For amend, get previous message if none specified
-  if amend && message is None {
-    message = get_head_commit_message(fs, root)
+  // Open editor when message is not specified.
+  if message is None {
+    let initial_message = if amend {
+      get_head_commit_message(fs, root)
+    } else {
+      None
+    }
+    message = read_commit_message_from_editor(fs, root, initial_message~)
   }
   guard message is Some(msg) else {
-    raise @git.GitError::InvalidObject("No commit message specified")
+    raise @git.GitError::InvalidObject(
+      "Aborting commit due to empty commit message.",
+    )
   }
   let default_author = get_author_string()
   let default_timestamp = get_commit_timestamp()
