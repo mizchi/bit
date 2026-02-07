@@ -319,6 +319,10 @@ fn resolve_git_dir(fs : &@git.RepoFileSystem, root : String) -> String {
       }
       if fs.is_file(resolved) {
         @gitlib.resolve_gitdir(fs, resolved)
+      } else if fs.is_dir(resolved) {
+        resolved
+      } else if is_bare_repo_dir(root) {
+        root
       } else {
         resolved
       }

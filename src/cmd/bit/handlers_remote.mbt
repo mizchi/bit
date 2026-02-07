@@ -2476,6 +2476,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
   let mut depth = 0
   let mut filter = @protocol.FilterSpec::NoFilter
   let mut has_filter_flag = false
+  let mut recursive = false
   let mut bare = false
   let mut ref_spec : String? = None
   let mut i = 0
@@ -2502,6 +2503,11 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
     }
     if arg == "--bare" {
       bare = true
+      i += 1
+      continue
+    }
+    if arg == "--recursive" {
+      recursive = true
       i += 1
       continue
     }
@@ -2535,6 +2541,16 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
     raise @git.GitError::InvalidObject("repository URL required")
   }
   if has_filter_flag {
+    match real_git_path() {
+      Some(real_git) => {
+        let real_args = real_git_args_from_cli()
+        let code = @process.run(real_git, real_args)
+        @sys.exit(code)
+      }
+      None => ()
+    }
+  }
+  if recursive {
     match real_git_path() {
       Some(real_git) => {
         let real_args = real_git_args_from_cli()
@@ -2810,6 +2826,23 @@ async fn handle_pull(args : Array[String]) -> Unit raise Error {
   let git_dir = root + "/.git"
   let fs = OsFs::new()
   let rfs : &@git.RepoFileSystem = fs
+  if rfs.is_file(git_dir) {
+    let gitfile = decode_bytes(
+      rfs.read_file(git_dir) catch {
+        _ => Bytes::default()
+      },
+    )
+    if gitfile.contains("modules/") {
+      match real_git_path() {
+        Some(real_git) => {
+          let real_args = real_git_args_from_cli()
+          let code = @process.run(real_git, real_args, inherit_env=true)
+          @sys.exit(code)
+        }
+        None => ()
+      }
+    }
+  }
   let git_dir = if rfs.is_file(git_dir) {
     @gitlib.resolve_gitdir(rfs, git_dir)
   } else {

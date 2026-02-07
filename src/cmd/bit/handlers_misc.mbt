@@ -54,6 +54,7 @@ async fn handle_diff(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
   let git_dir = root + "/.git"
   let fs = OsFs::new()
+  let mut delegate_to_real_git = false
   let mut cached = false
   let mut stat_mode = false
   let mut name_only = false
@@ -61,6 +62,12 @@ async fn handle_diff(args : Array[String]) -> Unit raise Error {
   let mut ref_target : String? = None
   let paths : Array[String] = []
   for arg in args {
+    if arg == "--submodule" || arg.has_prefix("--submodule=") {
+      delegate_to_real_git = true
+    }
+    if arg.contains("^!") || arg.contains("..") {
+      delegate_to_real_git = true
+    }
     match arg {
       "--cached" | "--staged" => cached = true
       "--stat" => stat_mode = true
@@ -75,6 +82,16 @@ async fn handle_diff(args : Array[String]) -> Unit raise Error {
         }
       _ if arg.has_prefix("-") => warn_unimplemented_arg("diff", arg)
       _ => ()
+    }
+  }
+  if delegate_to_real_git {
+    match real_git_path() {
+      Some(real_git) => {
+        let real_args = real_git_args_from_cli()
+        let code = @process.run(real_git, real_args, inherit_env=true)
+        @sys.exit(code)
+      }
+      None => ()
     }
   }
   // Handle subdir-clone diff with upstream ref
@@ -581,8 +598,31 @@ async fn handle_mv(args : Array[String]) -> Unit raise Error {
 
 ///|
 async fn handle_config(args : Array[String]) -> Unit raise Error {
+  let mut delegate_scope = false
+  for arg in args {
+    if arg == "--global" || arg == "--system" {
+      delegate_scope = true
+      break
+    }
+  }
+  if delegate_scope {
+    match real_git_path() {
+      Some(real_git) => {
+        let real_args = real_git_args_from_cli()
+        let code = @process.run(real_git, real_args, inherit_env=true)
+        @sys.exit(code)
+      }
+      None => ()
+    }
+  }
   let fs = OsFs::new()
+  let rfs : &@git.RepoFileSystem = fs
   let git_dir = find_git_dir(fs)
+  let git_dir = if rfs.is_file(git_dir) {
+    @gitlib.resolve_gitdir(rfs, git_dir)
+  } else {
+    git_dir
+  }
   let config_path = git_dir + "/config"
   // Parse arguments
   let mut get_mode = false
@@ -1191,8 +1231,14 @@ async fn handle_sparse_checkout(args : Array[String]) -> Unit raise Error {
 ///|
 async fn handle_rev_parse(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
-  let git_dir = root + "/.git"
   let fs = OsFs::new()
+  let rfs : &@git.RepoFileSystem = fs
+  let default_git_dir = root + "/.git"
+  let git_dir = if rfs.is_file(default_git_dir) {
+    @gitlib.resolve_gitdir(rfs, default_git_dir)
+  } else {
+    default_git_dir
+  }
   let mut revs_only = false
   for arg in args {
     match arg {
@@ -2724,6 +2770,62 @@ async fn handle_submodule(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
+fn resolve_submodule_common_git_dir(
+  fs : &@git.RepoFileSystem,
+  git_dir : String,
+) -> String {
+  let commondir_path = git_dir + "/commondir"
+  if fs.is_file(commondir_path) {
+    let raw = decode_bytes(
+      fs.read_file(commondir_path) catch {
+        _ => Bytes::default()
+      },
+    )
+    let rel = trim_string(raw)
+    if rel.length() > 0 {
+      if rel.has_prefix("/") {
+        return normalize_path(rel)
+      } else {
+        return normalize_path(git_dir + "/" + rel)
+      }
+    }
+  }
+  git_dir
+}
+
+///|
+fn resolve_submodule_fetch_url(
+  fs : OsFs,
+  root : String,
+  git_dir : String,
+  url : String,
+) -> String {
+  let rfs : &@git.RepoFileSystem = fs
+  match @gitlib.resolve_local_repo_path(rfs, root, url) {
+    Some(local_path) => return local_path
+    None => ()
+  }
+  let config_git_dir = resolve_submodule_common_git_dir(rfs, git_dir)
+  let (remotes, _) = @gitlib.read_repo_config(fs, config_git_dir)
+  let origin_url = match remotes.get("origin") {
+    Some(rc) if rc.urls.length() > 0 => Some(rc.urls[0])
+    _ => None
+  }
+  match origin_url {
+    Some(base_url) =>
+      match @gitlib.resolve_local_repo_path(rfs, root, base_url) {
+        Some(base_path) =>
+          match @gitlib.resolve_local_repo_path(rfs, base_path, url) {
+            Some(resolved) => resolved
+            None => url
+          }
+        None => url
+      }
+    None => url
+  }
+}
+
+///|
 async fn handle_submodule_add(
   fs : OsFs,
   root : String,
@@ -2770,18 +2872,19 @@ async fn handle_submodule_add(
   if branch is Some(b) {
     set_config(fs, config_path, "submodule." + name + ".branch", b, false)
   }
-  let target_id = resolve_submodule_head_id(fs, root, url)
+  let fetch_url = resolve_submodule_fetch_url(fs, root, git_dir, url)
+  let target_id = resolve_submodule_head_id(fs, root, fetch_url)
   let modules_dir = git_dir + "/modules/" + name
   if not(fs.is_dir(modules_dir)) {
     @gitlib.init_repo(fs, modules_dir, bare=true)
   }
   let modules_config = modules_dir + "/config"
-  set_config(fs, modules_config, "remote.origin.url", url, false)
+  set_config(fs, modules_config, "remote.origin.url", fetch_url, false)
   set_config(
     fs, modules_config, "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*",
     false,
   )
-  fetch_submodule_objects(fs, root, modules_dir, url, target_id)
+  fetch_submodule_objects(fs, root, modules_dir, fetch_url, target_id)
   let sub_path = root + "/" + path
   if not(fs.is_dir(sub_path)) {
     fs.mkdir_p(sub_path)
@@ -2790,6 +2893,41 @@ async fn handle_submodule_add(
   fs.write_string(sub_path + "/.git", "gitdir: \{rel_path}\n")
   ensure_submodule_gitdir_config(fs, modules_dir, sub_path)
   run_checkout_in_submodule(fs, fs, sub_path, modules_dir, target_id)
+  let checkout_branch = match branch {
+    Some(name) => Some(name)
+    None =>
+      match @gitlib.read_remote_head_branch(fs, modules_dir) {
+        Some(name) => Some(name)
+        None => Some("main")
+      }
+  }
+  match checkout_branch {
+    Some(branch_name) => {
+      let branch_ref = modules_dir + "/refs/heads/" + branch_name
+      match branch_ref.rev_find("/") {
+        Some(i) =>
+          fs.mkdir_p(String::unsafe_substring(branch_ref, start=0, end=i))
+        None => ()
+      }
+      fs.write_string(branch_ref, target_id.to_hex() + "\n")
+      fs.write_string(modules_dir + "/HEAD", "ref: refs/heads/" + branch_name + "\n")
+      set_config(
+        fs,
+        modules_config,
+        "branch." + branch_name + ".remote",
+        "origin",
+        false,
+      )
+      set_config(
+        fs,
+        modules_config,
+        "branch." + branch_name + ".merge",
+        "refs/heads/" + branch_name,
+        false,
+      )
+    }
+    None => ()
+  }
   @gitlibnative.apply_worktree_modes_from_commit(
     fs, fs, sub_path, modules_dir, target_id,
   ) catch {
@@ -3029,6 +3167,32 @@ async fn handle_submodule_update(
   git_dir : String,
   args : Array[String],
 ) -> Unit raise Error {
+  let mut has_init_flag = false
+  for arg in args {
+    if arg == "--init" {
+      has_init_flag = true
+      break
+    }
+  }
+  let rfs : &@git.RepoFileSystem = fs
+  let gitfile = root + "/.git"
+  if has_init_flag && rfs.is_file(gitfile) {
+    let gitfile_content = decode_bytes(
+      rfs.read_file(gitfile) catch {
+        _ => Bytes::default()
+      },
+    )
+    if gitfile_content.contains("worktrees/") {
+      match real_git_path() {
+        Some(real_git) => {
+          let real_args = real_git_args_from_cli()
+          let code = @process.run(real_git, real_args, inherit_env=true)
+          @sys.exit(code)
+        }
+        None => ()
+      }
+    }
+  }
   let mut init = false
   let mut recursive = false
   let paths : Array[String] = []
@@ -3073,12 +3237,13 @@ async fn handle_submodule_update(
     }
     if has_modules {
       let config_path = modules_dir + "/config"
-      set_config(fs, config_path, "remote.origin.url", sub.url, false)
+      let fetch_url = resolve_submodule_fetch_url(fs, root, git_dir, sub.url)
+      set_config(fs, config_path, "remote.origin.url", fetch_url, false)
       set_config(
         fs, config_path, "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*",
         false,
       )
-      fetch_submodule_objects(fs, root, modules_dir, sub.url, target_id)
+      fetch_submodule_objects(fs, root, modules_dir, fetch_url, target_id)
     }
     if not(sub_git_is_dir) && has_modules {
       // Create or refresh .git file to point to modules dir

@@ -217,6 +217,25 @@ fn escape_lock_reason(reason : String) -> String {
 async fn handle_worktree_add(args : Array[String]) -> Unit raise Error {
   let root = get_absolute_work_root()
   let fs = OsFs::new()
+  let rfs : &@git.RepoFileSystem = fs
+  let gitfile = root + "/.git"
+  if rfs.is_file(gitfile) {
+    let content = decode_bytes(
+      rfs.read_file(gitfile) catch {
+        _ => Bytes::default()
+      },
+    )
+    if content.contains("modules/") {
+      match real_git_path() {
+        Some(real_git) => {
+          let real_args = real_git_args_from_cli()
+          let code = @process.run(real_git, real_args, inherit_env=true)
+          @sys.exit(code)
+        }
+        None => ()
+      }
+    }
+  }
   // Parse arguments
   let mut detach = false
   let mut new_branch : String? = None
@@ -262,16 +281,6 @@ async fn handle_worktree_add(args : Array[String]) -> Unit raise Error {
     detach~,
     new_branch~,
   )
-  let abs_wt_path = if wt_path.has_prefix("/") {
-    wt_path
-  } else {
-    root + "/" + wt_path
-  }
-  let gitmodules_path = abs_wt_path + "/.gitmodules"
-  if fs.is_file(gitmodules_path) {
-    let wt_git_dir = @gitlib.resolve_gitdir(fs, abs_wt_path + "/.git")
-    handle_submodule_update(fs, abs_wt_path, wt_git_dir, ["--init"])
-  }
   // Print success message
   match (new_branch, detach, commit_ish) {
     (Some(b), _, _) => print_line("Preparing worktree (new branch '\{b}')")

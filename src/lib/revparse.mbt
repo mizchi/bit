@@ -122,6 +122,93 @@ fn substring_revparse(s : String, start : Int, end : Int) -> String {
 }
 
 ///|
+fn is_hex_char(c : Char) -> Bool {
+  (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+}
+
+///|
+fn is_hex_string(s : String) -> Bool {
+  if s.length() == 0 {
+    return false
+  }
+  for c in s {
+    if not(is_hex_char(c)) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn lower_hex_string(s : String) -> String {
+  let out = StringBuilder::new()
+  for c in s {
+    if c >= 'A' && c <= 'F' {
+      out.write_char((c.to_int() + 32).unsafe_to_char())
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn resolve_abbrev_ref_id(
+  fs : &@git.RepoFileSystem,
+  git_dir : String,
+  spec : String,
+) -> @git.ObjectId? raise @git.GitError {
+  if spec.length() < 4 || spec.length() >= 40 || not(is_hex_string(spec)) {
+    return None
+  }
+  let needle = lower_hex_string(spec)
+  let refs = show_ref(fs, git_dir)
+  let db = ObjectDb::load(fs, git_dir)
+  let queue : Array[@git.ObjectId] = []
+  let seen : Map[String, Bool] = {}
+  for item in refs {
+    let (_, id) = item
+    queue.push(id)
+  }
+  match resolve_head_commit(fs, git_dir) {
+    Some(id) => queue.push(id)
+    None => ()
+  }
+  let mut matched : @git.ObjectId? = None
+  while queue.length() > 0 {
+    let id = match queue.pop() {
+      Some(oid) => oid
+      None => break
+    }
+    let hex = id.to_hex()
+    if seen.contains(hex) {
+      continue
+    }
+    seen[hex] = true
+    if hex.has_prefix(needle) {
+      match matched {
+        None => matched = Some(id)
+        Some(prev) =>
+          if prev != id {
+            return None
+          }
+      }
+    }
+    match db.get(fs, id) {
+      Some(obj) =>
+        if obj.obj_type == @git.ObjectType::Commit {
+          let info = @git.parse_commit(obj.data)
+          for parent in info.parents {
+            queue.push(parent)
+          }
+        }
+      None => ()
+    }
+  }
+  matched
+}
+
+///|
 /// Resolve base reference (without suffix)
 fn resolve_base_ref(
   fs : &@git.RepoFileSystem,
@@ -134,10 +221,13 @@ fn resolve_base_ref(
   if spec.has_prefix("refs/") {
     return resolve_ref(fs, git_dir, spec)
   }
-  if spec.length() == 40 {
+  if spec.length() == 40 && is_hex_string(spec) {
     match @git.ObjectId::from_hex(spec) {
       id => return Some(id)
     }
+  }
+  if resolve_abbrev_ref_id(fs, git_dir, spec) is Some(id) {
+    return Some(id)
   }
   if resolve_ref(fs, git_dir, "refs/heads/" + spec) is Some(id) {
     return Some(id)

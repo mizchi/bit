@@ -387,9 +387,26 @@ pub fn resolve_ref(
   git_dir : String,
   refname : String,
 ) -> @git.ObjectId? raise @git.GitError {
+  resolve_ref_inner(fs, git_dir, refname, 0)
+}
+
+///|
+fn resolve_ref_inner(
+  fs : &@git.RepoFileSystem,
+  git_dir : String,
+  refname : String,
+  depth : Int,
+) -> @git.ObjectId? raise @git.GitError {
+  if depth > 8 {
+    return None
+  }
   let path = join_path(git_dir, refname)
   if fs.is_file(path) {
     let line = read_ref_line(fs, path)
+    if line.has_prefix("ref: ") {
+      let target = String::unsafe_substring(line, start=5, end=line.length())
+      return resolve_ref_inner(fs, git_dir, target, depth + 1)
+    }
     return line |> @git.ObjectId::from_hex |> Some
   }
   let packed = join_path(git_dir, "packed-refs")

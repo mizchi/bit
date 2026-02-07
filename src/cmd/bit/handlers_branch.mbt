@@ -225,6 +225,19 @@ async fn handle_checkout(args : Array[String]) -> Unit raise Error {
   } else {
     git_dir
   }
+  for arg in args {
+    if arg == "--recurse-submodules" ||
+      arg.has_prefix("--recurse-submodules=") {
+      match real_git_path() {
+        Some(real_git) => {
+          let real_args = real_git_args_from_cli()
+          let code = @process.run(real_git, real_args, inherit_env=true)
+          @sys.exit(code)
+        }
+        None => ()
+      }
+    }
+  }
   // Parse arguments
   let mut saw_separator = false
   let mut create_branch = false

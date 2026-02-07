@@ -239,6 +239,7 @@ async fn handle_add(args : Array[String]) -> Unit raise Error {
     }
     if all_paths.length() > 0 {
       @gitlib.add_paths_async(fs, fs, root, all_paths)
+      stage_submodule_gitlinks(fs, root, all_paths)
     }
     return
   }
@@ -246,6 +247,53 @@ async fn handle_add(args : Array[String]) -> Unit raise Error {
     raise @git.GitError::InvalidObject("Nothing specified, nothing added.")
   }
   @gitlib.add_paths_async(fs, fs, root, paths)
+  stage_submodule_gitlinks(fs, root, paths)
+}
+
+///|
+fn normalize_add_path(path : String) -> String {
+  let mut out = path
+  while out.has_prefix("./") {
+    out = String::unsafe_substring(out, start=2, end=out.length())
+  }
+  while out.length() > 1 && out.has_suffix("/") {
+    out = String::unsafe_substring(out, start=0, end=out.length() - 1)
+  }
+  out
+}
+
+///|
+fn stage_submodule_gitlinks(
+  fs : OsFs,
+  root : String,
+  paths : Array[String],
+) -> Unit raise Error {
+  let rfs : &@git.RepoFileSystem = fs
+  let default_git_dir = root + "/.git"
+  let git_dir = if rfs.is_file(default_git_dir) {
+    @gitlib.resolve_gitdir(rfs, default_git_dir)
+  } else {
+    default_git_dir
+  }
+  for raw_path in paths {
+    let rel_path = normalize_add_path(raw_path)
+    if rel_path == "." || rel_path.length() == 0 {
+      continue
+    }
+    let sub_path = root + "/" + rel_path
+    let sub_git = sub_path + "/.git"
+    let sub_git_dir = if rfs.is_file(sub_git) {
+      @gitlib.resolve_gitdir(rfs, sub_git)
+    } else if rfs.is_dir(sub_git) {
+      sub_git
+    } else {
+      continue
+    }
+    match @gitlib.resolve_head_commit(rfs, sub_git_dir) {
+      Some(id) => update_submodule_index_entry(fs, git_dir, rel_path, id)
+      None => ()
+    }
+  }
 }
 
 ///|
@@ -929,9 +977,21 @@ async fn handle_show(args : Array[String]) -> Unit raise Error {
   // Parse: git show [--pretty=<format>] [<commit>]
   let mut rev = "HEAD"
   let mut pretty_raw = false
+  let mut pretty_format : String? = None
+  let mut quiet = false
   for arg in args {
     if arg == "--pretty=raw" || arg == "--format=raw" {
       pretty_raw = true
+    } else if arg == "-q" || arg == "--quiet" {
+      quiet = true
+    } else if arg.has_prefix("--pretty=format:") {
+      pretty_format = Some(
+        String::unsafe_substring(arg, start=16, end=arg.length()),
+      )
+    } else if arg.has_prefix("--format=") {
+      pretty_format = Some(
+        String::unsafe_substring(arg, start=9, end=arg.length()),
+      )
     } else if not(arg.has_prefix("-")) {
       rev = arg
     } else {
@@ -967,6 +1027,20 @@ async fn handle_show(args : Array[String]) -> Unit raise Error {
     }
     return ()
   }
+  if pretty_format is Some(fmt) {
+    match fmt {
+      "%h" => {
+        let short = String::unsafe_substring(commit_id.to_hex(), start=0, end=7)
+        print_line(short)
+        return ()
+      }
+      "%H" => {
+        print_line(commit_id.to_hex())
+        return ()
+      }
+      _ => warn_unimplemented_arg("show", "--pretty=format:\{fmt}")
+    }
+  }
   // Parse full commit details
   let show_info = parse_show_commit(o.data)
   // Print commit info
@@ -980,7 +1054,7 @@ async fn handle_show(args : Array[String]) -> Unit raise Error {
   }
   print_line("")
   // Show diff against parent (simplified)
-  if commit_info.parents.length() > 0 {
+  if not(quiet) && commit_info.parents.length() > 0 {
     let parent_id = commit_info.parents[0]
     let parent_files = @gitlib.collect_tree_files_from_commit(db, fs, parent_id)
     let current_files = @gitlib.collect_tree_files_from_commit(
