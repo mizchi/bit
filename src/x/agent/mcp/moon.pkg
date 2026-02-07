@@ -11,6 +11,7 @@ options(
     "io.mbt": [ "native" ],
     "main.mbt": [ "native" ],
     "main_js.mbt": [ "js" ],
+    "main_wasm.mbt": [ "wasm-gc", "wasm" ],
     "server.mbt": [ "native" ],
     "server_wbtest.mbt": [ "native" ],
   },

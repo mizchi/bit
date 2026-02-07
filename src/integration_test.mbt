@@ -23,7 +23,7 @@
 test "integration: packfile structure is valid" {
   // Create a simple blob packfile
   let content = Bytes::from_array([b'h', b'e', b'l', b'l', b'o', b'\n'])
-  let packfile = create_blob_packfile(content)
+  let packfile = @pack.create_blob_packfile(content)
 
   // Verify packfile header
   // PACK magic
@@ -130,7 +130,7 @@ test "integration: packfile object encoding" {
   // Test that object type and size are encoded correctly
   // Type 3 = blob, size 5
   let result : Array[Byte] = []
-  encode_type_and_size(3, 5, result)
+  @pack.encode_type_and_size(3, 5, result)
 
   // Single byte: type=3 (011), size=5 (0101) -> 0b00110101 = 0x35
   assert_true(result.length() == 1)
@@ -138,7 +138,7 @@ test "integration: packfile object encoding" {
 
   // Type 3 = blob, size 100 (needs continuation)
   let result2 : Array[Byte] = []
-  encode_type_and_size(3, 100, result2)
+  @pack.encode_type_and_size(3, 100, result2)
 
   // First: MSB=1, type=3, size_low=4 -> 0b10110100 = 0xb4
   // Second: MSB=0, size_rest=6 -> 0b00000110 = 0x06
@@ -162,7 +162,7 @@ test "integration: multi-object packfile" {
     "+0000",
     "Initial commit\n",
   )
-  let (commit_id, packfile) = create_commit_packfile(
+  let (commit_id, packfile) = @pack.create_commit_packfile(
     blob_content, "hello.txt", commit,
   )
 
@@ -195,7 +195,7 @@ test "integration: multi-object packfile" {
 test "integration: pktline ref update format" {
   let old_id = ObjectId::zero()
   let new_id = ObjectId::from_hex("ce013625030ba8dba906f756967f9e9ca394464a")
-  let cmd = build_ref_update_simple(old_id, new_id, "refs/heads/main")
+  let cmd = @protocol.build_ref_update_simple(old_id, new_id, "refs/heads/main")
 
   // Format: "{old} {new} {ref}\n"
   assert_true(cmd.has_prefix("0000000000000000000000000000000000000000 "))
@@ -208,7 +208,7 @@ test "integration: pktline ref update format" {
 test "integration: pktline with capabilities" {
   let old_id = ObjectId::zero()
   let new_id = ObjectId::from_hex("ce013625030ba8dba906f756967f9e9ca394464a")
-  let cmd = build_ref_update(old_id, new_id, "refs/heads/main", "report-status")
+  let cmd = @protocol.build_ref_update(old_id, new_id, "refs/heads/main", "report-status")
 
   // Should contain null byte before capabilities
   assert_true(cmd.find("\u0000") is Some(_))
@@ -222,8 +222,8 @@ test "integration: receive-pack body format" {
   let packfile = Bytes::from_array([
     b'P', b'A', b'C', b'K', b'\x00', b'\x00', b'\x00', b'\x02',
   ])
-  let req = PushRequest::new(old_id, new_id, "refs/heads/main", packfile)
-  let body = build_receive_pack_body(req)
+  let req = @protocol.PushRequest::new(old_id, new_id, "refs/heads/main", packfile)
+  let body = @protocol.build_receive_pack_body(req)
 
   // Body should start with pkt-line (4 hex chars)
   assert_true(body.length() > 4)
@@ -244,7 +244,7 @@ test "integration: receive-pack body format" {
 test "integration: parse successful push response" {
   // Simulate server response: unpack ok, ref ok
   let response = build_test_response(["unpack ok\n", "ok refs/heads/main\n"])
-  let result = parse_receive_pack_response(response)
+  let result = @protocol.parse_receive_pack_response(response)
   match result {
     Ok(msg) => assert_true(msg == "Push successful")
     Err(_) => assert_true(false)
@@ -255,7 +255,7 @@ test "integration: parse successful push response" {
 test "integration: parse failed push response" {
   // Simulate server response: unpack error
   let response = build_test_response(["unpack error - bad pack\n"])
-  let result = parse_receive_pack_response(response)
+  let result = @protocol.parse_receive_pack_response(response)
   match result {
     Ok(_) => assert_true(false)
     Err(GitError::ProtocolError(msg)) =>
@@ -270,14 +270,14 @@ test "integration: parse failed push response" {
 fn build_test_response(lines : Array[String]) -> Bytes {
   let result : Array[Byte] = []
   for line in lines {
-    let pkt = pktline_encode(line)
+    let pkt = @protocol.pktline_encode(line)
     for b in pkt {
       result.push(b)
     }
   }
 
   // Add flush
-  let flush = pktline_flush()
+  let flush = @protocol.pktline_flush()
   for b in flush {
     result.push(b)
   }
@@ -290,7 +290,7 @@ fn build_test_response(lines : Array[String]) -> Bytes {
 
 ///|
 test "integration: remote URL generation" {
-  let remote = Remote::new("https://github.com/user/repo.git")
+  let remote = @protocol.Remote::new("https://github.com/user/repo.git")
   let info_refs = remote.info_refs_url()
   assert_true(
     info_refs ==
@@ -302,7 +302,7 @@ test "integration: remote URL generation" {
 
 ///|
 test "integration: remote URL without .git suffix" {
-  let remote = Remote::new("https://github.com/user/repo")
+  let remote = @protocol.Remote::new("https://github.com/user/repo")
   let info_refs = remote.info_refs_url()
   assert_true(
     info_refs ==
@@ -316,7 +316,7 @@ test "integration: remote URL without .git suffix" {
 
 ///|
 test "integration: generate test packfile" {
-  let packfile = generate_test_packfile()
+  let packfile = @pack.generate_test_packfile()
 
   // Verify it's a valid packfile
   assert_true(packfile[0] == b'P')
@@ -336,7 +336,7 @@ test "integration: generate test packfile" {
 
 ///|
 test "integration: generate commit packfile" {
-  let (commit_id, packfile) = generate_commit_packfile()
+  let (commit_id, packfile) = @pack.generate_commit_packfile()
 
   // Verify commit ID is valid
   assert_true(commit_id.to_hex().length() == 40)
@@ -348,7 +348,7 @@ test "integration: generate commit packfile" {
 ///|
 test "integration: hex dump format" {
   let data = Bytes::from_array([b'P', b'A', b'C', b'K'])
-  let dump = hex_dump(data)
+  let dump = @pack.hex_dump(data)
 
   // Should contain hex representation
   assert_true(dump.find("50") is Some(_)) // 'P' = 0x50
@@ -383,7 +383,7 @@ fn to_hex_string(data : Bytes) -> String {
 ///|
 test "integration: packfile hex for git verify-pack" {
   // Generate a simple blob packfile
-  let packfile = generate_test_packfile()
+  let packfile = @pack.generate_test_packfile()
   let hex = to_hex_string(packfile)
 
   // The hex should start with "5041434b" (PACK)
@@ -398,14 +398,14 @@ test "integration: packfile hex for git verify-pack" {
   // This confirms our packfile is git-compatible!
   inspect(
     hex,
-    content="5041434b0000000200000001367801cb48cdc9c9e70200084b021f6522c3ff3330ea53ddd9a836cc12a02b4703877e",
+    content="5041434b0000000200000001367801010600f9ff68656c6c6f0a084b021f007b4413ed03c6c9a5aa33859e2ae7d4d74449fc",
   )
 }
 
 ///|
 test "integration: commit packfile for git verify-pack" {
   // Generate a commit packfile
-  let (commit_id, packfile) = generate_commit_packfile()
+  let (commit_id, packfile) = @pack.generate_commit_packfile()
   let hex = to_hex_string(packfile)
 
   // Should have 3 objects
@@ -419,6 +419,6 @@ test "integration: commit packfile for git verify-pack" {
   )
   inspect(
     hex,
-    content="5041434b0000000200000003367801cb48cdc9c9e70200084b021fa502780133343030333151c848cdc9c9d72ba9286138c768a6caccbde2f64ab6ef61d3eae7cd593cc5cd0b00df740dbf9f0a78012b294a4d55484c4cb4344b4e4d314ab14c344cb64835374a36354b3232354e3448354a4b35b730b6344e4b4d32e74a2c2dc9c82f5208492d2e517084b06d4a801c87d48ac4dc829c54bde4fc5c3b054373032850d006915c40d1dccc929254d2757279e665966426e628408ce00200ec78364652505865c4d37071986a62d6b9f163fe0f582589",
+    content="5041434b0000000200000003367801010600f9ff68656c6c6f0a084b021fa5027801012500daff3130303634342068656c6c6f2e74787400ce013625030ba8dba906f756967f9e9ca394464adf740dbf9f0a78012b294a4d55484c4cb4344b4e4d314ab14c344cb64835374a36354b3232354e3448354a4b35b730b6344e4b4d32e74a2c2dc9c82f5208492d2e517084b06d4a801c87d48ac4dc829c54bde4fc5c3b054373032850d006915c40d1dccc929254d2757279e665966426e628408ce00200ec783646aaebc6447dc2b959257f4369e21ef2351387f206",
   )
 }

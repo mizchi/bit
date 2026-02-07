@@ -7,9 +7,10 @@ default: check test
 fmt:
     moon fmt
 
-# Type check (both js and native)
+# Type check (js + wasm + native)
 check:
     moon check --deny-warn --target js
+    moon check --deny-warn --target wasm
     moon check --deny-warn --target native
 
 # Run tests (js target: main packages only, native: all)
@@ -195,6 +196,7 @@ compare-real-git-repo repo_url:
 
 # Run a single test with ALL moongit commands (no fallback)
 git-t-full test_file:
+    @tools/apply-git-test-patches.sh
     @prefix=$(brew --prefix gettext); \
     real_git="$(pwd)/third_party/git/git"; \
     if [ -x "$real_git" ]; then \

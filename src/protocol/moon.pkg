@@ -1,6 +1,7 @@
 import {
   "mizchi/bit" as @git,
   "mizchi/bit/pack" as @pack,
+  "moonbitlang/async" as @async,
 }
 
 import "test" {
