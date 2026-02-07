@@ -1,64 +1,80 @@
-# moongit TODO
+# moongit TODO (updated 2026-02-07)
 
-## 最新テスト結果サマリー (2026-02-04)
+## 現在のステータス
 
-### allowlist テスト (strict モード)
-- success: 4650
-- broken: 4
-- failed: 0
-- total: 4760
-- pass rate: 97.7%
+| Metric | Value |
+|--------|-------|
+| MoonBit tests | 617 passing |
+| Git compatibility | 95.5% (744/779) |
+| Allowlist pass | 97.7% (4650/4760) |
+| Pure化 coverage | ~85% |
+| CI | 5 shards all green |
 
-strict モード:
-```
-SHIM_CMDS="pack-objects index-pack upload-pack receive-pack" SHIM_STRICT=1
-```
+## Tier 1: Git Compatibility (Critical)
 
-allowlist coverage:
-- total tests: 1031
-- allowlist: 610 (59.2%)
-- outside allowlist: 421
+allowlist で残っている 5 テスト:
+- [ ] **t5310**: bitmap repack handling
+- [ ] **t5316**: delta depth reuse
+- [ ] **t5317**: filter-objects delta
+- [ ] **t5332**: multi-pack index reuse
+- [ ] **t5400**: send-pack collision detection
 
-※ allowlist を拡張したため再計測が必要（詳細は `COMPAT_RESULTS.md`）。
+関連タスク:
+- [ ] pack/midx/bitmap/repack の整合性修正
+- [ ] 破損検出の回帰テスト追加
+- [ ] allowlist 再計測（t5xxx 拡張後）
 
-### allowlist 外の探索的実行
-- executed: 779 / 901 (86.5%)
-- pass: 743
-- fail: 36
-- pass rate: 95.4%
+## Tier 2: Agent Features (High)
 
-高レベル要約（落ちているもの）:
-- Pack / MIDX / bitmap / reuse / repack 系の差分が主要 (t53xx, t77xx)
-- Partial clone / promisor / protocol v2 の端ケース (t0411, t5616, t5510)
-- help/doc/porcelain 表示の差異 (t0012, t0450, t7502)
-- cat-file batch/all/unordered (t1006)
-- bundle sha256 list-heads (t6020)
-- pager exec-path, merge --continue (t7006, t7600)
-- scalar/git-shell 未実装 (t9210/t9211, t9850)
+- [ ] **MCP server dispatch**: run_agent/orchestrate ツール呼び出しの実装完了 (`src/x/agent/mcp/server.mbt`)
+- [ ] **MCP streaming**: 長時間実行エージェントの出力をクライアントにストリーミング
+- [ ] **Process agent signal handling**: タイムアウト/キャンセル時のクリーンアップ改善
+- [ ] **Agent output capture**: ProcessAgentRunner の per-agent stdout 取得
 
-詳細: `COMPAT_RESULTS.md`
+## Tier 3: Enhancements (Medium)
 
-## 最優先: バイナリ破損リスク（pack/idx/bitmap/repack）
+- [ ] Promisor protocol v2 エッジケース (t0411)
+- [ ] Protocol v2 edge cases (t5510, t5616)
+- [ ] cat-file batch/unordered (t1006)
+- [ ] help/doc formatting (t0012, t0450)
 
-重点対象（破損/整合性の不安が最も高い）:
-- pack 生成/再利用/破損耐性: t5305, t5309, t5310, t5314, t5316 (t5302/t5303 done)
-- midx / rev-index / bitmap: t5319, t5325, t5326, t5327, t5332
-- cruft / repack: t5329, t7700, t7703, t7704
-- receive-pack の整合性: t5410, t5411
+## Tier 4: Future (Low)
 
-実装の優先順:
-1) pack read/verify + rev-index 整合性 (t5303, t5325, t5310)
-2) midx/bitmap/reuse (t5319, t5326, t5327, t5332)
-3) repack/cruft (t7700, t7703, t7704, t5329)
-
-## 次のステップ
-
-- [ ] pack/midx/bitmap/repack の整合性修正（上記優先順）
-- [ ] 破損検出の回帰テスト追加（pack->verify/fsck 相当）
-- [ ] allowlist 再計測（拡張後の結果更新）
-- [ ] CI: 5 shard 並列の結果を確認
+- [ ] **Moonix integration**: ToolEnvironment <-> AgentRuntime (moonix release 待ち)
+- [ ] **Git-Native PR System**: src/x/collab の persistence 実装 (後述)
+- [ ] bit mount / bit jj / .bitignore / BIT~ 環境変数
+- [ ] scalar/git-shell 未実装 (t9210/t9211, t9850)
 
 ## 完了した項目
+
+### ✅ Agent E2E テスト + パッケージ独立化 + run_agent async 化 (2026-02-07)
+
+- BitKvAdapter を `src/x/agent/llm/adapter/` に分離、親パッケージから `@kv/@git/@lib/@utf8` 依存削除
+- LlmAgentConfig に provider DI (`BoxedProvider?`) 追加
+- E2E テスト 5 件 (read/write, max_steps, loop detection, coordination, no_tool_calls)
+- mizchi/llm に pub MockProvider + run_agent_cancellable 追加
+- run_llm_agent に should_cancel パラメータ追加、InProcessAgentRunner にキャンセルフラグ
+
+### ✅ Agent Inner Loop 改善 + Orchestrator リファクタ (2026-02-07)
+
+- 5-phase system prompt、LoopTracker (連続検出+進捗検出)
+- SubtaskPlan (task + files スコープ)、AgentRunner trait 抽象化
+- KvCoordinationBackend + KvStore trait
+
+### ✅ Agent trait 抽象化 + Collab protocol 修正 (2026-02-07)
+
+- ToolEnvironment trait + CoordinationBackend trait
+- CollabRecord.version + PullRequest.merge_commit
+- Clock trait dependency injection
+
+### ✅ t5xxx allowlist 拡張 (2026-02-06)
+
+- 70 → 166/171 (97.1%) テスト拡張
+- 96 テスト新規追加、10 テスト復活
+
+### ✅ PromisorDb pure化 + x/fs, x/subdir pure化 (2026-02-06)
+
+- PromisorDb, x/fs (~3,690 LOC), x/subdir (~4,878 LOC) を pure化
 
 ### ✅ Protocol v2 filter/packfile-uris 対応 (2026-02-01)
 
