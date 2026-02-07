@@ -21,7 +21,7 @@ allowlist で残っている 5 テスト:
 
 関連タスク:
 - [x] pack/midx/bitmap/repack の整合性修正
-- [ ] 破損検出の回帰テスト追加
+- [x] 破損検出の回帰テスト追加
 - [ ] allowlist 再計測（t5xxx 拡張後）
 
 ## Tier 2: Agent Features (High)
@@ -51,6 +51,7 @@ allowlist で残っている 5 テスト:
 
 - `src/cmd/bit/handlers_plumbing.mbt`: `multi-pack-index` を `SHIM_REAL_GIT` 経由で real git 委譲
 - `src/cmd/bit/handlers_maintenance.mbt`: `repack` を `SHIM_REAL_GIT` 経由で real git 委譲
+- `t/t1301-midx-corruption.sh`: checksum/chunk table/pack 欠損の回帰テスト追加
 - 検証: strict shim で `t5319-multi-pack-index.sh` / `t5334-incremental-multi-pack-index.sh` がパス
 
 ### ✅ Agent E2E テスト + パッケージ独立化 + run_agent async 化 (2026-02-07)
