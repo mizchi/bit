@@ -47,7 +47,7 @@ allowlist で残っている 5 テスト:
 - [x] t1517-outside-repo.sh
 - [x] t2405-worktree-submodule.sh
 - [x] t5505-remote.sh
-- [ ] t5572-pull-submodule.sh
+- [x] t5572-pull-submodule.sh
 - [x] t5610-clone-detached.sh
 - [ ] t5801-remote-helpers.sh
 - [ ] t9210-scalar.sh
@@ -69,6 +69,7 @@ allowlist で残っている 5 テスト:
 - [x] clone-from-partial promisor edge case (t0411)
 - [x] cat-file batch/all/unordered (t1006)
 - [x] remote show known-breakage resolution (t5505)
+- [x] pull submodule known-breakage resolution (t5572)
 - [ ] Protocol v2 edge cases (t5510, t5616)
 - [x] help/doc formatting (t0450)
 
@@ -80,6 +81,22 @@ allowlist で残っている 5 テスト:
 - [ ] scalar/git-shell 未実装 (t9210/t9211, t9850)
 
 ## 完了した項目
+
+### ✅ t5572 pull-submodule known-breakage 解消 (2026-02-08)
+
+- `src/cmd/bit/handlers_remote.mbt`:
+  - `pull` 実行時に `HEAD -> target` で `gitlink -> 非gitlink` 置換（submodule を file に置換）を事前検出し、明示的に拒否
+  - `SHIM_REAL_GIT` がある環境では `pull` 本体を real git 委譲に統一（互換優先）
+- `src/cmd/bit/handlers_remote_pull_wbtest.mbt`:
+  - `gitlink -> file` 置換検出の whitebox テスト追加
+- `tools/git-patches/t5572-pull-submodule-known-breakage.patch` 追加:
+  - `t/lib-submodule-update.sh` の `replace submodule with a file must fail` 2ケースを、`SHIM_CMDS` / `GIT_SHIM_CMDS` に `pull` を含む場合のみ `test_expect_success` に切り替え
+  - `pull` 非intercept時は upstream 既知不具合に合わせて `test_expect_failure` を維持
+- 検証:
+  - `moon test --target native -p mizchi/bit/cmd/bit -f handlers_remote_pull_wbtest.mbt`
+  - `just check`
+  - `just git-t-one t5572-pull-submodule.sh` => `failed 0 / broken 8`
+  - `SHIM_CMDS=\"... pull\"` で `t5572` 実行 => `8 known breakage(s) vanished`
 
 ### ✅ t5505 remote known-breakage 解消 (2026-02-08)
 

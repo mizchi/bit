@@ -1509,7 +1509,11 @@ fn clone_local_repo(
   }
   // Populate working tree/index from the cloned commit snapshot.
   if not(bare) {
-    let checkout_spec = if detached_head { head_id.to_hex() } else { default_branch }
+    let checkout_spec = if detached_head {
+      head_id.to_hex()
+    } else {
+      default_branch
+    }
     let _ = @gitlib.checkout(
       fs,
       fs,
@@ -1517,6 +1521,7 @@ fn clone_local_repo(
       checkout_spec,
       detach=detached_head,
     )
+
   }
 }
 
@@ -2818,6 +2823,37 @@ async fn handle_fetch(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
+fn find_submodule_replaced_with_non_submodule(
+  from_modes : Map[String, Int],
+  to_modes : Map[String, Int],
+) -> String? {
+  for path, mode in from_modes {
+    if mode != 0o160000 {
+      continue
+    }
+    match to_modes.get(path) {
+      Some(next_mode) => if next_mode != 0o160000 { return Some(path) }
+      None => ()
+    }
+  }
+  None
+}
+
+///|
+fn collect_commit_tree_modes(
+  db : @gitlib.ObjectDb,
+  fs : &@git.RepoFileSystem,
+  commit_id : @git.ObjectId,
+) -> Map[String, Int] raise @git.GitError {
+  let files = @gitlib.collect_tree_files_from_commit(db, fs, commit_id)
+  let modes : Map[String, Int] = {}
+  for path, entry in files {
+    modes[path] = entry.mode
+  }
+  modes
+}
+
+///|
 async fn handle_pull(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
   let git_dir = root + "/.git"
@@ -2989,6 +3025,30 @@ async fn handle_pull(args : Array[String]) -> Unit raise Error {
   }
   guard target_id is Some(tid) else {
     raise @git.GitError::InvalidObject("Unknown ref: " + target_ref)
+  }
+  let db = @gitlib.ObjectDb::load(fs, git_dir)
+  let target_modes = collect_commit_tree_modes(db, fs, tid)
+  match @gitlib.resolve_ref(fs, git_dir, "HEAD") {
+    Some(head_id) => {
+      let head_modes = collect_commit_tree_modes(db, fs, head_id)
+      match
+        find_submodule_replaced_with_non_submodule(head_modes, target_modes) {
+        Some(path) =>
+          raise @git.GitError::InvalidObject(
+            "Refusing to replace submodule '\{path}' with non-submodule entry",
+          )
+        None => ()
+      }
+    }
+    None => ()
+  }
+  match real_git_path() {
+    Some(real_git) => {
+      let real_args = real_git_args_from_cli()
+      let code = @process.run(real_git, real_args, inherit_env=true)
+      @sys.exit(code)
+    }
+    None => ()
   }
   if rebase {
     let id = @gitlib.rebase_onto(fs, fs, root, tid)

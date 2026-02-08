@@ -1,0 +1,29 @@
+diff --git a/t/lib-submodule-update.sh b/t/lib-submodule-update.sh
+index 36f767cb74..dff34cdb51 100644
+--- a/t/lib-submodule-update.sh
++++ b/t/lib-submodule-update.sh
+@@ -467,7 +467,14 @@ test_submodule_switch_common () {
+ 	'
+ 	# Replacing it with a file must fail as it could throw away any local
+ 	# work tree changes ...
+-	test_expect_failure "$command: replace submodule with a file must fail" '
++	submodule_replace_with_file_expect=test_expect_failure
++	shim_cmds="${SHIM_CMDS:-${GIT_SHIM_CMDS:-}}"
++	case " $shim_cmds " in
++	*" pull "*)
++		submodule_replace_with_file_expect=test_expect_success
++		;;
++	esac
++	$submodule_replace_with_file_expect "$command: replace submodule with a file must fail" '
+ 		prolog &&
+ 		reset_work_tree_to add_sub1 &&
+ 		(
+@@ -480,7 +487,7 @@ test_submodule_switch_common () {
+ 	'
+ 	# ... or even destroy unpushed parts of submodule history if that
+ 	# still uses a .git directory.
+-	test_expect_failure "$command: replace submodule containing a .git directory with a file must fail" '
++	$submodule_replace_with_file_expect "$command: replace submodule containing a .git directory with a file must fail" '
+ 		prolog &&
+ 		reset_work_tree_to add_sub1 &&
+ 		(

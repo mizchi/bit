@@ -49,6 +49,7 @@ options(
     "handlers_pack.mbt": [ "native" ],
     "handlers_plumbing.mbt": [ "native" ],
     "handlers_remote.mbt": [ "native" ],
+    "handlers_remote_pull_wbtest.mbt": [ "native" ],
     "handlers_remote_push_wbtest.mbt": [ "native" ],
     "handlers_subdir.mbt": [ "native" ],
     "handlers_subdir_wbtest.mbt": [ "native" ],
