@@ -682,6 +682,7 @@ async fn handle_tag(args : Array[String]) -> Unit raise Error {
   let mut list_mode = true
   let mut delete_mode = false
   let mut annotated = false
+  let mut force = false
   let mut message : String? = None
   let mut tag_name : String? = None
   let mut target : String? = None
@@ -696,6 +697,10 @@ async fn handle_tag(args : Array[String]) -> Unit raise Error {
       }
       "-a" | "--annotate" => {
         annotated = true
+        list_mode = false
+      }
+      "-f" | "--force" => {
+        force = true
         list_mode = false
       }
       "-m" if i + 1 < args.length() => {
@@ -754,6 +759,11 @@ async fn handle_tag(args : Array[String]) -> Unit raise Error {
   let commit_id = @gitlib.rev_parse(fs, git_dir, target_ref)
   guard commit_id is Some(id) else {
     raise @git.GitError::InvalidObject("unknown revision: \{target_ref}")
+  }
+  if force {
+    if @gitlib.resolve_ref(fs, git_dir, "refs/tags/" + name) is Some(_) {
+      @gitlib.delete_tag(fs, git_dir, name)
+    }
   }
   if annotated {
     let msg = message.unwrap_or("")
@@ -1463,6 +1473,14 @@ async fn handle_rev_parse(args : Array[String]) -> Unit raise Error {
   } else {
     default_git_dir
   }
+  let cwd_abs = @sys.get_env_var("PWD").unwrap_or(root)
+  let abs_git_dir = if git_dir.has_prefix("/") {
+    git_dir
+  } else if git_dir == "." {
+    cwd_abs
+  } else {
+    cwd_abs + "/" + git_dir
+  }
   let mut revs_only = false
   for arg in args {
     match arg {
@@ -1473,6 +1491,7 @@ async fn handle_rev_parse(args : Array[String]) -> Unit raise Error {
   for arg in args {
     match arg {
       "--git-dir" => print_line(git_dir)
+      "--absolute-git-dir" => print_line(abs_git_dir)
       "--show-toplevel" => {
         let abs = if root == "." {
           @sys.get_env_var("PWD").unwrap_or(root)
@@ -2252,17 +2271,48 @@ async fn handle_write_tree(args : Array[String]) -> Unit raise Error {
 ///|
 async fn handle_show_ref(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
-  let git_dir = root + "/.git"
   let fs = OsFs::new()
+  let git_dir = resolve_git_dir(fs, root)
   let mut heads_only = false
   let mut tags_only = false
+  let mut hash_only = false
+  let mut verify = false
+  let mut quiet = false
+  let patterns : Array[String] = []
   for arg in args {
     match arg {
       "--heads" => heads_only = true
       "--tags" => tags_only = true
+      "-s" | "--hash" => hash_only = true
+      "--verify" => verify = true
+      "-q" | "--quiet" => quiet = true
+      "--" => ()
       _ if arg.has_prefix("-") => warn_unimplemented_arg("show-ref", arg)
-      _ => ()
+      _ => patterns.push(arg)
     }
+  }
+  if verify {
+    if patterns.length() == 0 {
+      @sys.exit(1)
+    }
+    let mut has_missing = false
+    for refname in patterns {
+      match @gitlib.resolve_ref(fs, git_dir, refname) {
+        Some(id) =>
+          if not(quiet) {
+            if hash_only {
+              print_line(id.to_hex())
+            } else {
+              print_line("\{id.to_hex()} \{refname}")
+            }
+          }
+        None => has_missing = true
+      }
+    }
+    if has_missing {
+      @sys.exit(1)
+    }
+    return
   }
   let refs = @gitlib.show_ref(fs, git_dir)
   for item in refs {
@@ -2273,7 +2323,23 @@ async fn handle_show_ref(args : Array[String]) -> Unit raise Error {
     if tags_only && not(refname.has_prefix("refs/tags/")) {
       continue
     }
-    print_line("\{id.to_hex()} \{refname}")
+    if patterns.length() > 0 {
+      let mut matched = false
+      for pattern in patterns {
+        if refname == pattern || refname.has_suffix("/" + pattern) {
+          matched = true
+          break
+        }
+      }
+      if not(matched) {
+        continue
+      }
+    }
+    if hash_only {
+      print_line(id.to_hex())
+    } else {
+      print_line("\{id.to_hex()} \{refname}")
+    }
   }
 }
 
@@ -2387,7 +2453,14 @@ async fn handle_update_ref(args : Array[String]) -> Unit raise Error {
   } else {
     None
   }
-  let new_id = @git.ObjectId::from_hex(new_value)
+  let new_id = @git.ObjectId::from_hex(new_value) catch {
+    _ =>
+      match @gitlib.rev_parse(fs, actual_git_dir, new_value) {
+        Some(id) => id
+        None =>
+          raise @git.GitError::InvalidObject("unknown revision: " + new_value)
+      }
+  }
   // Get current value
   let current_id = read_ref_value(fs, actual_git_dir, refname)
   // Check oldvalue if specified
@@ -3501,7 +3574,7 @@ async fn fetch_submodule_objects(
   let rfs : &@git.RepoFileSystem = fs
   match @gitlib.resolve_local_repo_path(rfs, root, url) {
     Some(src_path) => {
-      fetch_local_repo(fs, src_path, modules_dir, "origin", url)
+      fetch_local_repo(fs, src_path, modules_dir, "origin", url, [])
       return ()
     }
     None => ()
