@@ -15,7 +15,7 @@ async fn print_scalar_usage() -> Unit {
     #|  unregister <enlistment>
     #|  reconfigure [--all|-a] [--maintenance=<enable|disable|keep>] [<enlistment>]
     #|  delete <enlistment>
-    #|  clone [--single-branch] [--no-tags] [--no-src] <url> <enlistment>
+    #|  clone [--single-branch] [--branch <branch>] [--[no-]full-clone] [--[no-]src] [--[no-]tags] [--[no-]maintenance] <url> <enlistment>
     #|  run <command> <enlistment>
     #|  diagnose <enlistment>
   print_line(usage)
@@ -348,6 +348,11 @@ async fn scalar_start_fsmonitor(repo : String) -> Unit {
 }
 
 ///|
+async fn scalar_stderr_is_tty() -> Bool {
+  @process.run("sh", ["-c", "test -t 2"], inherit_env=true) == 0
+}
+
+///|
 async fn scalar_toggle_maintenance(
   fs : OsFs,
   repo : String,
@@ -464,6 +469,70 @@ fn scalar_parse_global_options(args : Array[String]) -> (String, Array[String]) 
     i += 1
   }
   (cwd, rest)
+}
+
+///|
+struct ScalarCloneOptions {
+  full_clone : Bool
+  src : Bool
+  tags : Bool
+  maintenance : Bool
+  clone_opts : Array[String]
+  positional : Array[String]
+}
+
+///|
+fn scalar_parse_clone_options(args : Array[String]) -> ScalarCloneOptions {
+  let mut full_clone = false
+  let mut src = true
+  let mut tags = true
+  let mut maintenance = true
+  let clone_opts : Array[String] = []
+  let positional : Array[String] = []
+  let mut i = 0
+  while i < args.length() {
+    let arg = args[i]
+    match arg {
+      "--full-clone" => full_clone = true
+      "--no-full-clone" => full_clone = false
+      "--src" => src = true
+      "--no-src" => src = false
+      "--tags" => tags = true
+      "--no-tags" => tags = false
+      "--maintenance" => maintenance = true
+      "--no-maintenance" => maintenance = false
+      "-h" | "--help" => clone_opts.push(arg)
+      "--branch" | "-b" =>
+        if i + 1 < args.length() {
+          clone_opts.push(arg)
+          clone_opts.push(args[i + 1])
+          i += 1
+        } else {
+          clone_opts.push(arg)
+        }
+      _ if arg.has_prefix("-") => clone_opts.push(arg)
+      _ => positional.push(arg)
+    }
+    i += 1
+  }
+  {
+    full_clone,
+    src,
+    tags,
+    maintenance,
+    clone_opts,
+    positional,
+  }
+}
+
+///|
+fn scalar_clone_has_progress_flag(clone_opts : Array[String]) -> Bool {
+  for opt in clone_opts {
+    if opt == "--progress" || opt == "--no-progress" {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -594,42 +663,38 @@ async fn scalar_handle_clone(
   cwd : String,
   args : Array[String],
 ) -> Unit {
-  let mut no_src = false
-  let mut no_tags = false
-  let clone_opts : Array[String] = []
-  let positional : Array[String] = []
-  let mut i = 0
-  while i < args.length() {
-    let arg = args[i]
-    match arg {
-      "--no-src" => no_src = true
-      "--no-tags" => no_tags = true
-      "-h" | "--help" => {
-        print_scalar_usage()
-        @sys.exit(129)
-      }
-      _ if arg.has_prefix("-") => clone_opts.push(arg)
-      _ => positional.push(arg)
+  let parsed = scalar_parse_clone_options(args)
+  for opt in parsed.clone_opts {
+    if opt == "-h" || opt == "--help" {
+      print_scalar_usage()
+      @sys.exit(129)
     }
-    i += 1
   }
-  if positional.length() < 2 {
+  if parsed.positional.length() < 2 {
     print_scalar_usage()
     @sys.exit(129)
   }
-  let url = positional[0]
-  let enlistment = scalar_abs_path(positional[1], cwd)
-  let repo = if no_src { enlistment } else { enlistment + "/src" }
-  if not(no_src) {
+  let url = parsed.positional[0]
+  let enlistment = scalar_abs_path(parsed.positional[1], cwd)
+  let repo = if parsed.src { enlistment + "/src" } else { enlistment }
+  if parsed.src {
     fs.mkdir_p(enlistment) catch {
       _ => ()
     }
   }
   let clone_args : Array[String] = ["clone", "--filter=blob:none"]
-  if no_tags {
+  if not(parsed.tags) {
     clone_args.push("--no-tags")
   }
-  for opt in clone_opts {
+  if not(scalar_clone_has_progress_flag(parsed.clone_opts)) {
+    if scalar_stderr_is_tty() {
+      clone_args.push("--progress")
+    } else {
+      clone_args.push("--quiet")
+      clone_args.push("--no-progress")
+    }
+  }
+  for opt in parsed.clone_opts {
     clone_args.push(opt)
   }
   clone_args.push(url)
@@ -638,8 +703,10 @@ async fn scalar_handle_clone(
   if code != 0 {
     @sys.exit(code)
   }
-  ignore(scalar_run_git_in(repo, ["sparse-checkout", "init", "--cone"]))
-  if no_tags {
+  if not(parsed.full_clone) {
+    ignore(scalar_run_git_in(repo, ["sparse-checkout", "init", "--cone"]))
+  }
+  if not(parsed.tags) {
     ignore(
       scalar_run_git_in(repo, [
         "fetch", "--quiet", "--no-progress", "origin", "--no-tags",
@@ -651,7 +718,9 @@ async fn scalar_handle_clone(
   }
   scalar_add_maintenance_repo(fs, repo)
   scalar_rewrite_repo_config(fs, repo)
-  scalar_toggle_maintenance(fs, repo, "enable", true)
+  if parsed.maintenance {
+    scalar_toggle_maintenance(fs, repo, "enable", false)
+  }
 }
 
 ///|

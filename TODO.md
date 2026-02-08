@@ -51,7 +51,7 @@ allowlist で残っている 5 テスト:
 - [x] t5610-clone-detached.sh
 - [x] t5801-remote-helpers.sh
 - [x] t9210-scalar.sh
-- [ ] t9211-scalar-clone.sh
+- [x] t9211-scalar-clone.sh
 - [ ] t9350-fast-export.sh
 - [ ] t9850-shell.sh
 - [ ] t9902-completion.sh
@@ -79,9 +79,23 @@ allowlist で残っている 5 テスト:
 - [ ] **Moonix integration**: ToolEnvironment <-> AgentRuntime (moonix release 待ち)
 - [ ] **Git-Native PR System**: src/x/collab の persistence 実装 (後述)
 - [ ] bit mount / bit jj / .bitignore / BIT~ 環境変数
-- [ ] scalar/git-shell 未実装 (t9210/t9211, t9850)
+- [ ] git-shell 未実装 (t9850)
 
 ## 完了した項目
+
+### ✅ t9211 scalar-clone 互換実装 (2026-02-08)
+
+- `src/cmd/bit/handlers_scalar.mbt`:
+  - `scalar clone` のオプション解析を拡張（`--[no-]full-clone`, `--[no-]src`, `--[no-]tags`, `--[no-]maintenance`, `--branch/-b`）
+  - `--full-clone` 時は `sparse-checkout init --cone` を抑止
+  - 非 TTY 時は clone に `--quiet --no-progress` を付与して進捗表示を抑制
+  - デフォルトでは maintenance を試行し、失敗時 warning を表示（`--no-maintenance` では maintenance 切替自体をスキップ）
+- `src/cmd/bit/handlers_scalar_wbtest.mbt`:
+  - clone オプションパーサの whitebox テストを 2 件追加
+- 検証:
+  - `moon test --target native -p mizchi/bit/cmd/bit -f handlers_scalar_wbtest.mbt`
+  - `just git-t-one t9211-scalar-clone.sh` => `failed 0 / broken 0`
+  - `just check`
 
 ### ✅ t5801 remote-helpers 互換改善 (2026-02-08)
 

@@ -55,3 +55,43 @@ test "scalar: register + unregister maintenance repo entries" {
   }
   cleanup_scalar_test_dir(fs, root)
 }
+
+///|
+test "scalar: clone option parser handles scalar-only flags" {
+  let parsed = scalar_parse_clone_options([
+    "--full-clone",
+    "--no-src",
+    "--no-tags",
+    "--no-maintenance",
+    "--single-branch",
+    "https://example.com/repo.git",
+    "dst",
+  ])
+  assert_true(parsed.full_clone)
+  assert_false(parsed.src)
+  assert_false(parsed.tags)
+  assert_false(parsed.maintenance)
+  assert_eq(parsed.clone_opts.length(), 1)
+  assert_eq(parsed.clone_opts[0], "--single-branch")
+  assert_eq(parsed.positional.length(), 2)
+  assert_eq(parsed.positional[0], "https://example.com/repo.git")
+  assert_eq(parsed.positional[1], "dst")
+}
+
+///|
+test "scalar: clone option parser keeps --branch value out of positional args" {
+  let parsed = scalar_parse_clone_options([
+    "--branch",
+    "main",
+    "--single-branch",
+    "https://example.com/repo.git",
+    "dst",
+  ])
+  assert_eq(parsed.clone_opts.length(), 3)
+  assert_eq(parsed.clone_opts[0], "--branch")
+  assert_eq(parsed.clone_opts[1], "main")
+  assert_eq(parsed.clone_opts[2], "--single-branch")
+  assert_eq(parsed.positional.length(), 2)
+  assert_eq(parsed.positional[0], "https://example.com/repo.git")
+  assert_eq(parsed.positional[1], "dst")
+}
