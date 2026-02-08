@@ -4273,20 +4273,22 @@ async fn handle_push(args : Array[String]) -> Unit raise Error {
   } else {
     None
   }
+  let is_known_remote = fn(name) {
+    let legacy_match = match legacy_branch_remote {
+      Some((legacy_name, _, _)) => legacy_name == name
+      None => false
+    }
+    legacy_match ||
+    @gitlib.get_remote_url(fs, git_dir, name) is Some(_) ||
+    @gitlib.resolve_local_repo_path(fs, root, name) is Some(_) ||
+    parse_remote_helper_url(name) is Some(_) ||
+    name.contains("://") ||
+    name.has_prefix("git@")
+  }
+  ignore(resolve_push_positionals(positional_args, is_known_remote))
   let (explicit_remote, explicit_refspecs_raw) = resolve_push_positionals_multi(
     positional_args,
-    fn(name) {
-      let legacy_match = match legacy_branch_remote {
-        Some((legacy_name, _, _)) => legacy_name == name
-        None => false
-      }
-      legacy_match ||
-      @gitlib.get_remote_url(fs, git_dir, name) is Some(_) ||
-      @gitlib.resolve_local_repo_path(fs, root, name) is Some(_) ||
-      parse_remote_helper_url(name) is Some(_) ||
-      name.contains("://") ||
-      name.has_prefix("git@")
-    },
+    is_known_remote,
   )
   let head_ref = @gitlib.read_head_ref(fs, git_dir)
   let current_branch_opt = match head_ref {
