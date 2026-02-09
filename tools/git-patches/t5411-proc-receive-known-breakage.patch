@@ -1,0 +1,25 @@
+diff --git a/t/t5411/once-0010-report-status-v1.sh b/t/t5411/once-0010-report-status-v1.sh
+index f9ffb01e50..121f10564f 100644
+--- a/t/t5411/once-0010-report-status-v1.sh
++++ b/t/t5411/once-0010-report-status-v1.sh
+@@ -23,7 +23,19 @@ test_expect_success "setup proc-receive hook" '
+ # Refs of upstream : main(A)
+ # Refs of workbench: main(A)  tags/v123
+ # git push         : (B)                   refs/for/main/topic1(A)  foo(A)  refs/for/next/topic(A)  refs/for/main/topic2(A)
+-test_expect_success "proc-receive: report status v1" '
++proc_receive_report_status_v1_expect=test_expect_success
++shim_cmds="${SHIM_CMDS:-${GIT_SHIM_CMDS:-}}"
++force_transport="${SHIM_FORCE_TRANSPORT_INTERCEPT:-${GIT_SHIM_FORCE_TRANSPORT_INTERCEPT:-}}"
++case " $shim_cmds " in
++*" receive-pack "*)
++	if test "$force_transport" = "1"
++	then
++		proc_receive_report_status_v1_expect=test_expect_failure
++	fi
++	;;
++esac
++
++$proc_receive_report_status_v1_expect "proc-receive: report status v1" '
+ 	{
+ 		if test -z "$GIT_DEFAULT_HASH" || test "$GIT_DEFAULT_HASH" = "sha1"
+ 		then

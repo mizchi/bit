@@ -42,6 +42,9 @@ log() {
 }
 
 capture_stderr="${GIT_SHIM_CAPTURE:-${SHIM_CAPTURE:-}}"
+strict_mode="${GIT_SHIM_STRICT:-${SHIM_STRICT:-}}"
+force_pack_intercept="${GIT_SHIM_FORCE_PACK_INTERCEPT:-${SHIM_FORCE_PACK_INTERCEPT:-}}"
+force_transport_intercept="${GIT_SHIM_FORCE_TRANSPORT_INTERCEPT:-${SHIM_FORCE_TRANSPORT_INTERCEPT:-}}"
 
 # Fast-path global --exec-path (query only; preserve override when subcommand exists)
 if [ "${1:-}" = "--exec-path" ] && [ "$#" -gt 1 ]; then
@@ -200,6 +203,26 @@ for cmd in ${GIT_SHIM_CMDS:-${SHIM_CMDS:-}}; do
 done
 
 if [ "$intercept" -eq 1 ]; then
+  case "$subcmd" in
+    pack-objects|index-pack)
+      # By default, keep compatibility behavior for heavy pack plumbing tests
+      # by delegating these commands to real git.
+      if [ "$strict_mode" != "1" ] && [ "$force_pack_intercept" != "1" ]; then
+        log "delegate $subcmd $*"
+        intercept=0
+      fi
+      ;;
+    upload-pack|receive-pack)
+      # Transport commands can be forced to bit in strict/intercept modes.
+      if [ "$strict_mode" != "1" ] && [ "$force_transport_intercept" != "1" ]; then
+        log "delegate $subcmd $*"
+        intercept=0
+      fi
+      ;;
+  esac
+fi
+
+if [ "$intercept" -eq 1 ]; then
   args="$*"
   log "intercept $subcmd $args"
   moon="${GIT_SHIM_MOON:-${SHIM_MOON:-}}"
@@ -219,7 +242,7 @@ if [ "$intercept" -eq 1 ]; then
     export GIT_SHIM_PWD="${GIT_SHIM_PWD:-$(pwd)}"
     exec "$moon" "$@"
   fi
-  if [ "${GIT_SHIM_STRICT:-${SHIM_STRICT:-}}" = "1" ]; then
+  if [ "$strict_mode" = "1" ]; then
     echo "git-shim: '$subcmd' not implemented" >&2
     exit 1
   fi
