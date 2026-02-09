@@ -51,13 +51,13 @@ pub fn WorktreeEntryMeta::new(
 
 ///|
 pub struct WorktreeProbeProvider {
-  entry_meta : async (&@git.RepoFileSystem, String) -> WorktreeEntryMeta? noraise
+  entry_meta : async (&@types.RepoFileSystem, String) -> WorktreeEntryMeta? noraise
   symlink_target : (String) -> String?
 }
 
 ///|
 pub fn WorktreeProbeProvider::new(
-  entry_meta : async (&@git.RepoFileSystem, String) -> WorktreeEntryMeta? noraise,
+  entry_meta : async (&@types.RepoFileSystem, String) -> WorktreeEntryMeta? noraise,
   symlink_target : (String) -> String?,
 ) -> WorktreeProbeProvider {
   { entry_meta, symlink_target }
@@ -67,7 +67,7 @@ pub fn WorktreeProbeProvider::new(
 pub fn WorktreeProbeProvider::none() -> WorktreeProbeProvider {
   {
     entry_meta: async fn(
-      fs : &@git.RepoFileSystem,
+      fs : &@types.RepoFileSystem,
       path : String,
     ) -> WorktreeEntryMeta? noraise {
       if fs.is_file(path) {
@@ -105,7 +105,7 @@ pub fn set_worktree_probe(provider : WorktreeProbeProvider) -> Unit {
 
 ///|
 pub async fn worktree_entry_meta(
-  fs : &@git.RepoFileSystem,
+  fs : &@types.RepoFileSystem,
   abs_path : String,
 ) -> WorktreeEntryMeta? noraise {
   (worktree_probe_box.value.entry_meta)(fs, abs_path)
@@ -118,7 +118,7 @@ pub fn read_symlink_target_path(path : String) -> String? {
 
 ///|
 pub async fn worktree_entry(
-  fs : &@git.RepoFileSystem,
+  fs : &@types.RepoFileSystem,
   abs_path : String,
 ) -> WorktreeEntry? noraise {
   let meta = worktree_entry_meta(fs, abs_path)

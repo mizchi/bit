@@ -634,8 +634,7 @@ async fn run_main_for_args(args : Array[String]) -> Unit {
     show_help()
     return ()
   }
-  @gitionative.init_env_provider()
-  @gitionative.init_worktree_probe()
+  @gitionative.init_native_io()
   // Handle --version and --help early (can appear anywhere before command)
   for i in 1..<args.length() {
     match args[i] {

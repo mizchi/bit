@@ -3,14 +3,19 @@ import {
   "mizchi/bit/io" as @gitio,
   "moonbitlang/async" as @async,
   "moonbitlang/async/fs" as @afs,
+  "moonbitlang/async/http" as @http,
+  "moonbitlang/async/process" as @process,
   "moonbitlang/core/encoding/utf8" as @utf8,
   "moonbitlang/core/env" as @env,
+  "moonbitlang/x/codec/base64" as @base64,
   "moonbitlang/x/sys" as @sys,
 }
 
 options(
   targets: {
     "env_native.mbt": [ "native" ],
+    "http_client_native.mbt": [ "native" ],
+    "init_native.mbt": [ "native" ],
     "worktree_probe_native.mbt": [ "native" ],
   },
 )

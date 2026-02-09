@@ -2,6 +2,7 @@
 package "mizchi/bit/io"
 
 import {
+  "mizchi/bit/object",
   "mizchi/bit/types",
 }
 
@@ -29,6 +30,25 @@ pub struct EnvProvider {
 }
 pub fn EnvProvider::new((String) -> String?, () -> String?) -> Self
 pub fn EnvProvider::none() -> Self
+
+pub struct TestFs {
+  files : Map[String, Bytes]
+  dirs : Map[String, Bool]
+}
+pub fn TestFs::exists(Self, String) -> Bool
+pub fn TestFs::is_dir(Self, String) -> Bool
+pub fn TestFs::is_file(Self, String) -> Bool
+pub fn TestFs::mkdir_p(Self, String) -> Unit
+pub fn TestFs::new() -> Self
+pub fn TestFs::read_file(Self, String) -> Bytes raise @object.GitError
+pub fn TestFs::read_string(Self, String) -> String raise @object.GitError
+pub fn TestFs::readdir(Self, String) -> Array[String] raise @object.GitError
+pub fn TestFs::remove_dir(Self, String) -> Unit raise @object.GitError
+pub fn TestFs::remove_file(Self, String) -> Unit raise @object.GitError
+pub fn TestFs::write_file(Self, String, Bytes) -> Unit
+pub fn TestFs::write_string(Self, String, String) -> Unit
+pub impl @types.FileSystem for TestFs
+pub impl @types.RepoFileSystem for TestFs
 
 pub struct WorktreeEntry {
   kind : WorktreeKind
@@ -67,6 +87,9 @@ pub fn WorktreeProbeProvider::new(async (&@types.RepoFileSystem, String) -> Work
 pub fn WorktreeProbeProvider::none() -> Self
 
 // Type aliases
+pub using @types {trait FileSystem}
+
+pub using @types {trait RepoFileSystem}
 
 // Traits
 

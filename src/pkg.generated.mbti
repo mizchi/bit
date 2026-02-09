@@ -2,6 +2,7 @@
 package "mizchi/bit"
 
 import {
+  "mizchi/bit/io",
   "mizchi/bit/object",
   "mizchi/bit/repo",
   "mizchi/bit/types",
@@ -53,24 +54,6 @@ pub fn write_git_metadata(@repo.ObjectStore, @object.ObjectId, String, String, &
 // Errors
 
 // Types and methods
-pub struct TestFs {
-  files : Map[String, Bytes]
-  dirs : Map[String, Bool]
-}
-pub fn TestFs::exists(Self, String) -> Bool
-pub fn TestFs::is_dir(Self, String) -> Bool
-pub fn TestFs::is_file(Self, String) -> Bool
-pub fn TestFs::mkdir_p(Self, String) -> Unit
-pub fn TestFs::new() -> Self
-pub fn TestFs::read_file(Self, String) -> Bytes raise @object.GitError
-pub fn TestFs::read_string(Self, String) -> String raise @object.GitError
-pub fn TestFs::readdir(Self, String) -> Array[String] raise @object.GitError
-pub fn TestFs::remove_dir(Self, String) -> Unit raise @object.GitError
-pub fn TestFs::remove_file(Self, String) -> Unit raise @object.GitError
-pub fn TestFs::write_file(Self, String, Bytes) -> Unit
-pub fn TestFs::write_string(Self, String, String) -> Unit
-pub impl @types.FileSystem for TestFs
-pub impl @types.RepoFileSystem for TestFs
 
 // Type aliases
 pub using @object {type Commit}
@@ -96,6 +79,8 @@ pub using @object {type PackDeltaMode}
 pub using @object {type PackObject}
 
 pub using @object {type Sha1State}
+
+pub using @io {type TestFs}
 
 pub using @object {type TreeEntry}
 

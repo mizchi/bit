@@ -1,6 +1,6 @@
 import {
+  "mizchi/bit/io" as @io,
   "mizchi/bit/object" as @object,
   "mizchi/bit/repo" as @repo,
   "mizchi/bit/types" as @types,
-  "moonbitlang/core/encoding/utf8" as @utf8,
 }

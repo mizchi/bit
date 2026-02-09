@@ -1,6 +1,24 @@
 ///| Root package public facade.
 
 ///|
+pub using @types {
+  type ObjectId,
+  type ObjectType,
+  type GitError,
+  type TreeEntry,
+  type Commit,
+  type PackObject,
+  type PackDeltaMode,
+  type PackCompression,
+  type Sha1State,
+  trait FileSystem,
+  trait RepoFileSystem,
+}
+
+///|
+pub using @io {type TestFs}
+
+///|
 pub using @repo {
   type ObjectStore,
   type CommitInfo,

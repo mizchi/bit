@@ -25,7 +25,7 @@ async fn handle_cat(args : Array[String]) -> Unit raise Error {
   match shorthand {
     Some(File(raw_url, _filename)) => {
       let headers : Map[String, String] = {}
-      let (response, content) = @gitnative.native_http_get(raw_url, headers)
+      let (response, content) = @gitionative.native_http_get(raw_url, headers)
       if response.code != 200 {
         raise @git.GitError::InvalidObject(
           "HTTP \{response.code}: failed to fetch \{raw_url}",

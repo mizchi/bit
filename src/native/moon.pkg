@@ -1,18 +1,17 @@
 import {
   "mizchi/bit" as @git,
+  "mizchi/bit/io/native" as @gitionative,
   "mizchi/bit/pack" as @pack,
   "mizchi/bit/protocol" as @protocol,
   "moonbitlang/async" as @async,
   "moonbitlang/async/process" as @process,
-  "moonbitlang/async/http" as @http,
   "moonbitlang/x/fs",
   "moonbitlang/core/encoding/utf8",
-  "moonbitlang/x/codec/base64" as @base64,
 }
 
 options(
   targets: {
-    "http_client_native.mbt": [ "native" ],
+    "http_client.mbt": [ "native" ],
     "remote.mbt": [ "native" ],
     "upload_pack_http.mbt": [ "native" ],
     "upload_pack_http_common.mbt": [ "native" ],

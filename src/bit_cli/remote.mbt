@@ -35,7 +35,7 @@ async fn fetch_raw_file(url : String, target : String) -> Unit raise Error {
   }
   // Use HTTP fetch
   let headers : Map[String, String] = {}
-  let (response, content) = @gitnative.native_http_get(url, headers)
+  let (response, content) = @gitionative.native_http_get(url, headers)
   if response.code != 200 {
     raise @git.GitError::InvalidObject(
       "HTTP \{response.code}: failed to fetch \{url}",

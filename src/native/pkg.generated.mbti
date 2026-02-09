@@ -79,12 +79,9 @@ pub async fn upload_pack_request_with_http(String, Bytes, Bool, async (String, B
 // Errors
 
 // Types and methods
-pub struct NativeHttpClient {
-  dummy : Int
-}
-pub fn NativeHttpClient::new() -> Self
 
 // Type aliases
+pub using @mizchi/bit/io/native {type NativeHttpClient}
 
 // Traits
 

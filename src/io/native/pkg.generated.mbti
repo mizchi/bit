@@ -1,14 +1,29 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "mizchi/bit/io/native"
 
+import {
+  "mizchi/bit/object",
+  "mizchi/bit/types",
+}
+
 // Values
 pub fn init_env_provider() -> Unit
 
+pub fn init_native_io() -> Unit
+
 pub fn init_worktree_probe() -> Unit
+
+pub async fn native_http_get(String, Map[String, String]) -> (@types.HttpResponse, Bytes) raise @object.GitError
+
+pub async fn native_http_post(String, Bytes, Map[String, String]) -> (@types.HttpResponse, Bytes) raise @object.GitError
 
 // Errors
 
 // Types and methods
+pub struct NativeHttpClient {
+  dummy : Int
+}
+pub fn NativeHttpClient::new() -> Self
 
 // Type aliases
 

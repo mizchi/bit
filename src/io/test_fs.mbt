@@ -19,10 +19,13 @@ pub fn TestFs::exists(self : TestFs, path : String) -> Bool {
 }
 
 ///|
-pub fn TestFs::read_file(self : TestFs, path : String) -> Bytes raise GitError {
+pub fn TestFs::read_file(
+  self : TestFs,
+  path : String,
+) -> Bytes raise @types.GitError {
   match self.files.get(path) {
     Some(data) => data
-    None => raise GitError::IoError("File not found: \{path}")
+    None => raise @types.GitError::IoError("File not found: \{path}")
   }
 }
 
@@ -30,7 +33,7 @@ pub fn TestFs::read_file(self : TestFs, path : String) -> Bytes raise GitError {
 pub fn TestFs::read_string(
   self : TestFs,
   path : String,
-) -> String raise GitError {
+) -> String raise @types.GitError {
   let data = self.read_file(path)
   @utf8.decode_lossy(data[:])
 }
@@ -64,23 +67,29 @@ pub fn TestFs::write_string(
 }
 
 ///|
-pub fn TestFs::remove_file(self : TestFs, path : String) -> Unit raise GitError {
+pub fn TestFs::remove_file(
+  self : TestFs,
+  path : String,
+) -> Unit raise @types.GitError {
   if self.files.contains(path) {
     self.files.remove(path)
     return
   }
-  raise GitError::IoError("File not found: \{path}")
+  raise @types.GitError::IoError("File not found: \{path}")
 }
 
 ///|
-pub fn TestFs::remove_dir(self : TestFs, path : String) -> Unit raise GitError {
+pub fn TestFs::remove_dir(
+  self : TestFs,
+  path : String,
+) -> Unit raise @types.GitError {
   if not(self.dirs.contains(path)) {
-    raise GitError::IoError("Directory not found: \{path}")
+    raise @types.GitError::IoError("Directory not found: \{path}")
   }
   // Check if directory is empty
   let children = self.readdir(path)
   if children.length() > 0 {
-    raise GitError::IoError("Directory not empty: \{path}")
+    raise @types.GitError::IoError("Directory not empty: \{path}")
   }
   self.dirs.remove(path)
 }
@@ -89,9 +98,9 @@ pub fn TestFs::remove_dir(self : TestFs, path : String) -> Unit raise GitError {
 pub fn TestFs::readdir(
   self : TestFs,
   path : String,
-) -> Array[String] raise GitError {
+) -> Array[String] raise @types.GitError {
   if not(self.dirs.contains(path)) {
-    raise GitError::IoError("Directory not found: \{path}")
+    raise @types.GitError::IoError("Directory not found: \{path}")
   }
   let entries : Map[String, Bool] = {}
   for item in self.files.to_array() {
