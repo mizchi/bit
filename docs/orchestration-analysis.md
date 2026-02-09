@@ -238,16 +238,16 @@ Machine C (worker):
   - Gossip syncs with A and B
 ```
 
-## 6. Collab Integration Path
+## 6. Hub Integration Path
 
 ### Post-Orchestration PR Flow
 
 ```
 Orchestrator completes merge:
-  1. Create Collab PR for combined branch
+  1. Create Hub PR for combined branch
   2. Run validation (tests, type-check)
   3. Submit review (auto-approve if validation passes)
-  4. Merge PR via collab.merge_pr()
+  4. Merge PR via hub.merge_pr()
 ```
 
 ### Per-Agent PR Flow (Alternative)
@@ -255,7 +255,7 @@ Orchestrator completes merge:
 ```
 Each agent creates its own PR:
   1. Agent completes task on branch
-  2. Orchestrator creates Collab PR per agent
+  2. Orchestrator creates Hub PR per agent
   3. Run validation per PR
   4. Human or LLM reviews each PR
   5. Merge approved PRs sequentially

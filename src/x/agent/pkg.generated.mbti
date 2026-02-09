@@ -4,19 +4,19 @@ package "mizchi/bit/x/agent"
 import {
   "mizchi/bit/lib",
   "mizchi/bit/object",
-  "mizchi/bit/x/collab",
+  "mizchi/bit/x/hub",
 }
 
 // Values
-pub fn check_and_merge(String, AgentConfig, @collab.Collab, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock) -> TaskResult
+pub fn check_and_merge(String, AgentConfig, @hub.Hub, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock) -> TaskResult
 
 pub fn evaluate_validation(Int, String) -> ReviewResult
 
-pub fn execute_task(AgentTask, AgentConfig, @collab.Collab, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, &@lib.WorkingTree) -> TaskResult
+pub fn execute_task(AgentTask, AgentConfig, @hub.Hub, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, &@lib.WorkingTree) -> TaskResult
 
-pub fn should_auto_review(@collab.PullRequest, AgentConfig) -> Bool
+pub fn should_auto_review(@hub.PullRequest, AgentConfig) -> Bool
 
-pub fn submit_validation_review(@collab.Collab, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, ReviewResult, @object.ObjectId) -> Unit
+pub fn submit_validation_review(@hub.Hub, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, ReviewResult, @object.ObjectId) -> Unit
 
 // Errors
 

@@ -700,7 +700,7 @@ fn all_subcommands() -> Array[(String, String)] {
     ("cherry-pick", "Apply the changes from existing commits"),
     ("clean", "Remove untracked files from the working tree"),
     ("clone", "Clone a repository into a new directory"),
-    ("collab", "Manage pull requests and issues"),
+    ("hub", "Manage pull requests and issues"),
     ("commit", "Record changes to the repository"),
     ("completion", "Generate shell completion scripts"),
     ("config", "Get and set repository options"),

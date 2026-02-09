@@ -2,8 +2,8 @@
 
 ///|
 /// Add a comment to a Pull Request
-pub fn Collab::add_comment(
-  self : Collab,
+pub fn Hub::add_comment(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -73,8 +73,8 @@ fn short_hex(hex : String, n : Int) -> String {
 
 ///|
 /// List comments for a Pull Request
-pub fn Collab::list_comments(
-  self : Collab,
+pub fn Hub::list_comments(
+  self : Hub,
   objects : &@lib.ObjectStore,
   pr_id : String,
 ) -> Array[PrComment] {

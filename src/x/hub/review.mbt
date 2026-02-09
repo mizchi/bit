@@ -2,8 +2,8 @@
 
 ///|
 /// Submit a review for a Pull Request
-pub fn Collab::submit_review(
-  self : Collab,
+pub fn Hub::submit_review(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -49,8 +49,8 @@ pub fn Collab::submit_review(
 
 ///|
 /// List reviews for a Pull Request
-pub fn Collab::list_reviews(
-  self : Collab,
+pub fn Hub::list_reviews(
+  self : Hub,
   objects : &@lib.ObjectStore,
   pr_id : String,
 ) -> Array[PrReview] {
@@ -77,8 +77,8 @@ pub fn Collab::list_reviews(
 
 ///|
 /// Check if a PR is approved (has at least one Approved review with no RequestChanges after it)
-pub fn Collab::is_approved(
-  self : Collab,
+pub fn Hub::is_approved(
+  self : Hub,
   objects : &@lib.ObjectStore,
   pr_id : String,
 ) -> Bool {

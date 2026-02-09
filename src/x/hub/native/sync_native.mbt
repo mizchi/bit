@@ -1,4 +1,4 @@
-///| Native collab sync operations (push/fetch requiring network access)
+///| Native hub sync operations (push/fetch requiring network access)
 
 ///|
 /// Native adapter: ObjectDb + RepoFileSystem -> ObjectStore
@@ -17,7 +17,7 @@ impl @lib.ObjectStore for NativeObjectStore with get(self, id) {
 ///|
 impl @lib.ObjectStore for NativeObjectStore with put(self, obj_type, content) {
   let (id, compressed) = @git.create_object(obj_type, content)
-  @collab.write_object_bytes(self.fs, self.git_dir, id, compressed)
+  @hub.write_object_bytes(self.fs, self.git_dir, id, compressed)
   id
 }
 
@@ -86,19 +86,19 @@ fn parent_path(path : String) -> String {
 }
 
 ///|
-/// Push collab notes ref to remote
-pub async fn collab_push(
-  _collab : @collab.Collab,
+/// Push hub notes ref to remote
+pub async fn hub_push(
+  _hub : @hub.Hub,
   rfs : &@git.RepoFileSystem,
   git_dir : String,
   remote_url : String,
-) -> @collab.PrSyncResult raise @git.GitError {
-  let ref_name = @collab.collab_notes_ref_name()
+) -> @hub.PrSyncResult raise @git.GitError {
+  let ref_name = @hub.hub_notes_ref_name()
   let local_commit = @lib.resolve_ref(rfs, git_dir, ref_name)
   guard local_commit is Some(local_id) else {
-    return @collab.PrSyncResult::new(
+    return @hub.PrSyncResult::new(
       false,
-      "No local collab notes ref found",
+      "No local hub notes ref found",
       None,
       None,
     )
@@ -108,20 +108,20 @@ pub async fn collab_push(
   let pack = @pack.create_packfile(objects)
   let remote = @protocol.Remote::new(remote_url)
   let refs = @gitnative.discover_receive_refs_http(remote)
-  let (old_id, push_ref) = @collab.find_remote_notes_ref(refs)
+  let (old_id, push_ref) = @hub.find_remote_notes_ref(refs)
   let req = @protocol.PushRequest::new(old_id, local_id, push_ref, pack)
   let result = @gitnative.push(remote, req)
   if result.has_prefix("unpack ok") ||
     result.has_prefix("ok ") ||
     result.has_prefix("Push successful") {
-    @collab.PrSyncResult::new(
+    @hub.PrSyncResult::new(
       true,
       "Push successful",
       Some(local_id),
       Some(local_id),
     )
   } else {
-    @collab.PrSyncResult::new(
+    @hub.PrSyncResult::new(
       false,
       "Push failed: \{result}",
       Some(local_id),
@@ -131,21 +131,21 @@ pub async fn collab_push(
 }
 
 ///|
-/// Fetch collab notes ref from remote and merge
-pub async fn collab_fetch(
-  collab : @collab.Collab,
+/// Fetch hub notes ref from remote and merge
+pub async fn hub_fetch(
+  hub : @hub.Hub,
   fs : &@git.FileSystem,
   rfs : &@git.RepoFileSystem,
   git_dir : String,
   remote_url : String,
-) -> @collab.PrSyncResult raise @git.GitError {
-  let ref_name = @collab.collab_notes_ref_name()
+) -> @hub.PrSyncResult raise @git.GitError {
+  let ref_name = @hub.hub_notes_ref_name()
   let (refs, _, _, _) = @gitnative.discover_upload_refs_http(remote_url, true)
-  let remote_id = @collab.find_upload_notes_ref(refs)
+  let remote_id = @hub.find_upload_notes_ref(refs)
   guard remote_id is Some((rid, remote_ref)) else {
-    return @collab.PrSyncResult::new(
+    return @hub.PrSyncResult::new(
       false,
-      "No remote collab notes ref found",
+      "No remote hub notes ref found",
       @lib.resolve_ref(rfs, git_dir, ref_name),
       None,
     )
@@ -153,7 +153,7 @@ pub async fn collab_fetch(
   let pack = @gitnative.fetch_pack_http(remote_url, [rid], true)
   let objects = @pack.parse_packfile(pack)
   @pack.write_packfile_with_index(fs, git_dir, pack, objects)
-  let remote_short = @collab.short_ref_name(remote_ref)
+  let remote_short = @hub.short_ref_name(remote_ref)
   let remote_ref_path = join_path(
     git_dir,
     "refs/remotes/origin/" + remote_short,
@@ -169,26 +169,21 @@ pub async fn collab_fetch(
   let ref_store : &@lib.RefStore = native_refs
   match local_commit {
     None => {
-      ref_store.update(@collab.collab_notes_ref_name(), Some(rid))
-      collab.reload_store(obj_store, ref_store)
-      @collab.PrSyncResult::new(
+      ref_store.update(@hub.hub_notes_ref_name(), Some(rid))
+      hub.reload_store(obj_store, ref_store)
+      @hub.PrSyncResult::new(
         true,
-        "Fetched remote collab notes ref",
+        "Fetched remote hub notes ref",
         Some(rid),
         Some(rid),
       )
     }
     Some(lid) =>
       if lid == rid {
-        @collab.PrSyncResult::new(
-          true,
-          "Already up to date",
-          Some(lid),
-          Some(rid),
-        )
+        @hub.PrSyncResult::new(true, "Already up to date", Some(lid), Some(rid))
       } else {
-        @collab.merge_notes_commits(
-          collab, fs, git_dir, obj_store, ref_store, lid, rid,
+        @hub.merge_notes_commits(
+          hub, fs, git_dir, obj_store, ref_store, lid, rid,
         )
       }
   }

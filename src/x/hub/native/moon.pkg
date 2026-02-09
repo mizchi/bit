@@ -4,7 +4,7 @@ import {
   "mizchi/bit/protocol" as @protocol,
   "mizchi/bit/native" as @gitnative,
   "mizchi/bit/lib" as @lib,
-  "mizchi/bit/x/collab" as @collab,
+  "mizchi/bit/x/hub" as @hub,
 }
 
 options(

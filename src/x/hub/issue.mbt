@@ -2,8 +2,8 @@
 
 ///|
 /// Create a new Issue
-pub fn Collab::create_issue(
-  self : Collab,
+pub fn Hub::create_issue(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -47,8 +47,8 @@ pub fn Collab::create_issue(
 
 ///|
 /// Get an Issue by ID
-pub fn Collab::get_issue(
-  self : Collab,
+pub fn Hub::get_issue(
+  self : Hub,
   objects : &@lib.ObjectStore,
   issue_id : String,
 ) -> Issue? {
@@ -67,13 +67,13 @@ pub fn Collab::get_issue(
 
 ///|
 /// List Issues, optionally filtered by state
-pub fn Collab::list_issues(
-  self : Collab,
+pub fn Hub::list_issues(
+  self : Hub,
   objects : &@lib.ObjectStore,
   state? : IssueState? = None,
 ) -> Array[Issue] {
   let result : Array[Issue] = []
-  let records = self.store.list_records(objects, "collab/issue/")
+  let records = self.store.list_records(objects, "hub/issue/")
   for record in records {
     if not(record.key.has_suffix("/meta")) || record.kind != "issue" {
       continue
@@ -98,8 +98,8 @@ pub fn Collab::list_issues(
 
 ///|
 /// Update an Issue (title, body, labels, assignees)
-pub fn Collab::update_issue(
-  self : Collab,
+pub fn Hub::update_issue(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -157,8 +157,8 @@ pub fn Collab::update_issue(
 
 ///|
 /// Close an Issue
-pub fn Collab::close_issue(
-  self : Collab,
+pub fn Hub::close_issue(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -198,8 +198,8 @@ pub fn Collab::close_issue(
 
 ///|
 /// Reopen a closed Issue
-pub fn Collab::reopen_issue(
-  self : Collab,
+pub fn Hub::reopen_issue(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -239,8 +239,8 @@ pub fn Collab::reopen_issue(
 
 ///|
 /// Add a comment to an Issue
-pub fn Collab::add_issue_comment(
-  self : Collab,
+pub fn Hub::add_issue_comment(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -289,8 +289,8 @@ pub fn Collab::add_issue_comment(
 
 ///|
 /// List comments for an Issue
-pub fn Collab::list_issue_comments(
-  self : Collab,
+pub fn Hub::list_issue_comments(
+  self : Hub,
   objects : &@lib.ObjectStore,
   issue_id : String,
 ) -> Array[IssueComment] {
@@ -317,8 +317,8 @@ pub fn Collab::list_issue_comments(
 
 ///|
 /// Link a PR to an Issue
-pub fn Collab::link_pr_to_issue(
-  self : Collab,
+pub fn Hub::link_pr_to_issue(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,

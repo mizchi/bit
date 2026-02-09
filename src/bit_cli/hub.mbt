@@ -83,7 +83,7 @@ impl @gitlib.Clock for OsClock with now(self) {
 }
 
 ///|
-fn make_collab_stores(
+fn make_hub_stores(
   git_dir : String,
 ) -> (&@gitlib.ObjectStore, &@gitlib.RefStore, &@gitlib.Clock) {
   let objects : OsObjectStore = { git_dir, }
@@ -93,49 +93,49 @@ fn make_collab_stores(
 }
 
 ///|
-fn load_collab_store(
+fn load_hub_store(
   objects : &@gitlib.ObjectStore,
   refs : &@gitlib.RefStore,
-) -> @collab.Collab raise @git.GitError {
-  @collab.Collab::load(
+) -> @hub.Hub raise @git.GitError {
+  @hub.Hub::load(
     objects,
     refs,
-    signing_key=get_collab_signing_key(),
-    require_signed=get_collab_require_signed(),
+    signing_key=get_hub_signing_key(),
+    require_signed=get_hub_require_signed(),
   )
 }
 
 ///|
-fn init_collab_store(
+fn init_hub_store(
   objects : &@gitlib.ObjectStore,
   refs : &@gitlib.RefStore,
-) -> @collab.Collab raise @git.GitError {
-  @collab.Collab::init(
+) -> @hub.Hub raise @git.GitError {
+  @hub.Hub::init(
     objects,
     refs,
-    signing_key=get_collab_signing_key(),
-    require_signed=get_collab_require_signed(),
+    signing_key=get_hub_signing_key(),
+    require_signed=get_hub_require_signed(),
   )
 }
 
 ///|
-fn print_collab_usage() -> Unit {
+fn print_hub_usage() -> Unit {
   println("Usage: bit hub <subcommand> [<args>]")
   println("")
   println("Subcommands:")
-  println("  init          Initialize collaboration metadata")
+  println("  init          Initialize hub metadata")
   println("  pr            Manage pull requests")
   println("  issue         Manage issues")
   println("  note          Manage notes")
-  println("  sync          Sync collaboration refs with remotes")
-  println("  dump          Dump raw collaboration records from notes")
+  println("  sync          Sync hub refs with remotes")
+  println("  dump          Dump raw hub records from notes")
   println("  help          Show this help")
   println("")
   println("Run 'bit hub <subcommand> -h' for details.")
 }
 
 ///|
-fn print_collab_pr_usage() -> Unit {
+fn print_hub_pr_usage() -> Unit {
   println("Usage: bit hub pr <subcommand> [<args>]")
   println("")
   println("Subcommands:")
@@ -181,7 +181,7 @@ fn print_collab_pr_usage() -> Unit {
 }
 
 ///|
-fn print_collab_issue_usage() -> Unit {
+fn print_hub_issue_usage() -> Unit {
   println("Usage: bit hub issue <subcommand> [<args>]")
   println("")
   println("Subcommands:")
@@ -209,7 +209,7 @@ fn print_collab_issue_usage() -> Unit {
 }
 
 ///|
-fn print_collab_note_usage() -> Unit {
+fn print_hub_note_usage() -> Unit {
   println("Usage: bit hub note <subcommand> [<args>]")
   println("")
   println("Subcommands:")
@@ -220,7 +220,7 @@ fn print_collab_note_usage() -> Unit {
 }
 
 ///|
-fn print_collab_sync_usage() -> Unit {
+fn print_hub_sync_usage() -> Unit {
   println("Usage: bit hub sync <subcommand> [<args>]")
   println("")
   println("Subcommands:")
@@ -229,42 +229,42 @@ fn print_collab_sync_usage() -> Unit {
 }
 
 ///|
-fn print_collab_dump_usage() -> Unit {
+fn print_hub_dump_usage() -> Unit {
   println("Usage: bit hub dump [<prefix>] [<options>]")
   println("")
   println("Options:")
-  println("  --prefix <prefix>       Filter by key prefix (default: collab/)")
-  println("  --raw                   Print full serialized CollabRecord bodies")
+  println("  --prefix <prefix>       Filter by key prefix (default: hub/)")
+  println("  --raw                   Print full serialized HubRecord bodies")
   println("  --include-deleted       Include tombstoned records")
   println("  -h, --help              Show this help")
 }
 
 ///|
-async fn handle_collab(args : Array[String]) -> Unit raise Error {
+async fn handle_hub(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_usage()
+    print_hub_usage()
     return ()
   }
   let subcmd = args[0]
   let rest = collect_args(args, 1)
   match subcmd {
-    "help" | "-h" | "--help" => print_collab_usage()
-    "init" => handle_collab_init(rest)
-    "pr" => handle_collab_pr(rest)
-    "issue" => handle_collab_issue(rest)
-    "note" => handle_collab_note(rest)
-    "sync" => handle_collab_sync(rest)
-    "dump" => handle_collab_dump(rest)
+    "help" | "-h" | "--help" => print_hub_usage()
+    "init" => handle_hub_init(rest)
+    "pr" => handle_hub_pr(rest)
+    "issue" => handle_hub_issue(rest)
+    "note" => handle_hub_note(rest)
+    "sync" => handle_hub_sync(rest)
+    "dump" => handle_hub_dump(rest)
     _ => {
       eprint_line("bit hub: unknown subcommand '\{subcmd}'")
-      print_collab_usage()
+      print_hub_usage()
       @sys.exit(1)
     }
   }
 }
 
 ///|
-async fn handle_collab_init(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_init(args : Array[String]) -> Unit raise Error {
   for arg in args {
     if arg.has_prefix("-") {
       warn_unimplemented_arg("hub init", arg)
@@ -272,46 +272,46 @@ async fn handle_collab_init(args : Array[String]) -> Unit raise Error {
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let _ = init_collab_store(objects, refs)
-  print_line("Initialized collaboration metadata")
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let _ = init_hub_store(objects, refs)
+  print_line("Initialized hub metadata")
 }
 
 ///|
-async fn handle_collab_pr(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_pr(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_pr_usage()
+    print_hub_pr_usage()
     return ()
   }
-  let subcmd = normalize_collab_pr_subcommand(args[0])
+  let subcmd = normalize_hub_pr_subcommand(args[0])
   let rest = collect_args(args, 1)
   match subcmd {
-    "list" => handle_collab_pr_list(rest)
-    "proposals" => handle_collab_pr_proposals(rest)
-    "status" => handle_collab_pr_status(rest)
-    "get" => handle_collab_pr_get(rest)
-    "import" => handle_collab_pr_import(rest)
-    "import-proposal" => handle_collab_pr_import_proposal(rest)
-    "propose" => handle_collab_pr_propose(rest)
-    "create" => handle_collab_pr_create(rest)
-    "update" => handle_collab_pr_update(rest)
-    "close" => handle_collab_pr_close(rest)
-    "reopen" => handle_collab_pr_reopen(rest)
-    "merge" => handle_collab_pr_merge(rest)
-    "comment" => handle_collab_pr_comment(rest)
-    "review" => handle_collab_pr_review(rest)
-    "help" | "-h" | "--help" => print_collab_pr_usage()
+    "list" => handle_hub_pr_list(rest)
+    "proposals" => handle_hub_pr_proposals(rest)
+    "status" => handle_hub_pr_status(rest)
+    "get" => handle_hub_pr_get(rest)
+    "import" => handle_hub_pr_import(rest)
+    "import-proposal" => handle_hub_pr_import_proposal(rest)
+    "propose" => handle_hub_pr_propose(rest)
+    "create" => handle_hub_pr_create(rest)
+    "update" => handle_hub_pr_update(rest)
+    "close" => handle_hub_pr_close(rest)
+    "reopen" => handle_hub_pr_reopen(rest)
+    "merge" => handle_hub_pr_merge(rest)
+    "comment" => handle_hub_pr_comment(rest)
+    "review" => handle_hub_pr_review(rest)
+    "help" | "-h" | "--help" => print_hub_pr_usage()
     _ => {
       eprint_line("bit hub pr: unknown subcommand '\{subcmd}'")
-      print_collab_pr_usage()
+      print_hub_pr_usage()
       @sys.exit(1)
     }
   }
 }
 
 ///|
-struct CollabPrListOptions {
-  state : @collab.PrState?
+struct HubPrListOptions {
+  state : @hub.PrState?
   limit : Int?
 }
 
@@ -327,10 +327,10 @@ fn parse_positive_list_limit(value : String) -> Int raise @git.GitError {
 }
 
 ///|
-fn parse_collab_pr_list_options(
+fn parse_hub_pr_list_options(
   args : Array[String],
-) -> CollabPrListOptions raise @git.GitError {
-  let mut state : @collab.PrState? = None
+) -> HubPrListOptions raise @git.GitError {
+  let mut state : @hub.PrState? = None
   let mut limit : Int? = None
   let mut i = 0
   while i < args.length() {
@@ -389,13 +389,13 @@ fn parse_collab_pr_list_options(
 }
 
 ///|
-async fn handle_collab_pr_list(args : Array[String]) -> Unit raise Error {
-  let options = parse_collab_pr_list_options(args)
+async fn handle_hub_pr_list(args : Array[String]) -> Unit raise Error {
+  let options = parse_hub_pr_list_options(args)
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let collab = load_collab_store(objects, refs)
-  let prs = collab.list_prs(objects, state=options.state)
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let hub = load_hub_store(objects, refs)
+  let prs = hub.list_prs(objects, state=options.state)
   let raw_limit = options.limit.unwrap_or(prs.length())
   let limit = if raw_limit < prs.length() { raw_limit } else { prs.length() }
   if limit == 0 {
@@ -410,14 +410,14 @@ async fn handle_collab_pr_list(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_pr_proposals(args : Array[String]) -> Unit raise Error {
-  let options = parse_collab_pr_list_options(args)
+async fn handle_hub_pr_proposals(args : Array[String]) -> Unit raise Error {
+  let options = parse_hub_pr_list_options(args)
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let collab = load_collab_store(objects, refs)
-  let candidates = collab.list_pr_proposals(objects)
-  let prs : Array[@collab.PullRequest] = []
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let hub = load_hub_store(objects, refs)
+  let candidates = hub.list_pr_proposals(objects)
+  let prs : Array[@hub.PullRequest] = []
   for pr in candidates {
     match options.state {
       None => prs.push(pr)
@@ -438,11 +438,11 @@ async fn handle_collab_pr_proposals(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_pr_status(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_pr_status(args : Array[String]) -> Unit raise Error {
   for arg in args {
     match arg {
       "help" | "-h" | "--help" => {
-        print_collab_pr_usage()
+        print_hub_pr_usage()
         return ()
       }
       _ if arg.has_prefix("-") => warn_unimplemented_arg("hub pr status", arg)
@@ -451,9 +451,9 @@ async fn handle_collab_pr_status(args : Array[String]) -> Unit raise Error {
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let collab = load_collab_store(objects, refs)
-  let open_prs = collab.list_prs(objects, state=Some(@collab.PrState::Open))
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let hub = load_hub_store(objects, refs)
+  let open_prs = hub.list_prs(objects, state=Some(@hub.PrState::Open))
   if open_prs.length() == 0 {
     print_line("No open pull requests")
     return ()
@@ -493,7 +493,7 @@ async fn handle_collab_pr_status(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_pr_import(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_pr_import(args : Array[String]) -> Unit raise Error {
   let mut repo : String? = None
   let mut state = "all"
   let mut limit = 100
@@ -502,7 +502,7 @@ async fn handle_collab_pr_import(args : Array[String]) -> Unit raise Error {
     let arg = args[i]
     match arg {
       "-h" | "--help" | "help" => {
-        print_collab_pr_usage()
+        print_hub_pr_usage()
         return ()
       }
       "--repo" if i + 1 < args.length() => {
@@ -576,25 +576,25 @@ async fn handle_collab_pr_import(args : Array[String]) -> Unit raise Error {
     print_line("No pull requests to import")
     return ()
   }
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  let stats = collab.import_prs(objects, refs, clock, prs)
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  let stats = hub.import_prs(objects, refs, clock, prs)
   print_line(
     "Imported PRs: created \{stats.created()}, updated \{stats.updated()}",
   )
 }
 
 ///|
-async fn handle_collab_pr_import_proposal(
+async fn handle_hub_pr_import_proposal(
   args : Array[String],
 ) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_pr_usage()
+    print_hub_pr_usage()
     return ()
   }
   let first = args[0]
   if first == "-h" || first == "--help" || first == "help" {
-    print_collab_pr_usage()
+    print_hub_pr_usage()
     return ()
   }
   let mut proposal_id : String? = None
@@ -614,10 +614,10 @@ async fn handle_collab_pr_import_proposal(
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  let proposals = collab.list_pr_proposals(objects)
-  let mut selected : @collab.PullRequest? = None
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  let proposals = hub.list_pr_proposals(objects)
+  let mut selected : @hub.PullRequest? = None
   for proposal in proposals {
     if proposal.id() == id {
       selected = Some(proposal)
@@ -627,21 +627,21 @@ async fn handle_collab_pr_import_proposal(
   guard selected is Some(pr) else {
     raise @git.GitError::InvalidObject("PR proposal not found: \{id}")
   }
-  let stats = collab.import_prs(objects, refs, clock, [pr])
+  let stats = hub.import_prs(objects, refs, clock, [pr])
   print_line(
     "Imported proposal as PR: created \{stats.created()}, updated \{stats.updated()}",
   )
 }
 
 ///|
-async fn handle_collab_pr_get(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_pr_get(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_pr_usage()
+    print_hub_pr_usage()
     return ()
   }
   let first = args[0]
   if first == "-h" || first == "--help" || first == "help" {
-    print_collab_pr_usage()
+    print_hub_pr_usage()
     return ()
   }
   let mut pr_id : String? = None
@@ -661,9 +661,9 @@ async fn handle_collab_pr_get(args : Array[String]) -> Unit raise Error {
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let collab = load_collab_store(objects, refs)
-  let pr = collab.get_pr(objects, id)
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let hub = load_hub_store(objects, refs)
+  let pr = hub.get_pr(objects, id)
   guard pr is Some(val) else {
     raise @git.GitError::InvalidObject("PR not found: \{id}")
   }
@@ -697,7 +697,7 @@ fn infer_source_repo_name(fs : OsFs, git_dir : String) -> String? {
 }
 
 ///|
-struct CollabPrCreateOptions {
+struct HubPrCreateOptions {
   title : String
   body : String
   source_branch : String
@@ -707,10 +707,10 @@ struct CollabPrCreateOptions {
 }
 
 ///|
-async fn parse_collab_pr_create_options(
+async fn parse_hub_pr_create_options(
   args : Array[String],
   warn_context : String,
-) -> CollabPrCreateOptions raise Error {
+) -> HubPrCreateOptions raise Error {
   let mut title : String? = None
   let mut body : String? = None
   let mut source_branch : String? = None
@@ -847,11 +847,11 @@ async fn parse_collab_pr_create_options(
 }
 
 ///|
-async fn handle_collab_pr_create(args : Array[String]) -> Unit raise Error {
-  let options = parse_collab_pr_create_options(args, "hub pr create")
+async fn handle_hub_pr_create(args : Array[String]) -> Unit raise Error {
+  let options = parse_hub_pr_create_options(args, "hub pr create")
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
+  let (objects, refs, clock) = make_hub_stores(git_dir)
   let fs = OsFs::new()
   let source_repo_value = match options.source_repo {
     Some(repo) => if repo.length() == 0 { None } else { Some(repo) }
@@ -866,8 +866,8 @@ async fn handle_collab_pr_create(args : Array[String]) -> Unit raise Error {
       }
     None => Some(normalize_branch_ref(options.source_branch))
   }
-  let collab = init_collab_store(objects, refs)
-  let pr = collab.create_pr(
+  let hub = init_hub_store(objects, refs)
+  let pr = hub.create_pr(
     objects,
     refs,
     clock,
@@ -883,11 +883,11 @@ async fn handle_collab_pr_create(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_pr_propose(args : Array[String]) -> Unit raise Error {
-  let options = parse_collab_pr_create_options(args, "hub pr propose")
+async fn handle_hub_pr_propose(args : Array[String]) -> Unit raise Error {
+  let options = parse_hub_pr_create_options(args, "hub pr propose")
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
+  let (objects, refs, clock) = make_hub_stores(git_dir)
   let fs = OsFs::new()
   let source_repo_value = match options.source_repo {
     Some(repo) => if repo.length() == 0 { None } else { Some(repo) }
@@ -902,8 +902,8 @@ async fn handle_collab_pr_propose(args : Array[String]) -> Unit raise Error {
       }
     None => Some(normalize_branch_ref(options.source_branch))
   }
-  let collab = init_collab_store(objects, refs)
-  let proposal = collab.propose_pr(
+  let hub = init_hub_store(objects, refs)
+  let proposal = hub.propose_pr(
     objects,
     refs,
     clock,
@@ -919,9 +919,9 @@ async fn handle_collab_pr_propose(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_pr_update(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_pr_update(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_pr_usage()
+    print_hub_pr_usage()
     return ()
   }
   let mut pr_id : String? = None
@@ -989,9 +989,9 @@ async fn handle_collab_pr_update(args : Array[String]) -> Unit raise Error {
   let label_option = if labels.length() > 0 { Some(labels) } else { None }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  let pr = collab.update_pr(
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  let pr = hub.update_pr(
     objects,
     refs,
     clock,
@@ -1004,9 +1004,9 @@ async fn handle_collab_pr_update(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_pr_close(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_pr_close(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_pr_usage()
+    print_hub_pr_usage()
     return ()
   }
   let mut pr_id : String? = None
@@ -1026,16 +1026,16 @@ async fn handle_collab_pr_close(args : Array[String]) -> Unit raise Error {
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  collab.close_pr(objects, refs, clock, id)
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  hub.close_pr(objects, refs, clock, id)
   print_line("Closed PR #\{id}")
 }
 
 ///|
-async fn handle_collab_pr_reopen(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_pr_reopen(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_pr_usage()
+    print_hub_pr_usage()
     return ()
   }
   let mut pr_id : String? = None
@@ -1055,20 +1055,20 @@ async fn handle_collab_pr_reopen(args : Array[String]) -> Unit raise Error {
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  collab.reopen_pr(objects, refs, clock, id)
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  hub.reopen_pr(objects, refs, clock, id)
   print_line("Reopened PR #\{id}")
 }
 
 ///|
-async fn handle_collab_pr_merge(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_pr_merge(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_pr_usage()
+    print_hub_pr_usage()
     return ()
   }
   let mut pr_id : String? = None
-  let mut strategy : @collab.PrMergeStrategy? = None
+  let mut strategy : @hub.PrMergeStrategy? = None
   let mut i = 0
   while i < args.length() {
     let arg = args[i]
@@ -1127,12 +1127,12 @@ async fn handle_collab_pr_merge(args : Array[String]) -> Unit raise Error {
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
   let result = match strategy {
     Some(s) =>
-      collab.merge_pr(objects, refs, clock, id, get_author_string(), strategy=s)
-    None => collab.merge_pr(objects, refs, clock, id, get_author_string())
+      hub.merge_pr(objects, refs, clock, id, get_author_string(), strategy=s)
+    None => hub.merge_pr(objects, refs, clock, id, get_author_string())
   }
   if result.success() {
     print_line(result.message())
@@ -1150,28 +1150,28 @@ async fn handle_collab_pr_merge(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_pr_comment(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_pr_comment(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_pr_usage()
+    print_hub_pr_usage()
     return ()
   }
   let first = args[0]
-  let subcmd = resolve_collab_comment_subcommand(first)
+  let subcmd = resolve_hub_comment_subcommand(first)
   let rest = if subcmd == first { collect_args(args, 1) } else { args }
   match subcmd {
-    "add" => handle_collab_pr_comment_add(rest)
-    "list" => handle_collab_pr_comment_list(rest)
-    "help" | "-h" | "--help" => print_collab_pr_usage()
+    "add" => handle_hub_pr_comment_add(rest)
+    "list" => handle_hub_pr_comment_list(rest)
+    "help" | "-h" | "--help" => print_hub_pr_usage()
     _ => {
       eprint_line("bit hub pr comment: unknown subcommand '\{subcmd}'")
-      print_collab_pr_usage()
+      print_hub_pr_usage()
       @sys.exit(1)
     }
   }
 }
 
 ///|
-async fn handle_collab_pr_comment_add(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_pr_comment_add(args : Array[String]) -> Unit raise Error {
   let mut pr_id : String? = None
   let mut body : String? = None
   let mut reply_to : String? = None
@@ -1267,9 +1267,9 @@ async fn handle_collab_pr_comment_add(args : Array[String]) -> Unit raise Error 
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  let comment = collab.add_comment(
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  let comment = hub.add_comment(
     objects,
     refs,
     clock,
@@ -1285,11 +1285,9 @@ async fn handle_collab_pr_comment_add(args : Array[String]) -> Unit raise Error 
 }
 
 ///|
-async fn handle_collab_pr_comment_list(
-  args : Array[String],
-) -> Unit raise Error {
+async fn handle_hub_pr_comment_list(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_pr_usage()
+    print_hub_pr_usage()
     return ()
   }
   let mut pr_id : String? = None
@@ -1309,9 +1307,9 @@ async fn handle_collab_pr_comment_list(
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let collab = load_collab_store(objects, refs)
-  let comments = collab.list_comments(objects, id)
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let hub = load_hub_store(objects, refs)
+  let comments = hub.list_comments(objects, id)
   if comments.length() == 0 {
     print_line("No comments")
     return ()
@@ -1322,32 +1320,30 @@ async fn handle_collab_pr_comment_list(
 }
 
 ///|
-async fn handle_collab_pr_review(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_pr_review(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_pr_usage()
+    print_hub_pr_usage()
     return ()
   }
   let first = args[0]
-  let subcmd = resolve_collab_review_subcommand(first)
+  let subcmd = resolve_hub_review_subcommand(first)
   let rest = if subcmd == first { collect_args(args, 1) } else { args }
   match subcmd {
-    "submit" => handle_collab_pr_review_submit(rest)
-    "list" => handle_collab_pr_review_list(rest)
-    "help" | "-h" | "--help" => print_collab_pr_usage()
+    "submit" => handle_hub_pr_review_submit(rest)
+    "list" => handle_hub_pr_review_list(rest)
+    "help" | "-h" | "--help" => print_hub_pr_usage()
     _ => {
       eprint_line("bit hub pr review: unknown subcommand '\{subcmd}'")
-      print_collab_pr_usage()
+      print_hub_pr_usage()
       @sys.exit(1)
     }
   }
 }
 
 ///|
-async fn handle_collab_pr_review_submit(
-  args : Array[String],
-) -> Unit raise Error {
+async fn handle_hub_pr_review_submit(args : Array[String]) -> Unit raise Error {
   let mut pr_id : String? = None
-  let mut verdict : @collab.ReviewVerdict? = None
+  let mut verdict : @hub.ReviewVerdict? = None
   let mut body : String? = None
   let mut commit_id : @git.ObjectId? = None
   let mut i = 0
@@ -1437,9 +1433,9 @@ async fn handle_collab_pr_review_submit(
   let review_body = body.unwrap_or("")
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  let review = collab.submit_review(
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  let review = hub.submit_review(
     objects,
     refs,
     clock,
@@ -1453,9 +1449,9 @@ async fn handle_collab_pr_review_submit(
 }
 
 ///|
-async fn handle_collab_pr_review_list(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_pr_review_list(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_pr_usage()
+    print_hub_pr_usage()
     return ()
   }
   let mut pr_id : String? = None
@@ -1475,9 +1471,9 @@ async fn handle_collab_pr_review_list(args : Array[String]) -> Unit raise Error 
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let collab = load_collab_store(objects, refs)
-  let reviews = collab.list_reviews(objects, id)
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let hub = load_hub_store(objects, refs)
+  let reviews = hub.list_reviews(objects, id)
   if reviews.length() == 0 {
     print_line("No reviews")
     return ()
@@ -1488,43 +1484,43 @@ async fn handle_collab_pr_review_list(args : Array[String]) -> Unit raise Error 
 }
 
 ///|
-async fn handle_collab_issue(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_issue(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_issue_usage()
+    print_hub_issue_usage()
     return ()
   }
-  let subcmd = normalize_collab_issue_subcommand(args[0])
+  let subcmd = normalize_hub_issue_subcommand(args[0])
   let rest = collect_args(args, 1)
   match subcmd {
-    "list" => handle_collab_issue_list(rest)
-    "get" => handle_collab_issue_get(rest)
-    "import" => handle_collab_issue_import(rest)
-    "create" => handle_collab_issue_create(rest)
-    "update" => handle_collab_issue_update(rest)
-    "close" => handle_collab_issue_close(rest)
-    "reopen" => handle_collab_issue_reopen(rest)
-    "comment" => handle_collab_issue_comment(rest)
-    "link" => handle_collab_issue_link(rest)
-    "help" | "-h" | "--help" => print_collab_issue_usage()
+    "list" => handle_hub_issue_list(rest)
+    "get" => handle_hub_issue_get(rest)
+    "import" => handle_hub_issue_import(rest)
+    "create" => handle_hub_issue_create(rest)
+    "update" => handle_hub_issue_update(rest)
+    "close" => handle_hub_issue_close(rest)
+    "reopen" => handle_hub_issue_reopen(rest)
+    "comment" => handle_hub_issue_comment(rest)
+    "link" => handle_hub_issue_link(rest)
+    "help" | "-h" | "--help" => print_hub_issue_usage()
     _ => {
       eprint_line("bit hub issue: unknown subcommand '\{subcmd}'")
-      print_collab_issue_usage()
+      print_hub_issue_usage()
       @sys.exit(1)
     }
   }
 }
 
 ///|
-struct CollabIssueListOptions {
-  state : @collab.IssueState?
+struct HubIssueListOptions {
+  state : @hub.IssueState?
   limit : Int?
 }
 
 ///|
-fn parse_collab_issue_list_options(
+fn parse_hub_issue_list_options(
   args : Array[String],
-) -> CollabIssueListOptions raise @git.GitError {
-  let mut state : @collab.IssueState? = None
+) -> HubIssueListOptions raise @git.GitError {
+  let mut state : @hub.IssueState? = None
   let mut limit : Int? = None
   let mut i = 0
   while i < args.length() {
@@ -1583,13 +1579,13 @@ fn parse_collab_issue_list_options(
 }
 
 ///|
-async fn handle_collab_issue_list(args : Array[String]) -> Unit raise Error {
-  let options = parse_collab_issue_list_options(args)
+async fn handle_hub_issue_list(args : Array[String]) -> Unit raise Error {
+  let options = parse_hub_issue_list_options(args)
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let collab = load_collab_store(objects, refs)
-  let issues = collab.list_issues(objects, state=options.state)
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let hub = load_hub_store(objects, refs)
+  let issues = hub.list_issues(objects, state=options.state)
   let raw_limit = options.limit.unwrap_or(issues.length())
   let limit = if raw_limit < issues.length() {
     raw_limit
@@ -1608,7 +1604,7 @@ async fn handle_collab_issue_list(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_issue_import(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_issue_import(args : Array[String]) -> Unit raise Error {
   let mut repo : String? = None
   let mut state = "all"
   let mut limit = 100
@@ -1617,7 +1613,7 @@ async fn handle_collab_issue_import(args : Array[String]) -> Unit raise Error {
     let arg = args[i]
     match arg {
       "-h" | "--help" | "help" => {
-        print_collab_issue_usage()
+        print_hub_issue_usage()
         return ()
       }
       "--repo" if i + 1 < args.length() => {
@@ -1692,18 +1688,18 @@ async fn handle_collab_issue_import(args : Array[String]) -> Unit raise Error {
     print_line("No issues to import")
     return ()
   }
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  let stats = collab.import_issues(objects, refs, clock, issues)
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  let stats = hub.import_issues(objects, refs, clock, issues)
   print_line(
     "Imported issues: created \{stats.created()}, updated \{stats.updated()}",
   )
 }
 
 ///|
-async fn handle_collab_issue_get(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_issue_get(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_issue_usage()
+    print_hub_issue_usage()
     return ()
   }
   let mut issue_id : String? = None
@@ -1723,9 +1719,9 @@ async fn handle_collab_issue_get(args : Array[String]) -> Unit raise Error {
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let collab = load_collab_store(objects, refs)
-  let issue = collab.get_issue(objects, id)
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let hub = load_hub_store(objects, refs)
+  let issue = hub.get_issue(objects, id)
   guard issue is Some(val) else {
     raise @git.GitError::InvalidObject("Issue not found: \{id}")
   }
@@ -1733,7 +1729,7 @@ async fn handle_collab_issue_get(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_issue_create(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_issue_create(args : Array[String]) -> Unit raise Error {
   let mut title : String? = None
   let mut body : String? = None
   let labels : Array[String] = []
@@ -1807,9 +1803,9 @@ async fn handle_collab_issue_create(args : Array[String]) -> Unit raise Error {
   let issue_body = body.unwrap_or("")
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  let issue = collab.create_issue(
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  let issue = hub.create_issue(
     objects,
     refs,
     clock,
@@ -1823,9 +1819,9 @@ async fn handle_collab_issue_create(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_issue_update(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_issue_update(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_issue_usage()
+    print_hub_issue_usage()
     return ()
   }
   let mut issue_id : String? = None
@@ -1911,9 +1907,9 @@ async fn handle_collab_issue_update(args : Array[String]) -> Unit raise Error {
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  let issue = collab.update_issue(
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  let issue = hub.update_issue(
     objects,
     refs,
     clock,
@@ -1927,9 +1923,9 @@ async fn handle_collab_issue_update(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_issue_close(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_issue_close(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_issue_usage()
+    print_hub_issue_usage()
     return ()
   }
   let mut issue_id : String? = None
@@ -1949,16 +1945,16 @@ async fn handle_collab_issue_close(args : Array[String]) -> Unit raise Error {
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  collab.close_issue(objects, refs, clock, id)
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  hub.close_issue(objects, refs, clock, id)
   print_line("Closed issue #\{id}")
 }
 
 ///|
-async fn handle_collab_issue_reopen(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_issue_reopen(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_issue_usage()
+    print_hub_issue_usage()
     return ()
   }
   let mut issue_id : String? = None
@@ -1978,37 +1974,35 @@ async fn handle_collab_issue_reopen(args : Array[String]) -> Unit raise Error {
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  collab.reopen_issue(objects, refs, clock, id)
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  hub.reopen_issue(objects, refs, clock, id)
   print_line("Reopened issue #\{id}")
 }
 
 ///|
-async fn handle_collab_issue_comment(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_issue_comment(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_issue_usage()
+    print_hub_issue_usage()
     return ()
   }
   let first = args[0]
-  let subcmd = resolve_collab_comment_subcommand(first)
+  let subcmd = resolve_hub_comment_subcommand(first)
   let rest = if subcmd == first { collect_args(args, 1) } else { args }
   match subcmd {
-    "add" => handle_collab_issue_comment_add(rest)
-    "list" => handle_collab_issue_comment_list(rest)
-    "help" | "-h" | "--help" => print_collab_issue_usage()
+    "add" => handle_hub_issue_comment_add(rest)
+    "list" => handle_hub_issue_comment_list(rest)
+    "help" | "-h" | "--help" => print_hub_issue_usage()
     _ => {
       eprint_line("bit hub issue comment: unknown subcommand '\{subcmd}'")
-      print_collab_issue_usage()
+      print_hub_issue_usage()
       @sys.exit(1)
     }
   }
 }
 
 ///|
-async fn handle_collab_issue_comment_add(
-  args : Array[String],
-) -> Unit raise Error {
+async fn handle_hub_issue_comment_add(args : Array[String]) -> Unit raise Error {
   let mut issue_id : String? = None
   let mut body : String? = None
   let mut reply_to : String? = None
@@ -2067,9 +2061,9 @@ async fn handle_collab_issue_comment_add(
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  let comment = collab.add_issue_comment(
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  let comment = hub.add_issue_comment(
     objects,
     refs,
     clock,
@@ -2082,11 +2076,11 @@ async fn handle_collab_issue_comment_add(
 }
 
 ///|
-async fn handle_collab_issue_comment_list(
+async fn handle_hub_issue_comment_list(
   args : Array[String],
 ) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_issue_usage()
+    print_hub_issue_usage()
     return ()
   }
   let mut issue_id : String? = None
@@ -2106,9 +2100,9 @@ async fn handle_collab_issue_comment_list(
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let collab = load_collab_store(objects, refs)
-  let comments = collab.list_issue_comments(objects, id)
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let hub = load_hub_store(objects, refs)
+  let comments = hub.list_issue_comments(objects, id)
   if comments.length() == 0 {
     print_line("No comments")
     return ()
@@ -2119,47 +2113,47 @@ async fn handle_collab_issue_comment_list(
 }
 
 ///|
-async fn handle_collab_issue_link(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_issue_link(args : Array[String]) -> Unit raise Error {
   if args.length() < 2 {
-    print_collab_issue_usage()
+    print_hub_issue_usage()
     return ()
   }
   let issue_id = args[0]
   let pr_id = args[1]
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  collab.link_pr_to_issue(objects, refs, clock, issue_id, pr_id)
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  hub.link_pr_to_issue(objects, refs, clock, issue_id, pr_id)
   print_line("Linked PR #\{pr_id} to issue #\{issue_id}")
 }
 
 ///|
-async fn handle_collab_note(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_note(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_note_usage()
+    print_hub_note_usage()
     return ()
   }
   let subcmd = args[0]
   let rest = collect_args(args, 1)
   match subcmd {
-    "add" => handle_collab_note_add(rest)
-    "get" => handle_collab_note_get(rest)
-    "list" => handle_collab_note_list(rest)
-    "remove" => handle_collab_note_remove(rest)
-    "help" | "-h" | "--help" => print_collab_note_usage()
+    "add" => handle_hub_note_add(rest)
+    "get" => handle_hub_note_get(rest)
+    "list" => handle_hub_note_list(rest)
+    "remove" => handle_hub_note_remove(rest)
+    "help" | "-h" | "--help" => print_hub_note_usage()
     _ => {
       eprint_line("bit hub note: unknown subcommand '\{subcmd}'")
-      print_collab_note_usage()
+      print_hub_note_usage()
       @sys.exit(1)
     }
   }
 }
 
 ///|
-async fn handle_collab_note_add(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_note_add(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_note_usage()
+    print_hub_note_usage()
     return ()
   }
   let mut commit_hex : String? = None
@@ -2226,9 +2220,9 @@ async fn handle_collab_note_add(args : Array[String]) -> Unit raise Error {
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  let note = collab.add_note(
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  let note = hub.add_note(
     objects,
     refs,
     clock,
@@ -2242,9 +2236,9 @@ async fn handle_collab_note_add(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_note_get(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_note_get(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_note_usage()
+    print_hub_note_usage()
     return ()
   }
   let mut commit_hex : String? = None
@@ -2284,9 +2278,9 @@ async fn handle_collab_note_get(args : Array[String]) -> Unit raise Error {
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let collab = load_collab_store(objects, refs)
-  let note = collab.get_note(
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let hub = load_hub_store(objects, refs)
+  let note = hub.get_note(
     objects,
     refs,
     @git.ObjectId::from_hex(hex),
@@ -2299,7 +2293,7 @@ async fn handle_collab_note_get(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_note_list(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_note_list(args : Array[String]) -> Unit raise Error {
   let mut ns : String? = None
   let mut i = 0
   while i < args.length() {
@@ -2329,9 +2323,9 @@ async fn handle_collab_note_list(args : Array[String]) -> Unit raise Error {
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let collab = load_collab_store(objects, refs)
-  let notes = collab.list_notes(objects, refs, ns=note_ns(ns))
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let hub = load_hub_store(objects, refs)
+  let notes = hub.list_notes(objects, refs, ns=note_ns(ns))
   if notes.length() == 0 {
     print_line("No notes")
     return ()
@@ -2342,9 +2336,9 @@ async fn handle_collab_note_list(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_note_remove(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_note_remove(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_note_usage()
+    print_hub_note_usage()
     return ()
   }
   let mut commit_hex : String? = None
@@ -2384,9 +2378,9 @@ async fn handle_collab_note_remove(args : Array[String]) -> Unit raise Error {
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, clock) = make_collab_stores(git_dir)
-  let collab = init_collab_store(objects, refs)
-  collab.remove_note(
+  let (objects, refs, clock) = make_hub_stores(git_dir)
+  let hub = init_hub_store(objects, refs)
+  hub.remove_note(
     objects,
     refs,
     clock,
@@ -2397,27 +2391,27 @@ async fn handle_collab_note_remove(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-async fn handle_collab_sync(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_sync(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
-    print_collab_sync_usage()
+    print_hub_sync_usage()
     return ()
   }
   let subcmd = args[0]
   let rest = collect_args(args, 1)
   match subcmd {
-    "push" => handle_collab_sync_push(rest)
-    "fetch" => handle_collab_sync_fetch(rest)
-    "help" | "-h" | "--help" => print_collab_sync_usage()
+    "push" => handle_hub_sync_push(rest)
+    "fetch" => handle_hub_sync_fetch(rest)
+    "help" | "-h" | "--help" => print_hub_sync_usage()
     _ => {
       eprint_line("bit hub sync: unknown subcommand '\{subcmd}'")
-      print_collab_sync_usage()
+      print_hub_sync_usage()
       @sys.exit(1)
     }
   }
 }
 
 ///|
-async fn handle_collab_sync_push(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_sync_push(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
   let git_dir = root + "/.git"
   let fs = OsFs::new()
@@ -2432,9 +2426,9 @@ async fn handle_collab_sync_push(args : Array[String]) -> Unit raise Error {
   guard remote_url is Some(url) else {
     raise @git.GitError::InvalidObject("No remote configured")
   }
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let collab = load_collab_store(objects, refs)
-  let result = @collab_native.collab_push(collab, fs, git_dir, url)
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let hub = load_hub_store(objects, refs)
+  let result = @hub_native.hub_push(hub, fs, git_dir, url)
   if result.success() {
     print_line(result.message())
   } else {
@@ -2444,25 +2438,25 @@ async fn handle_collab_sync_push(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-fn load_collab_record_store(
+fn load_hub_record_store(
   objects : &@gitlib.ObjectStore,
   refs : &@gitlib.RefStore,
-) -> @collab.CollabStore raise @git.GitError {
-  @collab.CollabStore::load(
+) -> @hub.HubStore raise @git.GitError {
+  @hub.HubStore::load(
     objects,
     refs,
-    signing_key=get_collab_signing_key(),
-    require_signed=get_collab_require_signed(),
+    signing_key=get_hub_signing_key(),
+    require_signed=get_hub_require_signed(),
   )
 }
 
 ///|
 fn select_notify_records(
-  records : Array[@collab.CollabRecord],
-) -> Map[String, @collab.CollabRecord] {
-  let selected : Map[String, @collab.CollabRecord] = {}
+  records : Array[@hub.HubRecord],
+) -> Map[String, @hub.HubRecord] {
+  let selected : Map[String, @hub.HubRecord] = {}
   for record in records {
-    if @collab.record_notify_topic(record) is Some(_) {
+    if @hub.record_notify_topic(record) is Some(_) {
       selected[record.key] = record
     }
   }
@@ -2471,19 +2465,19 @@ fn select_notify_records(
 
 ///|
 fn collect_notify_records_from_store(
-  store : @collab.CollabStore,
+  store : @hub.HubStore,
   objects : &@gitlib.ObjectStore,
-) -> Map[String, @collab.CollabRecord] {
-  let records = store.list_records(objects, "collab/")
+) -> Map[String, @hub.HubRecord] {
+  let records = store.list_records(objects, "hub/")
   select_notify_records(records)
 }
 
 ///|
 fn collect_changed_notify_records(
-  before : Map[String, @collab.CollabRecord],
-  after : Map[String, @collab.CollabRecord],
-) -> Array[@collab.CollabRecord] {
-  let changed : Array[@collab.CollabRecord] = []
+  before : Map[String, @hub.HubRecord],
+  after : Map[String, @hub.HubRecord],
+) -> Array[@hub.HubRecord] {
+  let changed : Array[@hub.HubRecord] = []
   for key, record in after {
     match before.get(key) {
       Some(prev) =>
@@ -2506,13 +2500,10 @@ fn collect_changed_notify_records(
 }
 
 ///|
-fn format_hub_notify_message(
-  topic : String,
-  record : @collab.CollabRecord,
-) -> String {
+fn format_hub_notify_message(topic : String, record : @hub.HubRecord) -> String {
   match topic {
     "hub.pr.proposal" => {
-      let proposal = @collab.parse_pull_request(record.payload) catch {
+      let proposal = @hub.parse_pull_request(record.payload) catch {
         _ => return "[hub.notify] hub.pr.proposal key=\{record.key}"
       }
       "[hub.notify] hub.pr.proposal #\{proposal.id()} [\{proposal.state().to_string()}] \{proposal.title()}"
@@ -2526,7 +2517,7 @@ async fn run_hub_notify_hook(
   fs : OsFs,
   git_dir : String,
   topic : String,
-  record : @collab.CollabRecord,
+  record : @hub.HubRecord,
 ) -> Int {
   let hook_path = git_dir + "/hooks/hub-notify"
   if not(fs.is_file(hook_path)) {
@@ -2543,13 +2534,13 @@ async fn run_hub_notify_hook(
 }
 
 ///|
-async fn dispatch_collab_notify_events(
+async fn dispatch_hub_notify_events(
   fs : OsFs,
   git_dir : String,
-  changed : Array[@collab.CollabRecord],
+  changed : Array[@hub.HubRecord],
 ) -> Unit {
   for record in changed {
-    match @collab.record_notify_topic(record) {
+    match @hub.record_notify_topic(record) {
       Some(topic) => {
         let code = run_hub_notify_hook(fs, git_dir, topic, record)
         if code > 0 {
@@ -2565,7 +2556,7 @@ async fn dispatch_collab_notify_events(
 }
 
 ///|
-async fn handle_collab_sync_fetch(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_sync_fetch(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
   let git_dir = root + "/.git"
   let fs = OsFs::new()
@@ -2580,18 +2571,18 @@ async fn handle_collab_sync_fetch(args : Array[String]) -> Unit raise Error {
   guard remote_url is Some(url) else {
     raise @git.GitError::InvalidObject("No remote configured")
   }
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let before_store = load_collab_record_store(objects, refs)
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let before_store = load_hub_record_store(objects, refs)
   let before_notify = collect_notify_records_from_store(before_store, objects)
-  let collab = load_collab_store(objects, refs)
-  let result = @collab_native.collab_fetch(collab, fs, fs, git_dir, url)
+  let hub = load_hub_store(objects, refs)
+  let result = @hub_native.hub_fetch(hub, fs, fs, git_dir, url)
   if result.success() {
-    let after_store = load_collab_record_store(objects, refs)
+    let after_store = load_hub_record_store(objects, refs)
     let after_notify = collect_notify_records_from_store(after_store, objects)
     let changed_notify = collect_changed_notify_records(
       before_notify, after_notify,
     )
-    dispatch_collab_notify_events(fs, git_dir, changed_notify)
+    dispatch_hub_notify_events(fs, git_dir, changed_notify)
     print_line(result.message())
   } else {
     eprint_line(result.message())
@@ -2600,17 +2591,17 @@ async fn handle_collab_sync_fetch(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-struct CollabDumpOptions {
+struct HubDumpOptions {
   prefix : String
   raw : Bool
   include_deleted : Bool
 }
 
 ///|
-fn parse_collab_dump_options(
+fn parse_hub_dump_options(
   args : Array[String],
-) -> CollabDumpOptions raise @git.GitError {
-  let mut prefix = "collab/"
+) -> HubDumpOptions raise @git.GitError {
+  let mut prefix = "hub/"
   let mut raw = false
   let mut include_deleted = false
   let mut i = 0
@@ -2665,29 +2656,29 @@ fn parse_collab_dump_options(
 }
 
 ///|
-fn format_collab_record_summary(record : @collab.CollabRecord) -> String {
+fn format_hub_record_summary(record : @hub.HubRecord) -> String {
   let deleted_text = if record.deleted { "1" } else { "0" }
   "kind=\{record.kind} key=\{record.key} node=\{record.node} ts=\{record.timestamp} deleted=\{deleted_text}"
 }
 
 ///|
-async fn handle_collab_dump(args : Array[String]) -> Unit raise Error {
+async fn handle_hub_dump(args : Array[String]) -> Unit raise Error {
   if args.length() > 0 {
     let first = args[0]
     if first == "help" || first == "-h" || first == "--help" {
-      print_collab_dump_usage()
+      print_hub_dump_usage()
       return ()
     }
   }
-  let options = parse_collab_dump_options(args)
+  let options = parse_hub_dump_options(args)
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
-  let store = @collab.CollabStore::load(
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
+  let store = @hub.HubStore::load(
     objects,
     refs,
-    signing_key=get_collab_signing_key(),
-    require_signed=get_collab_require_signed(),
+    signing_key=get_hub_signing_key(),
+    require_signed=get_hub_require_signed(),
   )
   let records = store.list_records(
     objects,
@@ -2695,7 +2686,7 @@ async fn handle_collab_dump(args : Array[String]) -> Unit raise Error {
     include_deleted=options.include_deleted,
   )
   if records.length() == 0 {
-    print_line("No collaboration records for prefix: \{options.prefix}")
+    print_line("No hub records for prefix: \{options.prefix}")
     return ()
   }
   records.sort_by(fn(a, b) {
@@ -2710,10 +2701,10 @@ async fn handle_collab_dump(args : Array[String]) -> Unit raise Error {
   for rec in records {
     if options.raw {
       print_line("---")
-      print_line(format_collab_record_summary(rec))
+      print_line(format_hub_record_summary(rec))
       print_line(rec.serialize())
     } else {
-      print_line(format_collab_record_summary(rec))
+      print_line(format_hub_record_summary(rec))
     }
   }
 }
@@ -2892,11 +2883,9 @@ fn json_get_string_array(
 }
 
 ///|
-fn parse_gh_prs(
-  text : String,
-) -> Array[@collab.PullRequest] raise @git.GitError {
+fn parse_gh_prs(text : String) -> Array[@hub.PullRequest] raise @git.GitError {
   let items = parse_json_array(text)
-  let out : Array[@collab.PullRequest] = []
+  let out : Array[@hub.PullRequest] = []
   for item in items {
     match item {
       Json::Object(obj) => {
@@ -2934,7 +2923,7 @@ fn parse_gh_prs(
         let state_raw = json_get_string(obj, "state", "open").to_lower()
         let state = match parse_pr_state(state_raw) {
           Some(s) => s
-          None => @collab.PrState::Open
+          None => @hub.PrState::Open
         }
         let source_repo = if source_repo_raw.length() == 0 {
           None
@@ -2946,7 +2935,7 @@ fn parse_gh_prs(
         } else {
           Some(source_ref_raw)
         }
-        let pr = @collab.PullRequest::new(
+        let pr = @hub.PullRequest::new(
           id,
           title,
           body,
@@ -2971,9 +2960,9 @@ fn parse_gh_prs(
 }
 
 ///|
-fn parse_gh_issues(text : String) -> Array[@collab.Issue] raise @git.GitError {
+fn parse_gh_issues(text : String) -> Array[@hub.Issue] raise @git.GitError {
   let items = parse_json_array(text)
-  let out : Array[@collab.Issue] = []
+  let out : Array[@hub.Issue] = []
   for item in items {
     match item {
       Json::Object(obj) => {
@@ -2991,9 +2980,9 @@ fn parse_gh_issues(text : String) -> Array[@collab.Issue] raise @git.GitError {
         let state_raw = json_get_string(obj, "state", "open").to_lower()
         let state = match parse_issue_state(state_raw) {
           Some(s) => s
-          None => @collab.IssueState::Open
+          None => @hub.IssueState::Open
         }
-        let issue = @collab.Issue::new(
+        let issue = @hub.Issue::new(
           id,
           title,
           body,
@@ -3030,7 +3019,7 @@ fn detect_current_branch_name(git_dir : String) -> String? {
 }
 
 ///|
-fn pr_matches_branch(pr : @collab.PullRequest, branch : String) -> Bool {
+fn pr_matches_branch(pr : @hub.PullRequest, branch : String) -> Bool {
   let source_branch = pr.source_branch()
   let branch_ref = "refs/heads/" + branch
   if source_branch == branch || source_branch == branch_ref {
@@ -3043,26 +3032,26 @@ fn pr_matches_branch(pr : @collab.PullRequest, branch : String) -> Bool {
 }
 
 ///|
-fn parse_pr_state_flag(value : String) -> @collab.PrState? {
+fn parse_pr_state_flag(value : String) -> @hub.PrState? {
   match value {
-    "--open" => Some(@collab.PrState::Open)
-    "--closed" => Some(@collab.PrState::Closed)
-    "--merged" => Some(@collab.PrState::Merged)
+    "--open" => Some(@hub.PrState::Open)
+    "--closed" => Some(@hub.PrState::Closed)
+    "--merged" => Some(@hub.PrState::Merged)
     _ => None
   }
 }
 
 ///|
-fn parse_issue_state_flag(value : String) -> @collab.IssueState? {
+fn parse_issue_state_flag(value : String) -> @hub.IssueState? {
   match value {
-    "--open" => Some(@collab.IssueState::Open)
-    "--closed" => Some(@collab.IssueState::Closed)
+    "--open" => Some(@hub.IssueState::Open)
+    "--closed" => Some(@hub.IssueState::Closed)
     _ => None
   }
 }
 
 ///|
-fn normalize_collab_pr_subcommand(subcmd : String) -> String {
+fn normalize_hub_pr_subcommand(subcmd : String) -> String {
   match subcmd {
     "view" => "get"
     "edit" => "update"
@@ -3072,7 +3061,7 @@ fn normalize_collab_pr_subcommand(subcmd : String) -> String {
 }
 
 ///|
-fn normalize_collab_issue_subcommand(subcmd : String) -> String {
+fn normalize_hub_issue_subcommand(subcmd : String) -> String {
   match subcmd {
     "view" => "get"
     "edit" => "update"
@@ -3081,7 +3070,7 @@ fn normalize_collab_issue_subcommand(subcmd : String) -> String {
 }
 
 ///|
-fn resolve_collab_comment_subcommand(subcmd : String) -> String {
+fn resolve_hub_comment_subcommand(subcmd : String) -> String {
   match subcmd {
     "add" | "list" | "help" | "-h" | "--help" => subcmd
     _ => "add"
@@ -3089,7 +3078,7 @@ fn resolve_collab_comment_subcommand(subcmd : String) -> String {
 }
 
 ///|
-fn resolve_collab_review_subcommand(subcmd : String) -> String {
+fn resolve_hub_review_subcommand(subcmd : String) -> String {
   match subcmd {
     "submit" | "list" | "help" | "-h" | "--help" => subcmd
     _ => "submit"
@@ -3097,68 +3086,68 @@ fn resolve_collab_review_subcommand(subcmd : String) -> String {
 }
 
 ///|
-fn parse_review_verdict_flag(value : String) -> @collab.ReviewVerdict? {
+fn parse_review_verdict_flag(value : String) -> @hub.ReviewVerdict? {
   match value {
-    "--approve" | "--approved" => Some(@collab.ReviewVerdict::Approved)
-    "--comment" => Some(@collab.ReviewVerdict::Comment)
-    "--request-changes" => Some(@collab.ReviewVerdict::RequestChanges)
+    "--approve" | "--approved" => Some(@hub.ReviewVerdict::Approved)
+    "--comment" => Some(@hub.ReviewVerdict::Comment)
+    "--request-changes" => Some(@hub.ReviewVerdict::RequestChanges)
     _ => None
   }
 }
 
 ///|
-fn parse_merge_strategy_flag(value : String) -> @collab.PrMergeStrategy? {
+fn parse_merge_strategy_flag(value : String) -> @hub.PrMergeStrategy? {
   match value {
-    "--merge" => Some(@collab.PrMergeStrategy::Merge)
-    "--squash" => Some(@collab.PrMergeStrategy::Squash)
-    "--ff" | "--fast-forward" => Some(@collab.PrMergeStrategy::FastForward)
+    "--merge" => Some(@hub.PrMergeStrategy::Merge)
+    "--squash" => Some(@hub.PrMergeStrategy::Squash)
+    "--ff" | "--fast-forward" => Some(@hub.PrMergeStrategy::FastForward)
     _ => None
   }
 }
 
 ///|
-fn parse_pr_state(value : String) -> @collab.PrState? {
+fn parse_pr_state(value : String) -> @hub.PrState? {
   match value {
-    "open" => Some(@collab.PrState::Open)
-    "closed" => Some(@collab.PrState::Closed)
-    "merged" => Some(@collab.PrState::Merged)
+    "open" => Some(@hub.PrState::Open)
+    "closed" => Some(@hub.PrState::Closed)
+    "merged" => Some(@hub.PrState::Merged)
     _ => None
   }
 }
 
 ///|
-fn parse_issue_state(value : String) -> @collab.IssueState? {
+fn parse_issue_state(value : String) -> @hub.IssueState? {
   match value {
-    "open" => Some(@collab.IssueState::Open)
-    "closed" => Some(@collab.IssueState::Closed)
+    "open" => Some(@hub.IssueState::Open)
+    "closed" => Some(@hub.IssueState::Closed)
     _ => None
   }
 }
 
 ///|
-fn parse_review_verdict(value : String) -> @collab.ReviewVerdict? {
+fn parse_review_verdict(value : String) -> @hub.ReviewVerdict? {
   match value {
-    "approved" | "approve" => Some(@collab.ReviewVerdict::Approved)
-    "comment" => Some(@collab.ReviewVerdict::Comment)
+    "approved" | "approve" => Some(@hub.ReviewVerdict::Approved)
+    "comment" => Some(@hub.ReviewVerdict::Comment)
     "request-changes" | "request_changes" =>
-      Some(@collab.ReviewVerdict::RequestChanges)
+      Some(@hub.ReviewVerdict::RequestChanges)
     _ => None
   }
 }
 
 ///|
-fn parse_merge_strategy(value : String) -> @collab.PrMergeStrategy? {
+fn parse_merge_strategy(value : String) -> @hub.PrMergeStrategy? {
   match value {
-    "merge" => Some(@collab.PrMergeStrategy::Merge)
-    "squash" => Some(@collab.PrMergeStrategy::Squash)
+    "merge" => Some(@hub.PrMergeStrategy::Merge)
+    "squash" => Some(@hub.PrMergeStrategy::Squash)
     "ff" | "fast-forward" | "fastforward" =>
-      Some(@collab.PrMergeStrategy::FastForward)
+      Some(@hub.PrMergeStrategy::FastForward)
     _ => None
   }
 }
 
 ///|
-fn format_pr_summary(pr : @collab.PullRequest) -> String {
+fn format_pr_summary(pr : @hub.PullRequest) -> String {
   let id = pr.id()
   let title = pr.title()
   let state = pr.state().to_string()
@@ -3166,7 +3155,7 @@ fn format_pr_summary(pr : @collab.PullRequest) -> String {
 }
 
 ///|
-fn format_issue_summary(issue : @collab.Issue) -> String {
+fn format_issue_summary(issue : @hub.Issue) -> String {
   let id = issue.id()
   let title = issue.title()
   let state = issue.state().to_string()

@@ -4,7 +4,7 @@ package "mizchi/bit/x/agent/native"
 import {
   "mizchi/bit/object",
   "mizchi/bit/x/agent",
-  "mizchi/bit/x/collab",
+  "mizchi/bit/x/hub",
 }
 
 // Values
@@ -14,7 +14,7 @@ pub async fn run_task(@agent.AgentTask, @agent.AgentConfig, String) -> @agent.Ta
 
 pub async fn serve(@agent.AgentConfig, String) -> Unit raise @object.GitError
 
-pub async fn validate_pr(@collab.PullRequest, @agent.AgentConfig, String) -> @agent.ReviewResult
+pub async fn validate_pr(@hub.PullRequest, @agent.AgentConfig, String) -> @agent.ReviewResult
 
 // Errors
 

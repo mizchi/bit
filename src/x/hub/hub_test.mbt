@@ -180,19 +180,19 @@ fn short_hex_test(hex : String, start : Int, end : Int) -> String {
 ///|
 test "pr: init creates notes ref on first write" {
   let (fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
-  assert_false(fs.is_file("/repo/.git/refs/notes/bit-collab"))
-  let _ = collab.create_pr(
+  let hub = Hub::init(objects, refs)
+  assert_false(fs.is_file("/repo/.git/refs/notes/bit-hub"))
+  let _ = hub.create_pr(
     objects, refs, clock, "Init PR", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
   )
-  assert_true(fs.is_file("/repo/.git/refs/notes/bit-collab"))
+  assert_true(fs.is_file("/repo/.git/refs/notes/bit-hub"))
 }
 
 ///|
 test "pr: create and get PR" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let pr = prs.create_pr(
     objects, refs, clock, "Fix authentication bug", "This PR fixes the auth issue.\n\nDetails here.",
     "refs/heads/feature", "refs/heads/main", "alice@example.com",
@@ -213,7 +213,7 @@ test "pr: create and get PR" {
 ///|
 test "pr: list PRs" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let _ = prs.create_pr(
     objects, refs, clock, "PR 1", "First PR", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
@@ -224,36 +224,36 @@ test "pr: list PRs" {
   )
   let all = prs.list_prs(objects)
   assert_eq(all.length(), 2)
-  let open_collab = prs.list_prs(objects, state=Some(PrState::Open))
-  assert_eq(open_collab.length(), 2)
+  let open_hub = prs.list_prs(objects, state=Some(PrState::Open))
+  assert_eq(open_hub.length(), 2)
 }
 
 ///|
 test "pr proposal: propose and list without mutating canonical PR list" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
-  let proposed = collab.propose_pr(
+  let hub = Hub::init(objects, refs)
+  let proposed = hub.propose_pr(
     objects, refs, clock, "Proposal PR", "From external peer", "refs/heads/feature",
     "refs/heads/main", "carol@example.com",
   )
-  let proposals = collab.list_pr_proposals(objects)
+  let proposals = hub.list_pr_proposals(objects)
   assert_eq(proposals.length(), 1)
   assert_eq(proposals[0].id(), proposed.id())
   assert_eq(proposals[0].title(), "Proposal PR")
-  let canonical = collab.list_prs(objects)
+  let canonical = hub.list_prs(objects)
   assert_eq(canonical.length(), 0)
 }
 
 ///|
 test "pr proposal: classify as notify-only trigger" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
-  let proposed = collab.propose_pr(
+  let hub = Hub::init(objects, refs)
+  let proposed = hub.propose_pr(
     objects, refs, clock, "Notify proposal", "Only notify should fire", "refs/heads/feature",
     "refs/heads/main", "dave@example.com",
   )
   let proposal_key = pr_proposal_meta_key(proposed.id())
-  let proposal_record = collab.store.get_record(objects, proposal_key)
+  let proposal_record = hub.store.get_record(objects, proposal_key)
   guard proposal_record is Some(record) else { panic() }
   assert_eq(classify_record_trigger(record), RecordTriggerClass::NotifyOnly)
   assert_eq(record_notify_topic(record), Some("hub.pr.proposal"))
@@ -262,13 +262,13 @@ test "pr proposal: classify as notify-only trigger" {
 ///|
 test "pr: classify canonical records as full triggers" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
-  let pr = collab.create_pr(
+  let hub = Hub::init(objects, refs)
+  let pr = hub.create_pr(
     objects, refs, clock, "Canonical PR", "Should keep full triggers", "refs/heads/feature",
     "refs/heads/main", "erin@example.com",
   )
   let key = pr_meta_key(pr.id())
-  let record = collab.store.get_record(objects, key)
+  let record = hub.store.get_record(objects, key)
   guard record is Some(r) else { panic() }
   assert_eq(classify_record_trigger(r), RecordTriggerClass::Full)
   assert_eq(record_notify_topic(r), None)
@@ -277,7 +277,7 @@ test "pr: classify canonical records as full triggers" {
 ///|
 test "pr: close PR" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let pr = prs.create_pr(
     objects, refs, clock, "Test PR", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
@@ -292,7 +292,7 @@ test "pr: close PR" {
 ///|
 test "pr: reopen PR" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let pr = prs.create_pr(
     objects, refs, clock, "Test PR", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
@@ -308,7 +308,7 @@ test "pr: reopen PR" {
 ///|
 test "pr: reopen open PR fails" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let pr = prs.create_pr(
     objects, refs, clock, "Test PR", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
@@ -328,14 +328,14 @@ test "pr: reopen open PR fails" {
 ///|
 test "pr: update PR" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
-  let pr = collab.create_pr(
+  let hub = Hub::init(objects, refs)
+  let pr = hub.create_pr(
     objects, refs, clock, "Original Title", "Original body", "refs/heads/feature",
     "refs/heads/main", "alice@example.com",
   )
   let pr_id = pr.id()
   // Update title and body
-  let updated = collab.update_pr(
+  let updated = hub.update_pr(
     objects,
     refs,
     clock,
@@ -346,7 +346,7 @@ test "pr: update PR" {
   assert_eq(updated.title(), "Updated Title")
   assert_eq(updated.body(), "Updated body with more details")
   // Verify persisted
-  let retrieved = collab.get_pr(objects, pr_id)
+  let retrieved = hub.get_pr(objects, pr_id)
   guard retrieved is Some(pr) else { panic() }
   assert_eq(pr.title(), "Updated Title")
 }
@@ -354,14 +354,14 @@ test "pr: update PR" {
 ///|
 test "pr: update PR labels" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
-  let pr = collab.create_pr(
+  let hub = Hub::init(objects, refs)
+  let pr = hub.create_pr(
     objects, refs, clock, "Test PR", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
   )
   let pr_id = pr.id()
   // Add labels
-  let updated = collab.update_pr(
+  let updated = hub.update_pr(
     objects,
     refs,
     clock,
@@ -375,7 +375,7 @@ test "pr: update PR labels" {
 ///|
 test "pr: add and list comments" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let pr = prs.create_pr(
     objects, refs, clock, "Test PR", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
@@ -404,7 +404,7 @@ test "pr: add and list comments" {
 ///|
 test "pr: submit and list reviews" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let pr = prs.create_pr(
     objects, refs, clock, "Test PR", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
@@ -431,7 +431,7 @@ test "pr: submit and list reviews" {
 ///|
 test "pr: is_approved with request changes" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let pr = prs.create_pr(
     objects, refs, clock, "Test PR", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
@@ -468,7 +468,7 @@ test "pr: is_approved with request changes" {
 ///|
 test "pr: merge fast-forward" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let pr = prs.create_pr(
     objects, refs, clock, "Test PR", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
@@ -495,13 +495,13 @@ test "pr: merge fast-forward" {
 ///|
 test "pr: merge squash" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
-  let pr = collab.create_pr(
+  let hub = Hub::init(objects, refs)
+  let pr = hub.create_pr(
     objects, refs, clock, "Test PR", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
   )
   let pr_id = pr.id()
-  let result = collab.merge_pr(
+  let result = hub.merge_pr(
     objects,
     refs,
     clock,
@@ -511,7 +511,7 @@ test "pr: merge squash" {
   )
   assert_true(result.success())
   assert_eq(result.message(), "Squash merge completed")
-  let merged = collab.get_pr(objects, pr_id)
+  let merged = hub.get_pr(objects, pr_id)
   guard merged is Some(pr) else { panic() }
   assert_eq(pr.state(), PrState::Merged)
 }
@@ -519,13 +519,13 @@ test "pr: merge squash" {
 ///|
 test "pr: merge commit" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
-  let pr = collab.create_pr(
+  let hub = Hub::init(objects, refs)
+  let pr = hub.create_pr(
     objects, refs, clock, "Test PR", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
   )
   let pr_id = pr.id()
-  let result = collab.merge_pr(
+  let result = hub.merge_pr(
     objects,
     refs,
     clock,
@@ -535,7 +535,7 @@ test "pr: merge commit" {
   )
   assert_true(result.success())
   assert_eq(result.message(), "Merge commit created")
-  let merged = collab.get_pr(objects, pr_id)
+  let merged = hub.get_pr(objects, pr_id)
   guard merged is Some(pr) else { panic() }
   assert_eq(pr.state(), PrState::Merged)
 }
@@ -630,7 +630,7 @@ test "format: serialize and parse PrReview" {
 ///|
 test "issue: create and get issue" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let issue = prs.create_issue(
     objects,
     refs,
@@ -654,7 +654,7 @@ test "issue: create and get issue" {
 ///|
 test "issue: list issues" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let _ = prs.create_issue(
     objects, refs, clock, "Issue 1", "First", "alice@example.com",
   )
@@ -670,7 +670,7 @@ test "issue: list issues" {
 ///|
 test "issue: close issue" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let issue = prs.create_issue(
     objects, refs, clock, "Test Issue", "Body", "alice@example.com",
   )
@@ -684,7 +684,7 @@ test "issue: close issue" {
 ///|
 test "issue: reopen issue" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let issue = prs.create_issue(
     objects, refs, clock, "Test Issue", "Body", "alice@example.com",
   )
@@ -699,7 +699,7 @@ test "issue: reopen issue" {
 ///|
 test "issue: reopen open issue fails" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let issue = prs.create_issue(
     objects, refs, clock, "Test Issue", "Body", "alice@example.com",
   )
@@ -718,7 +718,7 @@ test "issue: reopen open issue fails" {
 ///|
 test "issue: add and list comments" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let issue = prs.create_issue(
     objects, refs, clock, "Test Issue", "Body", "alice@example.com",
   )
@@ -738,7 +738,7 @@ test "issue: add and list comments" {
 ///|
 test "issue: link PR to issue" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let prs = Collab::init(objects, refs)
+  let prs = Hub::init(objects, refs)
   let issue = prs.create_issue(
     objects, refs, clock, "Bug", "Fix needed", "alice@example.com",
   )
@@ -758,12 +758,12 @@ test "issue: link PR to issue" {
 ///|
 test "issue: update issue" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
-  let issue = collab.create_issue(
+  let hub = Hub::init(objects, refs)
+  let issue = hub.create_issue(
     objects, refs, clock, "Original Title", "Original body", "alice@example.com",
   )
   let issue_id = issue.id()
-  let updated = collab.update_issue(
+  let updated = hub.update_issue(
     objects,
     refs,
     clock,
@@ -773,7 +773,7 @@ test "issue: update issue" {
   )
   assert_eq(updated.title(), "Updated Title")
   assert_eq(updated.body(), "Updated body")
-  let retrieved = collab.get_issue(objects, issue_id)
+  let retrieved = hub.get_issue(objects, issue_id)
   guard retrieved is Some(issue) else { panic() }
   assert_eq(issue.title(), "Updated Title")
 }
@@ -781,12 +781,12 @@ test "issue: update issue" {
 ///|
 test "issue: update issue labels and assignees" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
-  let issue = collab.create_issue(
+  let hub = Hub::init(objects, refs)
+  let issue = hub.create_issue(
     objects, refs, clock, "Bug", "Details", "alice@example.com",
   )
   let issue_id = issue.id()
-  let updated = collab.update_issue(
+  let updated = hub.update_issue(
     objects,
     refs,
     clock,
@@ -834,16 +834,16 @@ test "format: serialize and parse IssueComment" {
 ///|
 test "notes: add and get note" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
+  let hub = Hub::init(objects, refs)
   let commit_id = refs.resolve("refs/heads/main")
   guard commit_id is Some(cid) else { panic() }
-  let note = collab.add_note(
+  let note = hub.add_note(
     objects, refs, clock, cid, "This commit introduces the initial README.", "alice@example.com",
     1706745600L,
   )
   assert_eq(note.body(), "This commit introduces the initial README.")
   assert_eq(note.author(), "alice@example.com")
-  let retrieved = collab.get_note(objects, refs, cid)
+  let retrieved = hub.get_note(objects, refs, cid)
   assert_true(retrieved is Some(_))
   guard retrieved is Some(n) else { panic() }
   assert_eq(n.body(), "This commit introduces the initial README.")
@@ -852,44 +852,44 @@ test "notes: add and get note" {
 ///|
 test "notes: list notes" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
+  let hub = Hub::init(objects, refs)
   let main_commit = refs.resolve("refs/heads/main")
   guard main_commit is Some(main_id) else { panic() }
   let feature_commit = refs.resolve("refs/heads/feature")
   guard feature_commit is Some(feature_id) else { panic() }
-  let _ = collab.add_note(
+  let _ = hub.add_note(
     objects, refs, clock, main_id, "Note on main", "alice@example.com", 1706745600L,
   )
-  let _ = collab.add_note(
+  let _ = hub.add_note(
     objects, refs, clock, feature_id, "Note on feature", "bob@example.com", 1706832000L,
   )
-  let notes = collab.list_notes(objects, refs)
+  let notes = hub.list_notes(objects, refs)
   assert_eq(notes.length(), 2)
 }
 
 ///|
 test "notes: remove note" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
+  let hub = Hub::init(objects, refs)
   let commit_id = refs.resolve("refs/heads/main")
   guard commit_id is Some(cid) else { panic() }
-  let _ = collab.add_note(
+  let _ = hub.add_note(
     objects, refs, clock, cid, "Temporary note", "alice@example.com", 1706745600L,
   )
-  let before = collab.get_note(objects, refs, cid)
+  let before = hub.get_note(objects, refs, cid)
   assert_true(before is Some(_))
-  collab.remove_note(objects, refs, clock, cid)
-  let after = collab.get_note(objects, refs, cid)
+  hub.remove_note(objects, refs, clock, cid)
+  let after = hub.get_note(objects, refs, cid)
   assert_true(after is None)
 }
 
 ///|
 test "notes: custom ns" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
+  let hub = Hub::init(objects, refs)
   let commit_id = refs.resolve("refs/heads/main")
   guard commit_id is Some(cid) else { panic() }
-  let _ = collab.add_note(
+  let _ = hub.add_note(
     objects,
     refs,
     clock,
@@ -899,16 +899,16 @@ test "notes: custom ns" {
     1706745600L,
     ns="tips",
   )
-  let default_note = collab.get_note(objects, refs, cid)
+  let default_note = hub.get_note(objects, refs, cid)
   assert_true(default_note is None)
-  let tips_note = collab.get_note(objects, refs, cid, ns="tips")
+  let tips_note = hub.get_note(objects, refs, cid, ns="tips")
   assert_true(tips_note is Some(_))
 }
 
 ///|
-test "collab_record version round-trip" {
-  let record = @collab.CollabRecord::new(
-    "collab/pr/1/meta",
+test "hub_record version round-trip" {
+  let record = @hub.HubRecord::new(
+    "hub/pr/1/meta",
     "pr",
     "some payload",
     "node-a",
@@ -916,17 +916,17 @@ test "collab_record version round-trip" {
     version=1,
   )
   let serialized = record.serialize()
-  let parsed = @collab.parse_collab_record(serialized)
+  let parsed = @hub.parse_hub_record(serialized)
   assert_eq(parsed.version, 1)
-  assert_eq(parsed.key, "collab/pr/1/meta")
+  assert_eq(parsed.key, "hub/pr/1/meta")
   assert_eq(parsed.kind, "pr")
   assert_eq(parsed.node, "node-a")
 }
 
 ///|
-test "collab_record signature round-trip" {
-  let record = @collab.CollabRecord::new(
-    "collab/pr/1/meta",
+test "hub_record signature round-trip" {
+  let record = @hub.HubRecord::new(
+    "hub/pr/1/meta",
     "pr",
     "some payload",
     "node-a",
@@ -934,15 +934,15 @@ test "collab_record signature round-trip" {
     signature=Some("deadbeef"),
   )
   let serialized = record.serialize()
-  let parsed = @collab.parse_collab_record(serialized)
+  let parsed = @hub.parse_hub_record(serialized)
   assert_eq(parsed.signature, Some("deadbeef"))
 }
 
 ///|
-test "collab_record version=0 backward compat" {
+test "hub_record version=0 backward compat" {
   // Manually construct text without version line
   let text =
-    #|key collab/pr/1/meta
+    #|key hub/pr/1/meta
     #|kind pr
     #|clock
     #|timestamp 1706745600
@@ -950,9 +950,9 @@ test "collab_record version=0 backward compat" {
     #|deleted 0
     #|
     #|payload data
-  let parsed = @collab.parse_collab_record(text)
+  let parsed = @hub.parse_hub_record(text)
   assert_eq(parsed.version, 0)
-  assert_eq(parsed.key, "collab/pr/1/meta")
+  assert_eq(parsed.key, "hub/pr/1/meta")
 }
 
 ///|
@@ -1008,7 +1008,7 @@ test "pr merge_commit none round-trip" {
 ///|
 test "pr: merge uses source_commit when source branch is missing" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
+  let hub = Hub::init(objects, refs)
   let source_id = refs.resolve("refs/heads/feature")
   guard source_id is Some(sid) else { panic() }
   let target_id = refs.resolve("refs/heads/main")
@@ -1029,8 +1029,8 @@ test "pr: merge uses source_commit when source branch is missing" {
     source_repo=Some("contrib/bit"),
     source_ref=Some("refs/heads/missing-fork-branch"),
   )
-  let _ = collab.import_prs(objects, refs, clock, [pr])
-  let result = collab.merge_pr(
+  let _ = hub.import_prs(objects, refs, clock, [pr])
+  let result = hub.merge_pr(
     objects,
     refs,
     clock,
@@ -1044,38 +1044,38 @@ test "pr: merge uses source_commit when source branch is missing" {
 ///|
 test "signature: require_signed hides unsigned records" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let unsigned_collab = Collab::init(objects, refs)
-  let strict_collab = Collab::init(
+  let unsigned_hub = Hub::init(objects, refs)
+  let strict_hub = Hub::init(
     objects,
     refs,
     signing_key=Some("k1"),
     require_signed=true,
   )
-  let unsigned_pr = unsigned_collab.create_pr(
+  let unsigned_pr = unsigned_hub.create_pr(
     objects, refs, clock, "Unsigned", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
   )
-  strict_collab.reload_store(objects, refs)
-  let strict_view = strict_collab.get_pr(objects, unsigned_pr.id())
+  strict_hub.reload_store(objects, refs)
+  let strict_view = strict_hub.get_pr(objects, unsigned_pr.id())
   assert_true(strict_view is None)
-  let signed_pr = strict_collab.create_pr(
+  let signed_pr = strict_hub.create_pr(
     objects, refs, clock, "Signed", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
   )
-  let strict_signed = strict_collab.get_pr(objects, signed_pr.id())
+  let strict_signed = strict_hub.get_pr(objects, signed_pr.id())
   assert_true(strict_signed is Some(_))
 }
 
 ///|
 test "signature: wrong key hides signed records" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let writer = Collab::init(
+  let writer = Hub::init(
     objects,
     refs,
     signing_key=Some("writer-key"),
     require_signed=true,
   )
-  let reader = Collab::init(
+  let reader = Hub::init(
     objects,
     refs,
     signing_key=Some("reader-key"),
@@ -1093,7 +1093,7 @@ test "signature: wrong key hides signed records" {
 ///|
 test "signature: require_signed without key rejects writes" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let strict = Collab::init(objects, refs, require_signed=true)
+  let strict = Hub::init(objects, refs, require_signed=true)
   ignore(
     strict.create_pr(
       objects, refs, clock, "Signed", "Body", "refs/heads/feature", "refs/heads/main",
@@ -1112,25 +1112,25 @@ test "signature: require_signed without key rejects writes" {
 ///|
 test "signature: require_signed hides unsigned proposal records" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let unsigned_collab = Collab::init(objects, refs)
-  let strict_collab = Collab::init(
+  let unsigned_hub = Hub::init(objects, refs)
+  let strict_hub = Hub::init(
     objects,
     refs,
     signing_key=Some("k1"),
     require_signed=true,
   )
-  let _ = unsigned_collab.propose_pr(
+  let _ = unsigned_hub.propose_pr(
     objects, refs, clock, "Unsigned proposal", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
   )
-  strict_collab.reload_store(objects, refs)
-  let strict_view = strict_collab.list_pr_proposals(objects)
+  strict_hub.reload_store(objects, refs)
+  let strict_view = strict_hub.list_pr_proposals(objects)
   assert_eq(strict_view.length(), 0)
-  let signed = strict_collab.propose_pr(
+  let signed = strict_hub.propose_pr(
     objects, refs, clock, "Signed proposal", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
   )
-  let strict_signed = strict_collab.list_pr_proposals(objects)
+  let strict_signed = strict_hub.list_pr_proposals(objects)
   assert_eq(strict_signed.length(), 1)
   assert_eq(strict_signed[0].id(), signed.id())
 }
@@ -1138,13 +1138,13 @@ test "signature: require_signed hides unsigned proposal records" {
 ///|
 test "signature: wrong key hides signed proposal records" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let writer = Collab::init(
+  let writer = Hub::init(
     objects,
     refs,
     signing_key=Some("writer-key"),
     require_signed=true,
   )
-  let reader = Collab::init(
+  let reader = Hub::init(
     objects,
     refs,
     signing_key=Some("reader-key"),
@@ -1162,7 +1162,7 @@ test "signature: wrong key hides signed proposal records" {
 ///|
 test "signature: require_signed without key rejects proposal writes" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let strict = Collab::init(objects, refs, require_signed=true)
+  let strict = Hub::init(objects, refs, require_signed=true)
   ignore(
     strict.propose_pr(
       objects, refs, clock, "Signed proposal", "Body", "refs/heads/feature", "refs/heads/main",

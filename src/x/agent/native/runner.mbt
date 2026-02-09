@@ -90,7 +90,7 @@ impl @lib.ObjectStore for NativeObjectStore with get(self, id) {
 ///|
 impl @lib.ObjectStore for NativeObjectStore with put(self, obj_type, content) {
   let (id, compressed) = @git.create_object(obj_type, content)
-  @collab.write_object_bytes(self.fs, self.git_dir, id, compressed)
+  @hub.write_object_bytes(self.fs, self.git_dir, id, compressed)
   id
 }
 
@@ -200,10 +200,10 @@ pub async fn run_task(
   }
   let tree : FsWorkingTree = { fs: sandbox, backing_fs: fs, rfs }
   let working_tree : &@lib.WorkingTree = tree
-  // 2. Load or init collab
-  let collab = @collab.Collab::load(objects, refs) catch {
+  // 2. Load or init hub
+  let hub = @hub.Hub::load(objects, refs) catch {
     _ =>
-      @collab.Collab::init(objects, refs) catch {
+      @hub.Hub::init(objects, refs) catch {
         err => {
           if @async.is_being_cancelled() || @async.is_cancellation_error(err) {
             raise err
@@ -217,9 +217,9 @@ pub async fn run_task(
   }
   // 3. Execute pure workflow
   let result = @agent.execute_task(
-    task, config, collab, objects, refs, clock, working_tree,
+    task, config, hub, objects, refs, clock, working_tree,
   )
-  // 4. Push branch and collab notes to remote
+  // 4. Push branch and hub notes to remote
   match result {
     @agent.TaskResult::PrCreated(_) => {
       // Push the source branch
@@ -272,9 +272,9 @@ pub async fn run_task(
               }
             },
           )
-          // Push collab notes
+          // Push hub notes
           ignore(
-            @collab_native.collab_push(collab, rfs, git_dir, config.remote_url) catch {
+            @hub_native.hub_push(hub, rfs, git_dir, config.remote_url) catch {
               err => {
                 if @async.is_being_cancelled() ||
                   @async.is_cancellation_error(err) {
@@ -299,7 +299,7 @@ pub async fn run_task(
 ///|
 /// Validate a PR by running the validation command on a checkout of its source commit.
 pub async fn validate_pr(
-  pr : @collab.PullRequest,
+  pr : @hub.PullRequest,
   config : @agent.AgentConfig,
   git_dir : String,
 ) -> @agent.ReviewResult {

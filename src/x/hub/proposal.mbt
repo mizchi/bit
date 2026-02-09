@@ -1,7 +1,7 @@
 ///|
 /// Create a PR proposal record (notify-only event stream)
-pub fn Collab::propose_pr(
-  self : Collab,
+pub fn Hub::propose_pr(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -73,8 +73,8 @@ pub fn Collab::propose_pr(
 }
 
 ///|
-pub fn Collab::list_pr_proposals(
-  self : Collab,
+pub fn Hub::list_pr_proposals(
+  self : Hub,
   objects : &@lib.ObjectStore,
 ) -> Array[PullRequest] {
   let result : Array[PullRequest] = []

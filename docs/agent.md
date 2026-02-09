@@ -1,10 +1,10 @@
-# bit agent - P2P Agent PR Collaboration
+# bit agent - P2P Agent PR Huboration
 
 AI エージェントが自律的に PR を作成・レビュー・マージする仕組み。
 
 ## 概要
 
-`bit agent` は、bit の collab (PR/レビュー) 基盤の上に構築されたオーケストレーション層。エージェントがタスクを受け取り、ファイル編集 → コミット → PR 作成 → push という一連の流れを自動化する。また、polling daemon として動作し、他のエージェントが作成した PR を自動でレビュー・マージすることもできる。
+`bit agent` は、bit の hub (PR/レビュー) 基盤の上に構築されたオーケストレーション層。エージェントがタスクを受け取り、ファイル編集 → コミット → PR 作成 → push という一連の流れを自動化する。また、polling daemon として動作し、他のエージェントが作成した PR を自動でレビュー・マージすることもできる。
 
 ```
 Agent A: タスク実行 → PR 作成 → push
@@ -15,7 +15,7 @@ Agent B: fetch → PR 検証 → レビュー submit → auto-merge → push
 
 - `bit` がインストール済み
 - リモートリポジトリが `bit receive-pack` を受け付けること（bit サーバーまたは git 互換サーバー）
-- `bit collab init` 済みのリポジトリ
+- `bit hub init` 済みのリポジトリ
 
 ## セットアップ
 
@@ -23,7 +23,7 @@ Agent B: fetch → PR 検証 → レビュー submit → auto-merge → push
 # リポジトリを初期化
 mkdir my-repo && cd my-repo
 bit init
-bit collab init
+bit hub init
 
 # リモートサーバーを起動（別ターミナル）
 cd my-repo && bit receive-pack --http :8080
@@ -81,7 +81,7 @@ edits の各要素:
 
 ### `bit agent serve` - Polling Daemon
 
-定期的にリモートから collab notes を fetch し、未レビューの PR を検証してレビューを submit する。`--auto-merge` を付けると、approved な PR を自動マージして push する。
+定期的にリモートから hub notes を fetch し、未レビューの PR を検証してレビューを submit する。`--auto-merge` を付けると、approved な PR を自動マージして push する。
 
 ```bash
 bit agent serve \
@@ -104,13 +104,13 @@ bit agent serve \
 
 #### Daemon の動作サイクル
 
-1. `collab_fetch` でリモートから notes を同期
+1. `hub_fetch` でリモートから notes を同期
 2. Open な PR を一覧
 3. 自分が author でない未レビューの PR に対して:
    - `--validate` コマンドを実行
    - exit 0 → Approved、それ以外 → RequestChanges としてレビュー submit
 4. `--auto-merge` が有効なら、approved な PR をマージして push
-5. `collab_push` で結果をリモートに同期
+5. `hub_push` で結果をリモートに同期
 6. `--interval` ミリ秒待機して 1 に戻る
 
 ### `bit agent status` - ステータス表示
@@ -126,7 +126,7 @@ bit agent status --remote http://localhost:8080
 ```bash
 # ---- 共有リポジトリを準備 ----
 mkdir shared && cd shared
-bit init && bit collab init
+bit init && bit hub init
 # 初期コミットを作成
 echo "# Project" > README.md
 bit add README.md && bit commit -m "init"
@@ -136,7 +136,7 @@ bit receive-pack --http :8080 &
 # ---- Agent A: タスクを実行 ----
 cd /tmp && mkdir agent-a && cd agent-a
 bit clone http://localhost:8080 .
-bit collab init
+bit hub init
 
 cat > task.json << 'EOF'
 {
@@ -157,7 +157,7 @@ bit agent run --task task.json --remote http://localhost:8080 --agent-id agent-a
 # ---- Agent B: レビュー＆マージ ----
 cd /tmp && mkdir agent-b && cd agent-b
 bit clone http://localhost:8080 .
-bit collab init
+bit hub init
 
 # 1回だけ poll して自動レビュー＋マージ
 bit agent serve \
@@ -194,8 +194,8 @@ pure 層 (`src/x/agent/`) はファイルシステムやネットワークに依
 ### 依存グラフ
 
 ```
-src/x/agent/         → @git, @lib, @collab (pure)
-src/x/agent/native/  → @agent, @collab_native, @bitfs, @osfs, @gitnative, @protocol, @pack (native)
+src/x/agent/         → @git, @lib, @hub (pure)
+src/x/agent/native/  → @agent, @hub_native, @bitfs, @osfs, @gitnative, @protocol, @pack (native)
 src/bit_cli/          → @agent, @agent_native (native, handlers_agent.mbt only)
 ```
 
@@ -203,8 +203,8 @@ src/bit_cli/          → @agent, @agent_native (native, handlers_agent.mbt only
 
 | コンポーネント | 用途 |
 |---|---|
-| `x/collab` Collab | PR 作成・マージ・レビュー・承認チェック |
-| `x/collab/native` collab_push/fetch | Notes の push/fetch |
+| `x/hub` Hub | PR 作成・マージ・レビュー・承認チェック |
+| `x/hub/native` hub_push/fetch | Notes の push/fetch |
 | `x/fs` Fs | サンドボックスファイルシステム |
 | `native` push | ブランチの push |
 | `lib` ObjectStore/RefStore/Clock/WorkingTree | DI トレイト |

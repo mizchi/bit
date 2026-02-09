@@ -22,8 +22,8 @@ pub fn ImportStats::updated(self : ImportStats) -> Int {
 }
 
 ///|
-pub fn Collab::import_prs(
-  self : Collab,
+pub fn Hub::import_prs(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -61,8 +61,8 @@ pub fn Collab::import_prs(
 }
 
 ///|
-pub fn Collab::import_pr_proposals(
-  self : Collab,
+pub fn Hub::import_pr_proposals(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -101,8 +101,8 @@ pub fn Collab::import_pr_proposals(
 }
 
 ///|
-pub fn Collab::import_issues(
-  self : Collab,
+pub fn Hub::import_issues(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,

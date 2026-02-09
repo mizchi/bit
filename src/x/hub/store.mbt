@@ -1,4 +1,4 @@
-///| Collab notes storage (ObjectStore + RefStore based)
+///| Hub notes storage (ObjectStore + RefStore based)
 ///
 /// ## Vector Clock Merge Semantics
 ///
@@ -7,29 +7,29 @@
 /// - Tombstone: deleted=true marks logical deletion; compaction is not yet implemented
 
 ///|
-let collab_notes_ns : String = "bit-collab"
+let hub_notes_ns : String = "bit-hub"
 
 ///|
-let collab_notes_ref : String = "refs/notes/" + collab_notes_ns
+let hub_notes_ref : String = "refs/notes/" + hub_notes_ns
 
 ///|
-pub fn collab_notes_ref_name() -> String {
-  collab_notes_ref
+pub fn hub_notes_ref_name() -> String {
+  hub_notes_ref
 }
 
 ///|
-pub fn collab_notes_ns_name() -> String {
-  collab_notes_ns
+pub fn hub_notes_ns_name() -> String {
+  hub_notes_ns
 }
 
 ///|
 pub fn pr_meta_key(pr_id : String) -> String {
-  "collab/pr/" + pr_id + "/meta"
+  "hub/pr/" + pr_id + "/meta"
 }
 
 ///|
 pub fn pr_proposal_prefix() -> String {
-  "collab/proposal/pr/"
+  "hub/proposal/pr/"
 }
 
 ///|
@@ -39,7 +39,7 @@ pub fn pr_proposal_meta_key(pr_id : String) -> String {
 
 ///|
 pub fn pr_comment_prefix(pr_id : String) -> String {
-  "collab/pr/" + pr_id + "/comment/"
+  "hub/pr/" + pr_id + "/comment/"
 }
 
 ///|
@@ -49,7 +49,7 @@ pub fn pr_comment_key(pr_id : String, comment_id : String) -> String {
 
 ///|
 pub fn pr_review_prefix(pr_id : String) -> String {
-  "collab/pr/" + pr_id + "/review/"
+  "hub/pr/" + pr_id + "/review/"
 }
 
 ///|
@@ -59,12 +59,12 @@ pub fn pr_review_key(pr_id : String, review_id : String) -> String {
 
 ///|
 pub fn issue_meta_key(issue_id : String) -> String {
-  "collab/issue/" + issue_id + "/meta"
+  "hub/issue/" + issue_id + "/meta"
 }
 
 ///|
 pub fn issue_comment_prefix(issue_id : String) -> String {
-  "collab/issue/" + issue_id + "/comment/"
+  "hub/issue/" + issue_id + "/comment/"
 }
 
 ///|
@@ -73,7 +73,7 @@ pub fn issue_comment_key(issue_id : String, comment_id : String) -> String {
 }
 
 ///|
-pub struct CollabRecord {
+pub struct HubRecord {
   version : Int
   key : String
   kind : String
@@ -92,8 +92,8 @@ pub(all) enum RecordTriggerClass {
 } derive(Eq, Show)
 
 ///|
-pub fn classify_record_trigger(record : CollabRecord) -> RecordTriggerClass {
-  if record.kind == "pr-proposal" || record.key.has_prefix("collab/proposal/") {
+pub fn classify_record_trigger(record : HubRecord) -> RecordTriggerClass {
+  if record.kind == "pr-proposal" || record.key.has_prefix("hub/proposal/") {
     RecordTriggerClass::NotifyOnly
   } else {
     RecordTriggerClass::Full
@@ -101,7 +101,7 @@ pub fn classify_record_trigger(record : CollabRecord) -> RecordTriggerClass {
 }
 
 ///|
-pub fn record_notify_topic(record : CollabRecord) -> String? {
+pub fn record_notify_topic(record : HubRecord) -> String? {
   if classify_record_trigger(record) == RecordTriggerClass::Full {
     return None
   }
@@ -112,7 +112,7 @@ pub fn record_notify_topic(record : CollabRecord) -> String? {
 }
 
 ///|
-pub fn CollabRecord::new(
+pub fn HubRecord::new(
   key : String,
   kind : String,
   payload : String,
@@ -122,15 +122,12 @@ pub fn CollabRecord::new(
   deleted? : Bool = false,
   version? : Int = 1,
   signature? : String? = None,
-) -> CollabRecord {
+) -> HubRecord {
   { version, key, kind, clock, timestamp, node, deleted, signature, payload }
 }
 
 ///|
-fn serialize_collab_record(
-  record : CollabRecord,
-  signature : String?,
-) -> String {
+fn serialize_hub_record(record : HubRecord, signature : String?) -> String {
   let sb = StringBuilder::new()
   sb.write_string("version ")
   sb.write_string(record.version.to_string())
@@ -167,17 +164,17 @@ fn serialize_collab_record(
 }
 
 ///|
-fn serialize_collab_record_unsigned(record : CollabRecord) -> String {
-  serialize_collab_record(record, None)
+fn serialize_hub_record_unsigned(record : HubRecord) -> String {
+  serialize_hub_record(record, None)
 }
 
 ///|
-pub fn CollabRecord::serialize(self : CollabRecord) -> String {
-  serialize_collab_record(self, self.signature)
+pub fn HubRecord::serialize(self : HubRecord) -> String {
+  serialize_hub_record(self, self.signature)
 }
 
 ///|
-pub fn parse_collab_record(text : String) -> CollabRecord {
+pub fn parse_hub_record(text : String) -> HubRecord {
   let mut version = 0
   let mut key = ""
   let mut kind = ""
@@ -218,7 +215,7 @@ pub fn parse_collab_record(text : String) -> CollabRecord {
       }
     }
   }
-  CollabRecord::new(
+  HubRecord::new(
     key,
     kind,
     payload_lines.join("\n"),
@@ -308,7 +305,7 @@ fn compare_clock(a : Map[String, Int64], b : Map[String, Int64]) -> Int {
 }
 
 ///|
-fn record_is_newer(a : CollabRecord, b : CollabRecord) -> Bool {
+fn record_is_newer(a : HubRecord, b : HubRecord) -> Bool {
   let cmp = compare_clock(a.clock, b.clock)
   if cmp > 0 {
     return true
@@ -323,24 +320,21 @@ fn record_is_newer(a : CollabRecord, b : CollabRecord) -> Bool {
 }
 
 ///|
-fn is_valid_record(record : CollabRecord) -> Bool {
+fn is_valid_record(record : HubRecord) -> Bool {
   record.key.length() > 0 && record.kind.length() > 0
 }
 
 ///|
-fn compute_record_signature(
-  record : CollabRecord,
-  signing_key : String,
-) -> String {
+fn compute_record_signature(record : HubRecord, signing_key : String) -> String {
   let state = @git.Sha1State::new()
-  state.update_string(serialize_collab_record_unsigned(record))
+  state.update_string(serialize_hub_record_unsigned(record))
   state.update_string("\n--signing-key--\n")
   state.update_string(signing_key)
   state.finish().to_hex()
 }
 
 ///|
-fn verify_record_signature(record : CollabRecord, signing_key : String) -> Bool {
+fn verify_record_signature(record : HubRecord, signing_key : String) -> Bool {
   match record.signature {
     Some(sig) => sig == compute_record_signature(record, signing_key)
     None => false
@@ -348,9 +342,9 @@ fn verify_record_signature(record : CollabRecord, signing_key : String) -> Bool 
 }
 
 ///|
-fn sign_record(record : CollabRecord, signing_key : String) -> CollabRecord {
+fn sign_record(record : HubRecord, signing_key : String) -> HubRecord {
   let signature = compute_record_signature(record, signing_key)
-  CollabRecord::new(
+  HubRecord::new(
     record.key,
     record.kind,
     record.payload,
@@ -367,8 +361,8 @@ fn sign_record(record : CollabRecord, signing_key : String) -> CollabRecord {
 pub fn merge_record_bytes(ours : Bytes, theirs : Bytes) -> Bytes {
   let ours_text = @utf8.decode_lossy(ours[:])
   let theirs_text = @utf8.decode_lossy(theirs[:])
-  let ours_record = parse_collab_record(ours_text)
-  let theirs_record = parse_collab_record(theirs_text)
+  let ours_record = parse_hub_record(ours_text)
+  let theirs_record = parse_hub_record(theirs_text)
   if (ours_record |> is_valid_record |> not) && is_valid_record(theirs_record) {
     return theirs
   }
@@ -384,7 +378,7 @@ pub fn merge_record_bytes(ours : Bytes, theirs : Bytes) -> Bytes {
 }
 
 ///|
-pub struct CollabStore {
+pub struct HubStore {
   node_id : String
   signing_key : String?
   require_signed : Bool
@@ -393,17 +387,17 @@ pub struct CollabStore {
 }
 
 ///|
-pub fn CollabStore::load(
+pub fn HubStore::load(
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   node_id? : String = "local",
   signing_key? : String? = None,
   require_signed? : Bool = false,
-) -> CollabStore raise @git.GitError {
+) -> HubStore raise @git.GitError {
   let node = node_id
   let key = signing_key
   let require_signed_val = require_signed
-  let commit = refs.resolve(collab_notes_ref)
+  let commit = refs.resolve(hub_notes_ref)
   let entries : Map[String, @git.ObjectId] = {}
   let head = match commit {
     Some(cid) => {
@@ -430,22 +424,22 @@ pub fn CollabStore::load(
 }
 
 ///|
-pub fn CollabStore::node_id(self : CollabStore) -> String {
+pub fn HubStore::node_id(self : HubStore) -> String {
   self.node_id
 }
 
 ///|
-pub fn CollabStore::signing_key(self : CollabStore) -> String? {
+pub fn HubStore::signing_key(self : HubStore) -> String? {
   self.signing_key
 }
 
 ///|
-pub fn CollabStore::require_signed(self : CollabStore) -> Bool {
+pub fn HubStore::require_signed(self : HubStore) -> Bool {
   self.require_signed
 }
 
 ///|
-fn verify_record_by_policy(store : CollabStore, record : CollabRecord) -> Bool {
+fn verify_record_by_policy(store : HubStore, record : HubRecord) -> Bool {
   match store.signing_key {
     Some(key) =>
       match record.signature {
@@ -458,21 +452,21 @@ fn verify_record_by_policy(store : CollabStore, record : CollabRecord) -> Bool {
 
 ///|
 fn ensure_signature_ready_for_write(
-  store : CollabStore,
+  store : HubStore,
 ) -> Unit raise @git.GitError {
   if store.require_signed && store.signing_key is None {
     raise @git.GitError::InvalidObject(
-      "Collab signing is required but signing key is not configured",
+      "Hub signing is required but signing key is not configured",
     )
   }
 }
 
 ///|
-pub fn CollabStore::get_record(
-  self : CollabStore,
+pub fn HubStore::get_record(
+  self : HubStore,
   objects : &@lib.ObjectStore,
   key : String,
-) -> CollabRecord? {
+) -> HubRecord? {
   let target_id = key_to_target_id(key)
   let entry_name = target_id.to_hex()
   let blob_id = self.entries.get(entry_name)
@@ -484,7 +478,7 @@ pub fn CollabStore::get_record(
         None => None
         Some(blob_obj) => {
           let text = @utf8.decode_lossy(blob_obj.data[:])
-          let record = parse_collab_record(text)
+          let record = parse_hub_record(text)
           if not(verify_record_by_policy(self, record)) {
             None
           } else if record.deleted {
@@ -499,8 +493,8 @@ pub fn CollabStore::get_record(
 }
 
 ///|
-pub fn CollabStore::put_record(
-  self : CollabStore,
+pub fn HubStore::put_record(
+  self : HubStore,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -508,7 +502,7 @@ pub fn CollabStore::put_record(
   kind : String,
   payload : String,
   node : String,
-) -> CollabRecord raise @git.GitError {
+) -> HubRecord raise @git.GitError {
   ensure_signature_ready_for_write(self)
   let timestamp = clock.now()
   let existing = self.get_record(objects, key)
@@ -517,7 +511,7 @@ pub fn CollabStore::put_record(
     None => {}
   }
   let next_clock = increment_clock(base_clock, node)
-  let unsigned_record = CollabRecord::new(
+  let unsigned_record = HubRecord::new(
     key,
     kind,
     payload,
@@ -544,15 +538,15 @@ pub fn CollabStore::put_record(
 }
 
 ///|
-pub fn CollabStore::delete_record(
-  self : CollabStore,
+pub fn HubStore::delete_record(
+  self : HubStore,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
   key : String,
   kind : String,
   node : String,
-) -> CollabRecord raise @git.GitError {
+) -> HubRecord raise @git.GitError {
   ensure_signature_ready_for_write(self)
   let timestamp = clock.now()
   let existing = self.get_record(objects, key)
@@ -561,7 +555,7 @@ pub fn CollabStore::delete_record(
     None => {}
   }
   let next_clock = increment_clock(base_clock, node)
-  let unsigned_record = CollabRecord::new(
+  let unsigned_record = HubRecord::new(
     key,
     kind,
     "",
@@ -588,13 +582,13 @@ pub fn CollabStore::delete_record(
 }
 
 ///|
-pub fn CollabStore::list_records(
-  self : CollabStore,
+pub fn HubStore::list_records(
+  self : HubStore,
   objects : &@lib.ObjectStore,
   prefix : String,
   include_deleted? : Bool = false,
-) -> Array[CollabRecord] {
-  let result : Array[CollabRecord] = []
+) -> Array[HubRecord] {
+  let result : Array[HubRecord] = []
   let include_deleted_val = include_deleted
   for item in self.entries.to_array() {
     let (_, blob_id) = item
@@ -603,7 +597,7 @@ pub fn CollabStore::list_records(
       None => ()
       Some(blob_obj) => {
         let text = @utf8.decode_lossy(blob_obj.data[:])
-        let record = parse_collab_record(text)
+        let record = parse_hub_record(text)
         if not(verify_record_by_policy(self, record)) {
           continue
         }
@@ -639,7 +633,7 @@ fn key_to_target_id(key : String) -> @git.ObjectId {
 
 ///|
 fn commit_notes(
-  store : CollabStore,
+  store : HubStore,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   message : String,
@@ -662,10 +656,10 @@ fn commit_notes(
   let commit = @git.Commit::new(
     tree_id,
     parents,
-    "Collab <collab@local>",
+    "Hub <hub@local>",
     timestamp,
     "+0000",
-    "Collab <collab@local>",
+    "Hub <hub@local>",
     timestamp,
     "+0000",
     message + "\n",
@@ -673,6 +667,6 @@ fn commit_notes(
   let commit_bytes = @git.serialize_commit_content(commit)
   let commit_id = objects.put(@git.ObjectType::Commit, commit_bytes)
   store.head = Some(commit_id)
-  refs.update(collab_notes_ref, Some(commit_id))
+  refs.update(hub_notes_ref, Some(commit_id))
   commit_id
 }

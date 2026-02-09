@@ -257,7 +257,7 @@ fn setup_test() -> (
 ///|
 test "execute_task creates PR" {
   let (_fs, objects, refs, clock, tree) = setup_test()
-  let collab = @collab.Collab::init(objects, refs)
+  let hub = @hub.Hub::init(objects, refs)
   let config = @agent.AgentConfig::new(
     "agent-1",
     "http://localhost:8080",
@@ -272,13 +272,13 @@ test "execute_task creates PR" {
     "agent-1/task-1",
   )
   let result = @agent.execute_task(
-    task, config, collab, objects, refs, clock, tree,
+    task, config, hub, objects, refs, clock, tree,
   )
   guard result is @agent.TaskResult::PrCreated(pr_id) else {
     fail("expected PrCreated, got \{result}")
   }
   // Verify PR exists
-  let pr = collab.get_pr(objects, pr_id)
+  let pr = hub.get_pr(objects, pr_id)
   assert_true(pr is Some(_))
   let pr = pr.unwrap()
   assert_eq(pr.title(), "Add hello.txt")
@@ -290,7 +290,7 @@ test "execute_task creates PR" {
 ///|
 test "check_and_merge merges approved PR" {
   let (_fs, objects, refs, clock, tree) = setup_test()
-  let collab = @collab.Collab::init(objects, refs)
+  let hub = @hub.Hub::init(objects, refs)
   let config = @agent.AgentConfig::new(
     "agent-1",
     "http://localhost:8080",
@@ -305,33 +305,33 @@ test "check_and_merge merges approved PR" {
     "agent-1/task-2",
   )
   let result = @agent.execute_task(
-    task, config, collab, objects, refs, clock, tree,
+    task, config, hub, objects, refs, clock, tree,
   )
   guard result is @agent.TaskResult::PrCreated(pr_id) else {
     fail("expected PrCreated")
   }
   // Not approved yet → rejected
   let merge_result = @agent.check_and_merge(
-    pr_id, config, collab, objects, refs, clock,
+    pr_id, config, hub, objects, refs, clock,
   )
   assert_eq(merge_result, @agent.TaskResult::PrRejected(pr_id, "not approved"))
   // Approve the PR
-  let pr = collab.get_pr(objects, pr_id).unwrap()
+  let pr = hub.get_pr(objects, pr_id).unwrap()
   ignore(
-    collab.submit_review(
+    hub.submit_review(
       objects,
       refs,
       clock,
       pr_id,
       "reviewer-1",
-      @collab.ReviewVerdict::Approved,
+      @hub.ReviewVerdict::Approved,
       "LGTM",
       pr.source_commit(),
     ),
   )
   // Now merge should succeed
   let merge_result2 = @agent.check_and_merge(
-    pr_id, config, collab, objects, refs, clock,
+    pr_id, config, hub, objects, refs, clock,
   )
   assert_eq(merge_result2, @agent.TaskResult::PrMerged(pr_id))
 }
@@ -352,7 +352,7 @@ test "evaluate_validation fail" {
 ///|
 test "should_auto_review filters correctly" {
   let (_fs, objects, refs, clock, _tree) = setup_test()
-  let collab = @collab.Collab::init(objects, refs)
+  let hub = @hub.Hub::init(objects, refs)
   let config = @agent.AgentConfig::new(
     "agent-1",
     "http://localhost:8080",
@@ -361,13 +361,13 @@ test "should_auto_review filters correctly" {
   // Create a PR by a different author
   let source_ref = refs.resolve("refs/heads/main").unwrap()
   refs.update("refs/heads/other-feature", Some(source_ref))
-  let pr = collab.create_pr(
+  let pr = hub.create_pr(
     objects, refs, clock, "Feature PR", "body", "refs/heads/other-feature", "refs/heads/main",
     "other-agent",
   )
   assert_true(@agent.should_auto_review(pr, config))
   // PR by self should not be reviewed
-  let pr_self = collab.create_pr(
+  let pr_self = hub.create_pr(
     objects, refs, clock, "My PR", "body", "refs/heads/other-feature", "refs/heads/main",
     "agent-1",
   )

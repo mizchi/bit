@@ -21,7 +21,7 @@ src/x/agent/               mizchi/bit (本体)
   policy.mbt                 &@lib.RefStore (trait)
                              &@lib.Clock (trait)
                              &@lib.WorkingTree (trait)
-                             @collab.Collab
+                             @hub.Hub
   ← git 層への依存: trait 参照のみ、実装非依存
 
 src/x/agent/native/        mizchi/bit (本体)
@@ -52,17 +52,17 @@ fn(input) {
 - 環境依存 (macOS/Linux のコマンド差異)
 - リプレイ不能 (実行は不可逆)
 
-### agent/core は collab protocol 確定後に切り出せる
+### agent/core は hub protocol 確定後に切り出せる
 
 `src/x/agent/` の `workflow.mbt` と `policy.mbt` は trait 経由で git 層を使う。依存は:
 
 - `@git.ObjectId` — 型のみ
 - `&@lib.ObjectStore` / `&@lib.RefStore` / `&@lib.WorkingTree` / `&@lib.Clock` — trait 参照
-- `@collab.Collab` — collab API
+- `@hub.Hub` — hub API
 
-collab protocol が安定すれば、trait 定義とともに切り出せる。
+hub protocol が安定すれば、trait 定義とともに切り出せる。
 
-### collab protocol の未確定事項
+### hub protocol の未確定事項
 
 | 項目 | 影響 | 優先度 |
 |------|------|--------|
@@ -164,7 +164,7 @@ moonix の shell parser は完成しているが **実行エンジンが xsh 待
 ```
 mizchi/bit                    # git 互換実装 (現在のまま)
   src/
-  src/x/collab/              # collab protocol
+  src/x/hub/              # hub protocol
   src/x/kv/                  # KV store + gossip
 
 mizchi/moonix                 # 仮想実行環境 (現在のまま)
@@ -185,7 +185,7 @@ mizchi/bit-agent (NEW)        # エージェントシステム
     mizchi/moonix            # 実行環境 (AgentRuntime, GitBackedFs)
     mizchi/llm               # LLM プロバイダ
     mizchi/bit               # (optional) native git adapter
-    mizchi/bit/x/collab      # (optional) PR/review integration
+    mizchi/bit/x/hub      # (optional) PR/review integration
 ```
 
 ### ツール定義の変更
@@ -227,10 +227,10 @@ coordination dir が不要になり、KV への移行パスも明確になる:
 
 ## 移行ステップ
 
-### Phase 0: collab protocol 確定
+### Phase 0: hub protocol 確定
 - Vector clock merge semantics を仕様化
 - Note timestamp 問題を解決
-- `docs/collab-protocol.md` に contract を文書化
+- `docs/hub-protocol.md` に contract を文書化
 
 ### Phase 1: moonix に agent tool adapter を追加
 - `mizchi/moonix/src/ai/tools/` に MCP-compatible ツール定義
@@ -247,7 +247,7 @@ coordination dir が不要になり、KV への移行パスも明確になる:
 ### Phase 3: coordination を KV 互換に
 - in-memory coordination (ローカル)
 - KV gossip coordination (分散)
-- collab integration (PR/review)
+- hub integration (PR/review)
 
 ## まとめ
 
@@ -256,5 +256,5 @@ coordination dir が不要になり、KV への移行パスも明確になる:
 | agent を別リポに切り出すか | YES | llm 層は git 依存ゼロ、core 層は trait のみ |
 | moonix 上で動かすか | YES | sandbox, snapshot/rollback, EffectLog, capability |
 | shell emulation を待つか | NO | host delegation で先に進む |
-| collab 確定が先か | YES | agent の workflow/policy が collab に依存 |
-| いつ切り出すか | Phase 0 (collab) → Phase 1 (moonix tools) → Phase 2 (extract) |
+| hub 確定が先か | YES | agent の workflow/policy が hub に依存 |
+| いつ切り出すか | Phase 0 (hub) → Phase 1 (moonix tools) → Phase 2 (extract) |

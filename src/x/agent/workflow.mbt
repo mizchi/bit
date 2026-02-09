@@ -4,7 +4,7 @@
 pub fn execute_task(
   task : AgentTask,
   config : AgentConfig,
-  collab : @collab.Collab,
+  hub : @hub.Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -25,8 +25,8 @@ pub fn execute_task(
   refs.update("refs/heads/" + task.source_branch, Some(commit_id)) catch {
     err => return TaskResult::Error(err.to_string())
   }
-  // 4. Create PR via collab
-  let pr = collab.create_pr(
+  // 4. Create PR via hub
+  let pr = hub.create_pr(
     objects,
     refs,
     clock,
@@ -46,17 +46,17 @@ pub fn execute_task(
 pub fn check_and_merge(
   pr_id : String,
   config : AgentConfig,
-  collab : @collab.Collab,
+  hub : @hub.Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
 ) -> TaskResult {
   // 1. Check approval
-  if not(collab.is_approved(objects, pr_id)) {
+  if not(hub.is_approved(objects, pr_id)) {
     return TaskResult::PrRejected(pr_id, "not approved")
   }
   // 2. Merge
-  let result = collab.merge_pr(objects, refs, clock, pr_id, config.agent_id) catch {
+  let result = hub.merge_pr(objects, refs, clock, pr_id, config.agent_id) catch {
     err => return TaskResult::Error(err.to_string())
   }
   if result.success() {

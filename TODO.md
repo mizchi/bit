@@ -168,7 +168,7 @@ allowlist で残っている 5 テスト:
 ## Tier 4: Future (Low)
 
 - [ ] **Moonix integration**: ToolEnvironment <-> AgentRuntime (moonix release 待ち)
-- [x] **Git-Native PR System**: `src/x/collab` の persistence 実装（`refs/notes/bit-collab`）
+- [x] **Git-Native PR System**: `src/x/hub` の persistence 実装（`refs/notes/bit-hub`）
 - [ ] bit mount / bit jj / .bitignore / BIT~ 環境変数
 
 ## 完了した項目
@@ -400,10 +400,10 @@ allowlist で残っている 5 テスト:
 - SubtaskPlan (task + files スコープ)、AgentRunner trait 抽象化
 - KvCoordinationBackend + KvStore trait
 
-### ✅ Agent trait 抽象化 + Collab protocol 修正 (2026-02-07)
+### ✅ Agent trait 抽象化 + Hub protocol 修正 (2026-02-07)
 
 - ToolEnvironment trait + CoordinationBackend trait
-- CollabRecord.version + PullRequest.merge_commit
+- HubRecord.version + PullRequest.merge_commit
 - Clock trait dependency injection
 
 ### ✅ t5xxx allowlist 拡張 (2026-02-06)
@@ -460,12 +460,12 @@ allowlist で残っている 5 テスト:
 
 ---
 
-## 新機能: Git-Native PR システム (src/x/collab)
+## 新機能: Git-Native PR システム (src/x/hub)
 
 **計画ファイル:** `~/.claude/plans/lexical-beaming-valley.md`
 
 GitHub/GitLab に依存しない、Git ネイティブな Pull Request システム。
-現在は `refs/notes/bit-collab` に collab record (`collab/pr/*`, `collab/issue/*`) を保存し、`collab sync push/fetch` で同期。
+現在は `refs/notes/bit-hub` に hub record (`hub/pr/*`, `hub/issue/*`) を保存し、`hub sync push/fetch` で同期。
 
 ### 実装ステップ
 
@@ -474,7 +474,7 @@ GitHub/GitLab に依存しない、Git ネイティブな Pull Request システ
   - Git スタイルテキストのシリアライズ/パース
 
 - [x] **Step 2: PR 操作**
-  - Collab 構造体
+  - Hub 構造体
   - create, get, list, close
 
 - [x] **Step 3: コメント・レビュー (comment.mbt, review.mbt)**
@@ -491,7 +491,7 @@ GitHub/GitLab に依存しない、Git ネイティブな Pull Request システ
 
 ### 現在の残課題
 
-- [ ] `handlers_collab` の CLI テストをさらに拡充（`create/update/review/sync` の境界値）
+- [ ] `handlers_hub` の CLI テストをさらに拡充（`create/update/review/sync` の境界値）
 - [ ] GitHub import の provider 抽象化（`gh` コマンド依存の低減）
 - [ ] 競合解決ポリシー（record 単位の LWW 以外）の検討
 
@@ -499,7 +499,7 @@ GitHub/GitLab に依存しない、Git ネイティブな Pull Request システ
 
 ```bash
 moon check
-moon test --target native -p mizchi/bit/x/collab
-moon test --target native -p mizchi/bit/cmd/bit -f handlers_collab_wbtest.mbt
-bash e2e/run-tests.sh t0012-collab-sync
+moon test --target native -p mizchi/bit/x/hub
+moon test --target native -p mizchi/bit/cmd/bit -f handlers_hub_wbtest.mbt
+bash e2e/run-tests.sh t0012-hub-sync
 ```

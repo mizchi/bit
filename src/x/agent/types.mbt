@@ -1,5 +1,5 @@
 ///|
-/// Agent configuration for P2P collaboration
+/// Agent configuration for P2P hub workflow
 pub struct AgentConfig {
   agent_id : String
   remote_url : String

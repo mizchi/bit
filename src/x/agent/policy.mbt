@@ -12,12 +12,9 @@ pub fn evaluate_validation(exit_code : Int, output : String) -> ReviewResult {
 
 ///|
 /// Determine whether the agent should auto-review this PR.
-pub fn should_auto_review(
-  pr : @collab.PullRequest,
-  config : AgentConfig,
-) -> Bool {
+pub fn should_auto_review(pr : @hub.PullRequest, config : AgentConfig) -> Bool {
   // Only review Open PRs targeting our branch, not authored by us
-  pr.state() == @collab.PrState::Open &&
+  pr.state() == @hub.PrState::Open &&
   pr.target_branch() == "refs/heads/" + config.target_branch &&
   pr.author() != config.agent_id
 }
@@ -25,7 +22,7 @@ pub fn should_auto_review(
 ///|
 /// Submit a validation review for a PR.
 pub fn submit_validation_review(
-  collab : @collab.Collab,
+  hub : @hub.Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -35,13 +32,13 @@ pub fn submit_validation_review(
   commit_id : @git.ObjectId,
 ) -> Unit {
   let (verdict, body) = match result {
-    Approved => (@collab.ReviewVerdict::Approved, "validation passed")
-    Rejected(reason) => (@collab.ReviewVerdict::RequestChanges, reason)
+    Approved => (@hub.ReviewVerdict::Approved, "validation passed")
+    Rejected(reason) => (@hub.ReviewVerdict::RequestChanges, reason)
     ValidationError(err) =>
-      (@collab.ReviewVerdict::Comment, "validation error: \{err}")
+      (@hub.ReviewVerdict::Comment, "validation error: \{err}")
   }
   ignore(
-    collab.submit_review(
+    hub.submit_review(
       objects, refs, clock, pr_id, reviewer_id, verdict, body, commit_id,
     ),
   ) catch {

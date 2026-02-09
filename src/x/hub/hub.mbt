@@ -1,21 +1,21 @@
-///| Collab - Git-native collaboration system (Pull Requests, Issues)
+///| Hub - Git-native hub system (Pull Requests, Issues)
 
 ///|
-/// Collab manages Pull Requests and Issues stored in git notes
-pub struct Collab {
-  mut store : CollabStore
+/// Hub manages Pull Requests and Issues stored in git notes
+pub struct Hub {
+  mut store : HubStore
 }
 
 ///|
-/// Load an existing Collab from git notes
-pub fn Collab::load(
+/// Load an existing Hub from git notes
+pub fn Hub::load(
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   node_id? : String = "local",
   signing_key? : String? = None,
   require_signed? : Bool = false,
-) -> Collab raise @git.GitError {
-  let store = CollabStore::load(
+) -> Hub raise @git.GitError {
+  let store = HubStore::load(
     objects,
     refs,
     node_id~,
@@ -27,12 +27,12 @@ pub fn Collab::load(
 
 ///|
 /// Reload store from current object/ref state
-pub fn Collab::reload_store(
-  self : Collab,
+pub fn Hub::reload_store(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
 ) -> Unit raise @git.GitError {
-  self.store = CollabStore::load(
+  self.store = HubStore::load(
     objects,
     refs,
     node_id=self.store.node_id(),
@@ -42,21 +42,21 @@ pub fn Collab::reload_store(
 }
 
 ///|
-/// Initialize a new Collab
-pub fn Collab::init(
+/// Initialize a new Hub
+pub fn Hub::init(
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   node_id? : String = "local",
   signing_key? : String? = None,
   require_signed? : Bool = false,
-) -> Collab raise @git.GitError {
-  Collab::load(objects, refs, node_id~, signing_key~, require_signed~)
+) -> Hub raise @git.GitError {
+  Hub::load(objects, refs, node_id~, signing_key~, require_signed~)
 }
 
 ///|
 /// Create a new Pull Request
-pub fn Collab::create_pr(
-  self : Collab,
+pub fn Hub::create_pr(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -132,8 +132,8 @@ pub fn Collab::create_pr(
 
 ///|
 /// Get a Pull Request by ID
-pub fn Collab::get_pr(
-  self : Collab,
+pub fn Hub::get_pr(
+  self : Hub,
   objects : &@lib.ObjectStore,
   pr_id : String,
 ) -> PullRequest? {
@@ -154,13 +154,13 @@ pub fn Collab::get_pr(
 
 ///|
 /// List Pull Requests, optionally filtered by state
-pub fn Collab::list_prs(
-  self : Collab,
+pub fn Hub::list_prs(
+  self : Hub,
   objects : &@lib.ObjectStore,
   state? : PrState? = None,
 ) -> Array[PullRequest] {
   let result : Array[PullRequest] = []
-  let records = self.store.list_records(objects, "collab/pr/")
+  let records = self.store.list_records(objects, "hub/pr/")
   for record in records {
     if not(record.key.has_suffix("/meta")) || record.kind != "pr" {
       continue
@@ -185,8 +185,8 @@ pub fn Collab::list_prs(
 
 ///|
 /// Update a Pull Request (title, body, labels)
-pub fn Collab::update_pr(
-  self : Collab,
+pub fn Hub::update_pr(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -243,8 +243,8 @@ pub fn Collab::update_pr(
 
 ///|
 /// Close a Pull Request
-pub fn Collab::close_pr(
-  self : Collab,
+pub fn Hub::close_pr(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -289,8 +289,8 @@ pub fn Collab::close_pr(
 
 ///|
 /// Reopen a closed Pull Request
-pub fn Collab::reopen_pr(
-  self : Collab,
+pub fn Hub::reopen_pr(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,

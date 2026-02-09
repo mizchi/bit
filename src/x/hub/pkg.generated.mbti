@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "mizchi/bit/x/collab"
+package "mizchi/bit/x/hub"
 
 import {
   "mizchi/bit/lib",
@@ -8,15 +8,15 @@ import {
 }
 
 // Values
-pub fn classify_record_trigger(CollabRecord) -> RecordTriggerClass
-
-pub fn collab_notes_ns_name() -> String
-
-pub fn collab_notes_ref_name() -> String
+pub fn classify_record_trigger(HubRecord) -> RecordTriggerClass
 
 pub fn find_remote_notes_ref(Array[(@object.ObjectId, String)]) -> (@object.ObjectId, String)
 
 pub fn find_upload_notes_ref(Array[(@object.ObjectId, String)]) -> (@object.ObjectId, String)?
+
+pub fn hub_notes_ns_name() -> String
+
+pub fn hub_notes_ref_name() -> String
 
 pub fn issue_comment_key(String, String) -> String
 
@@ -24,11 +24,11 @@ pub fn issue_comment_prefix(String) -> String
 
 pub fn issue_meta_key(String) -> String
 
-pub fn merge_notes_commits(Collab, &@types.FileSystem, String, &@lib.ObjectStore, &@lib.RefStore, @object.ObjectId, @object.ObjectId) -> PrSyncResult raise @object.GitError
+pub fn merge_notes_commits(Hub, &@types.FileSystem, String, &@lib.ObjectStore, &@lib.RefStore, @object.ObjectId, @object.ObjectId) -> PrSyncResult raise @object.GitError
 
 pub fn merge_record_bytes(Bytes, Bytes) -> Bytes
 
-pub fn parse_collab_record(String) -> CollabRecord
+pub fn parse_hub_record(String) -> HubRecord
 
 pub fn parse_issue(String) -> Issue raise PrError
 
@@ -58,7 +58,7 @@ pub fn pr_review_key(String, String) -> String
 
 pub fn pr_review_prefix(String) -> String
 
-pub fn record_notify_topic(CollabRecord) -> String?
+pub fn record_notify_topic(HubRecord) -> String?
 
 pub fn short_ref_name(String) -> String
 
@@ -75,46 +75,46 @@ pub impl Eq for PrError
 pub impl Show for PrError
 
 // Types and methods
-pub struct Collab {
-  mut store : CollabStore
+pub struct Hub {
+  mut store : HubStore
 }
-pub fn Collab::add_comment(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, String, reply_to? : String?, file_path? : String?, line_number? : Int?, commit_id? : @object.ObjectId?) -> PrComment raise @object.GitError
-pub fn Collab::add_issue_comment(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, String, reply_to? : String?) -> IssueComment raise @object.GitError
-pub fn Collab::add_note(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, @object.ObjectId, String, String, Int64, ns? : String) -> Note raise @object.GitError
-pub fn Collab::add_note_plain(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, @object.ObjectId, String, ns? : String) -> Unit raise @object.GitError
-pub fn Collab::can_merge(Self, &@lib.ObjectStore, &@lib.RefStore, String) -> Bool raise @object.GitError
-pub fn Collab::close_issue(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String) -> Unit raise @object.GitError
-pub fn Collab::close_pr(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String) -> Unit raise @object.GitError
-pub fn Collab::create_issue(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, String, labels? : Array[String], assignees? : Array[String]) -> Issue raise @object.GitError
-pub fn Collab::create_pr(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, String, String, String, source_repo? : String?, source_ref? : String?) -> PullRequest raise @object.GitError
-pub fn Collab::get_issue(Self, &@lib.ObjectStore, String) -> Issue?
-pub fn Collab::get_note(Self, &@lib.ObjectStore, &@lib.RefStore, @object.ObjectId, ns? : String) -> Note? raise @object.GitError
-pub fn Collab::get_pr(Self, &@lib.ObjectStore, String) -> PullRequest?
-pub fn Collab::import_issues(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, Array[Issue]) -> ImportStats raise @object.GitError
-pub fn Collab::import_pr_proposals(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, Array[PullRequest]) -> ImportStats raise @object.GitError
-pub fn Collab::import_prs(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, Array[PullRequest]) -> ImportStats raise @object.GitError
-pub fn Collab::init(&@lib.ObjectStore, &@lib.RefStore, node_id? : String, signing_key? : String?, require_signed? : Bool) -> Self raise @object.GitError
-pub fn Collab::is_approved(Self, &@lib.ObjectStore, String) -> Bool
-pub fn Collab::link_pr_to_issue(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String) -> Unit raise @object.GitError
-pub fn Collab::list_comments(Self, &@lib.ObjectStore, String) -> Array[PrComment]
-pub fn Collab::list_issue_comments(Self, &@lib.ObjectStore, String) -> Array[IssueComment]
-pub fn Collab::list_issues(Self, &@lib.ObjectStore, state? : IssueState?) -> Array[Issue]
-pub fn Collab::list_notes(Self, &@lib.ObjectStore, &@lib.RefStore, ns? : String) -> Array[Note] raise @object.GitError
-pub fn Collab::list_pr_proposals(Self, &@lib.ObjectStore) -> Array[PullRequest]
-pub fn Collab::list_prs(Self, &@lib.ObjectStore, state? : PrState?) -> Array[PullRequest]
-pub fn Collab::list_reviews(Self, &@lib.ObjectStore, String) -> Array[PrReview]
-pub fn Collab::load(&@lib.ObjectStore, &@lib.RefStore, node_id? : String, signing_key? : String?, require_signed? : Bool) -> Self raise @object.GitError
-pub fn Collab::merge_pr(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, strategy? : PrMergeStrategy) -> PrMergeResult raise @object.GitError
-pub fn Collab::propose_pr(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, String, String, String, source_repo? : String?, source_ref? : String?) -> PullRequest raise @object.GitError
-pub fn Collab::reload_store(Self, &@lib.ObjectStore, &@lib.RefStore) -> Unit raise @object.GitError
-pub fn Collab::remove_note(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, @object.ObjectId, ns? : String) -> Unit raise @object.GitError
-pub fn Collab::reopen_issue(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String) -> Unit raise @object.GitError
-pub fn Collab::reopen_pr(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String) -> Unit raise @object.GitError
-pub fn Collab::submit_review(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, ReviewVerdict, String, @object.ObjectId) -> PrReview raise @object.GitError
-pub fn Collab::update_issue(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, title? : String?, body? : String?, labels? : Array[String]?, assignees? : Array[String]?) -> Issue raise @object.GitError
-pub fn Collab::update_pr(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, title? : String?, body? : String?, labels? : Array[String]?) -> PullRequest raise @object.GitError
+pub fn Hub::add_comment(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, String, reply_to? : String?, file_path? : String?, line_number? : Int?, commit_id? : @object.ObjectId?) -> PrComment raise @object.GitError
+pub fn Hub::add_issue_comment(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, String, reply_to? : String?) -> IssueComment raise @object.GitError
+pub fn Hub::add_note(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, @object.ObjectId, String, String, Int64, ns? : String) -> Note raise @object.GitError
+pub fn Hub::add_note_plain(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, @object.ObjectId, String, ns? : String) -> Unit raise @object.GitError
+pub fn Hub::can_merge(Self, &@lib.ObjectStore, &@lib.RefStore, String) -> Bool raise @object.GitError
+pub fn Hub::close_issue(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String) -> Unit raise @object.GitError
+pub fn Hub::close_pr(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String) -> Unit raise @object.GitError
+pub fn Hub::create_issue(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, String, labels? : Array[String], assignees? : Array[String]) -> Issue raise @object.GitError
+pub fn Hub::create_pr(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, String, String, String, source_repo? : String?, source_ref? : String?) -> PullRequest raise @object.GitError
+pub fn Hub::get_issue(Self, &@lib.ObjectStore, String) -> Issue?
+pub fn Hub::get_note(Self, &@lib.ObjectStore, &@lib.RefStore, @object.ObjectId, ns? : String) -> Note? raise @object.GitError
+pub fn Hub::get_pr(Self, &@lib.ObjectStore, String) -> PullRequest?
+pub fn Hub::import_issues(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, Array[Issue]) -> ImportStats raise @object.GitError
+pub fn Hub::import_pr_proposals(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, Array[PullRequest]) -> ImportStats raise @object.GitError
+pub fn Hub::import_prs(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, Array[PullRequest]) -> ImportStats raise @object.GitError
+pub fn Hub::init(&@lib.ObjectStore, &@lib.RefStore, node_id? : String, signing_key? : String?, require_signed? : Bool) -> Self raise @object.GitError
+pub fn Hub::is_approved(Self, &@lib.ObjectStore, String) -> Bool
+pub fn Hub::link_pr_to_issue(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String) -> Unit raise @object.GitError
+pub fn Hub::list_comments(Self, &@lib.ObjectStore, String) -> Array[PrComment]
+pub fn Hub::list_issue_comments(Self, &@lib.ObjectStore, String) -> Array[IssueComment]
+pub fn Hub::list_issues(Self, &@lib.ObjectStore, state? : IssueState?) -> Array[Issue]
+pub fn Hub::list_notes(Self, &@lib.ObjectStore, &@lib.RefStore, ns? : String) -> Array[Note] raise @object.GitError
+pub fn Hub::list_pr_proposals(Self, &@lib.ObjectStore) -> Array[PullRequest]
+pub fn Hub::list_prs(Self, &@lib.ObjectStore, state? : PrState?) -> Array[PullRequest]
+pub fn Hub::list_reviews(Self, &@lib.ObjectStore, String) -> Array[PrReview]
+pub fn Hub::load(&@lib.ObjectStore, &@lib.RefStore, node_id? : String, signing_key? : String?, require_signed? : Bool) -> Self raise @object.GitError
+pub fn Hub::merge_pr(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, strategy? : PrMergeStrategy) -> PrMergeResult raise @object.GitError
+pub fn Hub::propose_pr(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, String, String, String, source_repo? : String?, source_ref? : String?) -> PullRequest raise @object.GitError
+pub fn Hub::reload_store(Self, &@lib.ObjectStore, &@lib.RefStore) -> Unit raise @object.GitError
+pub fn Hub::remove_note(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, @object.ObjectId, ns? : String) -> Unit raise @object.GitError
+pub fn Hub::reopen_issue(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String) -> Unit raise @object.GitError
+pub fn Hub::reopen_pr(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String) -> Unit raise @object.GitError
+pub fn Hub::submit_review(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, ReviewVerdict, String, @object.ObjectId) -> PrReview raise @object.GitError
+pub fn Hub::update_issue(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, title? : String?, body? : String?, labels? : Array[String]?, assignees? : Array[String]?) -> Issue raise @object.GitError
+pub fn Hub::update_pr(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, title? : String?, body? : String?, labels? : Array[String]?) -> PullRequest raise @object.GitError
 
-pub struct CollabRecord {
+pub struct HubRecord {
   version : Int
   key : String
   kind : String
@@ -125,24 +125,24 @@ pub struct CollabRecord {
   signature : String?
   payload : String
 }
-pub fn CollabRecord::new(String, String, String, String, Int64, clock? : Map[String, Int64], deleted? : Bool, version? : Int, signature? : String?) -> Self
-pub fn CollabRecord::serialize(Self) -> String
+pub fn HubRecord::new(String, String, String, String, Int64, clock? : Map[String, Int64], deleted? : Bool, version? : Int, signature? : String?) -> Self
+pub fn HubRecord::serialize(Self) -> String
 
-pub struct CollabStore {
+pub struct HubStore {
   node_id : String
   signing_key : String?
   require_signed : Bool
   entries : Map[String, @object.ObjectId]
   mut head : @object.ObjectId?
 }
-pub fn CollabStore::delete_record(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, String) -> CollabRecord raise @object.GitError
-pub fn CollabStore::get_record(Self, &@lib.ObjectStore, String) -> CollabRecord?
-pub fn CollabStore::list_records(Self, &@lib.ObjectStore, String, include_deleted? : Bool) -> Array[CollabRecord]
-pub fn CollabStore::load(&@lib.ObjectStore, &@lib.RefStore, node_id? : String, signing_key? : String?, require_signed? : Bool) -> Self raise @object.GitError
-pub fn CollabStore::node_id(Self) -> String
-pub fn CollabStore::put_record(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, String, String) -> CollabRecord raise @object.GitError
-pub fn CollabStore::require_signed(Self) -> Bool
-pub fn CollabStore::signing_key(Self) -> String?
+pub fn HubStore::delete_record(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, String) -> HubRecord raise @object.GitError
+pub fn HubStore::get_record(Self, &@lib.ObjectStore, String) -> HubRecord?
+pub fn HubStore::list_records(Self, &@lib.ObjectStore, String, include_deleted? : Bool) -> Array[HubRecord]
+pub fn HubStore::load(&@lib.ObjectStore, &@lib.RefStore, node_id? : String, signing_key? : String?, require_signed? : Bool) -> Self raise @object.GitError
+pub fn HubStore::node_id(Self) -> String
+pub fn HubStore::put_record(Self, &@lib.ObjectStore, &@lib.RefStore, &@lib.Clock, String, String, String, String) -> HubRecord raise @object.GitError
+pub fn HubStore::require_signed(Self) -> Bool
+pub fn HubStore::signing_key(Self) -> String?
 
 pub struct ImportStats {
   created : Int

@@ -241,34 +241,32 @@ async fn handle_agent_status(args : Array[String]) -> Unit raise Error {
   let config = parse_agent_config(args)
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let (objects, refs, _clock) = make_collab_stores(git_dir)
+  let (objects, refs, _clock) = make_hub_stores(git_dir)
   // Fetch if remote specified
   if config.remote_url != "" {
     let osfs = OsFs::new()
     let fs : &@git.FileSystem = osfs
     let rfs : &@git.RepoFileSystem = osfs
-    let collab = load_collab_store(objects, refs) catch {
-      _ => init_collab_store(objects, refs)
+    let hub = load_hub_store(objects, refs) catch {
+      _ => init_hub_store(objects, refs)
     }
-    ignore(
-      @collab_native.collab_fetch(collab, fs, rfs, git_dir, config.remote_url),
-    ) catch {
+    ignore(@hub_native.hub_fetch(hub, fs, rfs, git_dir, config.remote_url)) catch {
       _ => ()
     }
   }
-  let collab = load_collab_store(objects, refs) catch {
+  let hub = load_hub_store(objects, refs) catch {
     _ => {
-      println("No collab metadata found. Run 'bit collab init' first.")
+      println("No hub metadata found. Run 'bit hub init' first.")
       return
     }
   }
-  let prs = collab.list_prs(objects)
+  let prs = hub.list_prs(objects)
   if prs.length() == 0 {
     println("No pull requests found.")
     return
   }
   for pr in prs {
-    let approved = if collab.is_approved(objects, pr.id()) {
+    let approved = if hub.is_approved(objects, pr.id()) {
       " [approved]"
     } else {
       ""

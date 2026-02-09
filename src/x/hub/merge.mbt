@@ -37,8 +37,8 @@ pub fn PrMergeResult::message(self : PrMergeResult) -> String {
 
 ///|
 /// Check if a PR can be merged (no conflicts, PR is open)
-pub fn Collab::can_merge(
-  self : Collab,
+pub fn Hub::can_merge(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   pr_id : String,
@@ -57,8 +57,8 @@ pub fn Collab::can_merge(
 
 ///|
 /// Merge a Pull Request
-pub fn Collab::merge_pr(
-  self : Collab,
+pub fn Hub::merge_pr(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -609,7 +609,7 @@ fn update_branch_ref(
 
 ///|
 fn mark_pr_merged(
-  prs : Collab,
+  prs : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,

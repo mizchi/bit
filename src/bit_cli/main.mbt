@@ -39,7 +39,7 @@ async fn show_help() -> Unit {
     #|   switch      Switch branches
     #|   tag         Create, list, delete tag objects
     #|
-    #|collaborate
+    #|hub
     #|   fetch       Download objects and refs from another repository
     #|   pull        Fetch from and integrate with another repository
     #|   push        Update remote refs along with associated objects
@@ -52,7 +52,7 @@ async fn show_help() -> Unit {
     #|   hub          Manage pull requests and issues
     #|   pr           Shortcut for 'hub pr' (gh-like)
     #|   issue        Shortcut for 'hub issue' (gh-like)
-    #|   agent        P2P agent for automated PR collaboration
+    #|   agent        P2P agent for automated PR hub workflow
     #|   subdir-clone  Clone subdirectory as independent repository
     #|   hq            ghq-compatible repository management (~/bhq)
     #|
@@ -107,16 +107,16 @@ async fn show_command_help(cmd : String) -> Bool {
       show_worktree_help()
       true
     }
-    "hub" | "collab" => {
-      print_collab_usage()
+    "hub" => {
+      print_hub_usage()
       true
     }
     "pr" => {
-      print_collab_pr_usage()
+      print_hub_pr_usage()
       true
     }
     "issue" => {
-      print_collab_issue_usage()
+      print_hub_issue_usage()
       true
     }
     "agent" => {
@@ -950,9 +950,9 @@ async fn dispatch_known_command(
     "mv" => handle_mv(rest)
     "config" => handle_config(rest)
     "subdir-clone" => handle_subdir_clone(rest)
-    "hub" | "collab" => handle_collab(rest)
-    "pr" => handle_collab_pr(rest)
-    "issue" => handle_collab_issue(rest)
+    "hub" => handle_hub(rest)
+    "pr" => handle_hub_pr(rest)
+    "issue" => handle_hub_issue(rest)
     "agent" => handle_agent(rest)
     "hq" => handle_hq(rest)
     "sparse-checkout" => handle_sparse_checkout(rest)

@@ -9,16 +9,14 @@ pub async fn poll_once(
   let osfs = @osfs.OsFs::new()
   let fs : &@git.FileSystem = osfs
   let rfs : &@git.RepoFileSystem = osfs
-  // 1. Fetch collab notes from remote
-  let collab = @collab.Collab::load(
+  // 1. Fetch hub notes from remote
+  let hub = @hub.Hub::load(
     make_obj_store(rfs, fs, git_dir),
     make_ref_store(fs, rfs, git_dir),
   )
-  ignore(
-    @collab_native.collab_fetch(collab, fs, rfs, git_dir, config.remote_url),
-  )
+  ignore(@hub_native.hub_fetch(hub, fs, rfs, git_dir, config.remote_url))
   // Reload after fetch
-  collab.reload_store(
+  hub.reload_store(
     make_obj_store(rfs, fs, git_dir),
     make_ref_store(fs, rfs, git_dir),
   )
@@ -26,14 +24,14 @@ pub async fn poll_once(
   let refs = make_ref_store(fs, rfs, git_dir)
   let clock : NativeClock = { _dummy: 0 }
   // 2. List open PRs
-  let prs = collab.list_prs(objects, state=Some(@collab.PrState::Open))
+  let prs = hub.list_prs(objects, state=Some(@hub.PrState::Open))
   for pr in prs {
     // 3. Check if we should review this PR
     if not(@agent.should_auto_review(pr, config)) {
       continue
     }
     // Check if already reviewed by us
-    let reviews = collab.list_reviews(objects, pr.id())
+    let reviews = hub.list_reviews(objects, pr.id())
     let already_reviewed = reviews
       .iter()
       .any(fn(r) { r.author() == config.agent_id })
@@ -50,7 +48,7 @@ pub async fn poll_once(
       }
     }
     @agent.submit_validation_review(
-      collab,
+      hub,
       objects,
       refs,
       clock,
@@ -65,16 +63,16 @@ pub async fn poll_once(
     // Re-list to get fresh state
     let objects2 = make_obj_store(rfs, fs, git_dir)
     let refs2 = make_ref_store(fs, rfs, git_dir)
-    let open_prs = collab.list_prs(objects2, state=Some(@collab.PrState::Open))
+    let open_prs = hub.list_prs(objects2, state=Some(@hub.PrState::Open))
     for pr in open_prs {
       if pr.target_branch() != "refs/heads/" + config.target_branch {
         continue
       }
-      if collab.is_approved(objects2, pr.id()) {
+      if hub.is_approved(objects2, pr.id()) {
         let merge_result = @agent.check_and_merge(
           pr.id(),
           config,
-          collab,
+          hub,
           objects2,
           refs2,
           clock,
@@ -106,8 +104,8 @@ pub async fn poll_once(
       }
     }
   }
-  // 6. Push collab notes
-  ignore(@collab_native.collab_push(collab, rfs, git_dir, config.remote_url))
+  // 6. Push hub notes
+  ignore(@hub_native.hub_push(hub, rfs, git_dir, config.remote_url))
 }
 
 ///|

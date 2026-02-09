@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/bit/x/hub/native"
+
+import {
+  "mizchi/bit/object",
+  "mizchi/bit/types",
+  "mizchi/bit/x/hub",
+}
+
+// Values
+pub async fn hub_fetch(@hub.Hub, &@types.FileSystem, &@types.RepoFileSystem, String, String) -> @hub.PrSyncResult raise @object.GitError
+
+pub async fn hub_push(@hub.Hub, &@types.RepoFileSystem, String, String) -> @hub.PrSyncResult raise @object.GitError
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

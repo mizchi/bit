@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# e2e: collab sync between two clones over Smart HTTP
+# e2e: hub sync between two clones over Smart HTTP
 
 source "$(dirname "$0")/test-lib-e2e.sh"
 
@@ -8,7 +8,7 @@ TEST_COUNT=1
 PASS_COUNT=0
 FAIL_COUNT=0
 
-CASE_NAME='collab sync replicates PR and issue across two clones'
+CASE_NAME='hub sync replicates PR and issue across two clones'
 SERVER_PID=""
 
 cleanup_server() {
@@ -36,7 +36,7 @@ run_case() {
     )
 
     local port=$((11000 + $$ % 30000))
-    local server_log="$TRASH_DIR/collab-server.log"
+    local server_log="$TRASH_DIR/hub-server.log"
 
     USE_REAL_GIT=1 node "$PROJECT_ROOT/tools/http-test-server.js" \
         "$TRASH_DIR/upstream" "$port" >"$server_log" 2>&1 &
@@ -50,46 +50,46 @@ run_case() {
     (
         cd node-a
         git_cmd checkout -b main >/dev/null
-        git_cmd checkout -b feature/collab >/dev/null
+        git_cmd checkout -b feature/hub >/dev/null
         echo "from node-a" > feature.txt
         git_cmd add feature.txt
         git_cmd commit -m "node-a feature" >/dev/null
-        git_cmd collab init >/dev/null
-        git_cmd collab pr create \
+        git_cmd hub init >/dev/null
+        git_cmd hub pr create \
             --title "Add feature from node-a" \
             --body "sync test pr" \
-            --source refs/heads/feature/collab \
+            --source refs/heads/feature/hub \
             --target refs/heads/main >/dev/null
         git_cmd hub pr propose \
             --title "Proposal from node-a" \
             --body "sync test proposal" \
-            --source refs/heads/feature/collab \
+            --source refs/heads/feature/hub \
             --target refs/heads/main >/dev/null
-        git_cmd collab sync push "http://localhost:$port" >/dev/null
+        git_cmd hub sync push "http://localhost:$port" >/dev/null
     )
 
     (
         cd node-b
-        git_cmd collab init >/dev/null
+        git_cmd hub init >/dev/null
         cat > .git/hooks/hub-notify <<EOF
 #!/bin/sh
 echo "\$1 \$2 \$3" >> "$TRASH_DIR/hub-notify.log"
 EOF
         chmod +x .git/hooks/hub-notify
-        git_cmd collab sync fetch "http://localhost:$port" >/dev/null
-        git_cmd collab pr list | grep -q "Add feature from node-a"
+        git_cmd hub sync fetch "http://localhost:$port" >/dev/null
+        git_cmd hub pr list | grep -q "Add feature from node-a"
         git_cmd hub pr proposals | grep -q "Proposal from node-a"
-        grep -q "hub.pr.proposal pr-proposal collab/proposal/pr/" "$TRASH_DIR/hub-notify.log"
-        git_cmd collab issue create \
+        grep -q "hub.pr.proposal pr-proposal hub/proposal/pr/" "$TRASH_DIR/hub-notify.log"
+        git_cmd hub issue create \
             --title "Track rollout from node-b" \
             --body "sync test issue" >/dev/null
-        git_cmd collab sync push "http://localhost:$port" >/dev/null
+        git_cmd hub sync push "http://localhost:$port" >/dev/null
     )
 
     (
         cd node-a
-        git_cmd collab sync fetch "http://localhost:$port" >/dev/null
-        git_cmd collab issue list | grep -q "Track rollout from node-b"
+        git_cmd hub sync fetch "http://localhost:$port" >/dev/null
+        git_cmd hub issue list | grep -q "Track rollout from node-b"
     )
 
     cleanup_server

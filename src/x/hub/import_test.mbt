@@ -1,9 +1,9 @@
-///| Tests for collab import helpers
+///| Tests for hub import helpers
 
 ///|
 test "import pr: creates" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
+  let hub = Hub::init(objects, refs)
   let source_id = refs.resolve("refs/heads/feature")
   guard source_id is Some(sid) else { panic() }
   let target_id = refs.resolve("refs/heads/main")
@@ -22,10 +22,10 @@ test "import pr: creates" {
     PrState::Open,
     ["imported"],
   )
-  let stats = collab.import_prs(objects, refs, clock, [pr])
+  let stats = hub.import_prs(objects, refs, clock, [pr])
   assert_eq(stats.created(), 1)
   assert_eq(stats.updated(), 0)
-  let stored = collab.get_pr(objects, "10")
+  let stored = hub.get_pr(objects, "10")
   guard stored is Some(val) else { panic() }
   assert_eq(val.title(), "Imported PR")
 }
@@ -33,8 +33,8 @@ test "import pr: creates" {
 ///|
 test "import pr: updates existing" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
-  let created = collab.create_pr(
+  let hub = Hub::init(objects, refs)
+  let created = hub.create_pr(
     objects, refs, clock, "Original", "Body", "refs/heads/feature", "refs/heads/main",
     "alice@example.com",
   )
@@ -57,10 +57,10 @@ test "import pr: updates existing" {
     PrState::Closed,
     ["sync"],
   )
-  let stats = collab.import_prs(objects, refs, clock, [pr])
+  let stats = hub.import_prs(objects, refs, clock, [pr])
   assert_eq(stats.created(), 0)
   assert_eq(stats.updated(), 1)
-  let stored = collab.get_pr(objects, pr_id)
+  let stored = hub.get_pr(objects, pr_id)
   guard stored is Some(val) else { panic() }
   assert_eq(val.title(), "Updated Title")
   assert_eq(val.state(), PrState::Closed)
@@ -69,7 +69,7 @@ test "import pr: updates existing" {
 ///|
 test "import pr proposal: stores notify-only proposal records" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
+  let hub = Hub::init(objects, refs)
   let source_id = refs.resolve("refs/heads/feature")
   guard source_id is Some(sid) else { panic() }
   let target_id = refs.resolve("refs/heads/main")
@@ -88,15 +88,15 @@ test "import pr proposal: stores notify-only proposal records" {
     PrState::Open,
     [],
   )
-  let stats = collab.import_pr_proposals(objects, refs, clock, [proposal])
+  let stats = hub.import_pr_proposals(objects, refs, clock, [proposal])
   assert_eq(stats.created(), 1)
   assert_eq(stats.updated(), 0)
-  assert_eq(collab.list_prs(objects).length(), 0)
-  let proposals = collab.list_pr_proposals(objects)
+  assert_eq(hub.list_prs(objects).length(), 0)
+  let proposals = hub.list_pr_proposals(objects)
   assert_eq(proposals.length(), 1)
   assert_eq(proposals[0].id(), "p1")
   let key = pr_proposal_meta_key("p1")
-  let record = collab.store.get_record(objects, key)
+  let record = hub.store.get_record(objects, key)
   guard record is Some(r) else { panic() }
   assert_eq(classify_record_trigger(r), RecordTriggerClass::NotifyOnly)
   assert_eq(record_notify_topic(r), Some("hub.pr.proposal"))
@@ -105,8 +105,8 @@ test "import pr proposal: stores notify-only proposal records" {
 ///|
 test "import pr proposal: strict reader hides unsigned imported records" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let writer = Collab::init(objects, refs)
-  let reader = Collab::init(
+  let writer = Hub::init(objects, refs)
+  let reader = Hub::init(
     objects,
     refs,
     signing_key=Some("k1"),
@@ -139,13 +139,13 @@ test "import pr proposal: strict reader hides unsigned imported records" {
 ///|
 test "import pr proposal: wrong key hides signed imported records" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let writer = Collab::init(
+  let writer = Hub::init(
     objects,
     refs,
     signing_key=Some("writer-key"),
     require_signed=true,
   )
-  let reader = Collab::init(
+  let reader = Hub::init(
     objects,
     refs,
     signing_key=Some("reader-key"),
@@ -178,7 +178,7 @@ test "import pr proposal: wrong key hides signed imported records" {
 ///|
 test "import pr proposal: require_signed without key rejects writes" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let strict = Collab::init(objects, refs, require_signed=true)
+  let strict = Hub::init(objects, refs, require_signed=true)
   let source_id = refs.resolve("refs/heads/feature")
   guard source_id is Some(sid) else { panic() }
   let target_id = refs.resolve("refs/heads/main")
@@ -212,7 +212,7 @@ test "import pr proposal: require_signed without key rejects writes" {
 ///|
 test "import issue: creates" {
   let (_fs, objects, refs, clock) = setup_repo_with_branch()
-  let collab = Collab::init(objects, refs)
+  let hub = Hub::init(objects, refs)
   let issue = Issue::new(
     "7",
     "Imported Issue",
@@ -224,10 +224,10 @@ test "import issue: creates" {
     labels=["bug"],
     assignees=["alice"],
   )
-  let stats = collab.import_issues(objects, refs, clock, [issue])
+  let stats = hub.import_issues(objects, refs, clock, [issue])
   assert_eq(stats.created(), 1)
   assert_eq(stats.updated(), 0)
-  let created = collab.create_issue(
+  let created = hub.create_issue(
     objects, refs, clock, "Next", "Body", "alice@example.com",
   )
   assert_true(created.id().length() > 0)

@@ -620,7 +620,7 @@ fn parse_issue_state(s : String) -> IssueState {
 
 ///|
 /// Serialize Note to Git-style text format
-/// Note: Git standard notes are plain text, but we add metadata for Collab
+/// Note: Git standard notes are plain text, but we add metadata for Hub
 pub fn Note::serialize(self : Note) -> String {
   let sb = StringBuilder::new()
   sb.write_string("commit ")

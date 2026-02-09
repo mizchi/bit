@@ -1,4 +1,4 @@
-///| Git Notes operations (Git compatible + Collab integration)
+///| Git Notes operations (Git compatible + Hub integration)
 
 ///|
 
@@ -12,8 +12,8 @@ let notes_ref_prefix : String = "refs/notes/"
 
 ///|
 /// Add a note to a commit (Git compatible)
-pub fn Collab::add_note(
-  self : Collab,
+pub fn Hub::add_note(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -34,8 +34,8 @@ pub fn Collab::add_note(
 
 ///|
 /// Add a plain note (Git standard, no metadata)
-pub fn Collab::add_note_plain(
-  self : Collab,
+pub fn Hub::add_note_plain(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -51,8 +51,8 @@ pub fn Collab::add_note_plain(
 
 ///|
 /// Get a note for a commit
-pub fn Collab::get_note(
-  self : Collab,
+pub fn Hub::get_note(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   commit_id : @git.ObjectId,
@@ -75,8 +75,8 @@ pub fn Collab::get_note(
 
 ///|
 /// List all notes in a ns
-pub fn Collab::list_notes(
-  self : Collab,
+pub fn Hub::list_notes(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   ns? : String = "commits",
@@ -123,8 +123,8 @@ pub fn Collab::list_notes(
 
 ///|
 /// Remove a note from a commit
-pub fn Collab::remove_note(
-  self : Collab,
+pub fn Hub::remove_note(
+  self : Hub,
   objects : &@lib.ObjectStore,
   refs : &@lib.RefStore,
   clock : &@lib.Clock,
@@ -240,10 +240,10 @@ fn update_notes_tree(
   let commit = @git.Commit::new(
     new_tree_id,
     parents,
-    "Collab <collab@local>",
+    "Hub <hub@local>",
     now,
     "+0000",
-    "Collab <collab@local>",
+    "Hub <hub@local>",
     now,
     "+0000",
     "Add note for \{short_hex_note(commit_hex, 8)}...\n",
@@ -292,10 +292,10 @@ fn remove_notes_tree_entry(
   let commit = @git.Commit::new(
     new_tree_id,
     parents,
-    "Collab <collab@local>",
+    "Hub <hub@local>",
     now,
     "+0000",
-    "Collab <collab@local>",
+    "Hub <hub@local>",
     now,
     "+0000",
     "Remove note for \{short_hex_note(commit_hex, 8)}...\n",

@@ -78,7 +78,7 @@ core (pure)
   ↑
 lib (pure: traits + algorithms)
   ↑
-x/collab (pure) / x/kv (pure)
+x/hub (pure) / x/kv (pure)
   ↑
 adapters/bitfs_native (native-only)
   ↑
@@ -103,9 +103,9 @@ bit_cli (native-only)
   - `moonbitlang/async/fs` は `worktree` / `gitignore` の抽象化後に 제거予定
 - native 専用実装は `src/lib/native` に移動。
 
-### Step 2: `x/collab` を pure に
+### Step 2: `x/hub` を pure に
 
-- `CollabStore` を `ObjectStore + RefStore + Clock` だけに依存させる。
+- `HubStore` を `ObjectStore + RefStore + Clock` だけに依存させる。
 - notes backend は ref/objects 経由で動作させる。
 
 ### Step 2.5: `worktree` / `gitignore` の async/fs 依存を抽象化
@@ -128,7 +128,7 @@ bit_cli (native-only)
 ## 優先順位
 
 1. lib の境界抽象化（最小 interface 定義）
-2. x/collab の pure 化
+2. x/hub の pure 化
 3. x/kv の pure 化
 4. transport の分離
 

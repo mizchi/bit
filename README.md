@@ -136,13 +136,13 @@ db.set(fs, fs, "users/alice/profile", value, ts)
 db.sync_with_peer(fs, fs, peer_url)
 ```
 
-### Collab - Git-Native Collaboration
+### Hub - Git-Native Huboration
 
 Pull Requests and Issues stored as Git objects:
 
 ```moonbit
-let collab = Collab::init(fs, fs, git_dir)
-let pr = collab.create_pr(fs, fs, "Fix bug", "...",
+let hub = Hub::init(fs, fs, git_dir)
+let pr = hub.create_pr(fs, fs, "Fix bug", "...",
   source_branch, target_branch, author, ts)
 ```
 

@@ -1,4 +1,4 @@
-///| Collab notes sync operations (pure merge logic)
+///| Hub notes sync operations (pure merge logic)
 
 ///|
 pub struct PrSyncResult {
@@ -80,7 +80,7 @@ fn get_commit_tree(
 
 ///|
 pub fn merge_notes_commits(
-  prs : Collab,
+  prs : Hub,
   fs : &@git.FileSystem,
   git_dir : String,
   objects : &@lib.ObjectStore,
@@ -90,8 +90,8 @@ pub fn merge_notes_commits(
 ) -> PrSyncResult raise @git.GitError {
   // Fast-forward if possible
   if is_commit_ancestor_store(objects, local_id, remote_id) {
-    refs.update(collab_notes_ref_name(), Some(remote_id))
-    prs.store = CollabStore::load(
+    refs.update(hub_notes_ref_name(), Some(remote_id))
+    prs.store = HubStore::load(
       objects,
       refs,
       node_id=prs.store.node_id(),
@@ -127,18 +127,18 @@ pub fn merge_notes_commits(
   let commit = @git.Commit::new(
     merged_tree_id,
     [local_id, remote_id],
-    "Collab <collab@local>",
+    "Hub <hub@local>",
     0L,
     "+0000",
-    "Collab <collab@local>",
+    "Hub <hub@local>",
     0L,
     "+0000",
-    "Merge collab notes\n",
+    "Merge hub notes\n",
   )
   let (commit_id, commit_compressed) = @git.create_commit(commit)
   write_object_bytes(fs, git_dir, commit_id, commit_compressed)
-  refs.update(collab_notes_ref_name(), Some(commit_id))
-  prs.store = CollabStore::load(
+  refs.update(hub_notes_ref_name(), Some(commit_id))
+  prs.store = HubStore::load(
     objects,
     refs,
     node_id=prs.store.node_id(),
@@ -147,7 +147,7 @@ pub fn merge_notes_commits(
   )
   {
     success: true,
-    message: "Merged remote collab notes",
+    message: "Merged remote hub notes",
     local_commit: Some(commit_id),
     remote_commit: Some(remote_id),
   }
@@ -253,7 +253,7 @@ fn read_tree_entries_store(
 pub fn find_remote_notes_ref(
   refs : Array[(@git.ObjectId, String)],
 ) -> (@git.ObjectId, String) {
-  let ref_name = collab_notes_ref_name()
+  let ref_name = hub_notes_ref_name()
   for item in refs {
     let (id, name) = item
     if name == ref_name {
@@ -267,7 +267,7 @@ pub fn find_remote_notes_ref(
 pub fn find_upload_notes_ref(
   refs : Array[(@git.ObjectId, String)],
 ) -> (@git.ObjectId, String)? {
-  let ref_name = collab_notes_ref_name()
+  let ref_name = hub_notes_ref_name()
   for item in refs {
     let (id, name) = item
     if name == ref_name {
