@@ -101,12 +101,12 @@ pub fn resolve_local_repo_path(
     return Some(parent_candidate)
   }
   {
-    let base = match env_current_dir() {
+    let base = match @gitio.env_current_dir() {
       Some(dir) => dir
       None =>
-        match env_get("PWD") {
+        match @gitio.env_get("PWD") {
           Some(dir) => dir
-          None => env_get("GIT_SHIM_PWD").unwrap_or(".")
+          None => @gitio.env_get("GIT_SHIM_PWD").unwrap_or(".")
         }
     }
     let alt = normalize_local_path(base + "/" + raw)

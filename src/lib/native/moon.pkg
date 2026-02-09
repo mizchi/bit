@@ -4,14 +4,14 @@ import {
   "mizchi/bit/protocol" as @protocol,
   "mizchi/bit/native" as @gitnative,
   "mizchi/bit/lib" as @gitlib,
+  "mizchi/bit/io" as @gitio,
+  "mizchi/bit/io/native" as @gitionative,
   "moonbitlang/async" as @async,
   "moonbitlang/async/fs" as @afs,
   "moonbitlang/async/http" as @http,
   "moonbitlang/async/process" as @process,
   "mizchi/zlib",
   "moonbitlang/core/encoding/utf8" as @utf8,
-  "moonbitlang/core/env" as @env,
-  "moonbitlang/x/sys" as @sys,
   "moonbitlang/x/fs",
 }
 
@@ -28,12 +28,10 @@ import "wbtest" {
 options(
   targets: {
     "bench_worktree_entry_wbtest.mbt": [ "native" ],
-    "env_native.mbt": [ "native" ],
     "gitignore_async_test.mbt": [ "native" ],
     "promisor.mbt": [ "native" ],
     "remote_ref.mbt": [ "native" ],
     "sync_http.mbt": [ "native" ],
     "worktree_modes.mbt": [ "native" ],
-    "worktree_probe_native.mbt": [ "native" ],
   },
 )

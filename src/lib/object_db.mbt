@@ -113,7 +113,7 @@ pub struct ObjectDb {
 
 ///|
 fn pack_cache_limit_from_env() -> Int {
-  match env_get("BIT_PACK_CACHE_LIMIT") {
+  match @gitio.env_get("BIT_PACK_CACHE_LIMIT") {
     Some(v) =>
       try @strconv.parse_int(v) catch {
         _ => 2

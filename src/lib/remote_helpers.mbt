@@ -498,7 +498,7 @@ pub fn read_config_bool(
 /// Parse config overrides from GIT_CONFIG_OVERRIDES environment variable
 pub fn parse_config_overrides() -> Map[String, String] {
   let config : Map[String, String] = {}
-  let overrides = env_get("GIT_CONFIG_OVERRIDES")
+  let overrides = @gitio.env_get("GIT_CONFIG_OVERRIDES")
   guard overrides is Some(env_value) else { return config }
   // Parse key=value pairs separated by newlines
   for line in split_by_newline(env_value) {
@@ -526,7 +526,7 @@ pub fn parse_config_overrides() -> Map[String, String] {
 ///|
 pub fn get_protocol_version() -> Int {
   // Check GIT_PROTOCOL environment variable for version=2
-  let git_protocol = env_get("GIT_PROTOCOL")
+  let git_protocol = @gitio.env_get("GIT_PROTOCOL")
   match git_protocol {
     Some(val) => if val.contains("version=2") { 2 } else { 1 }
     None => 1

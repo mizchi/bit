@@ -2,7 +2,7 @@
 
 ///|
 fn profile_enabled() -> Bool {
-  match env_get("BIT_PROFILE") {
+  match @gitio.env_get("BIT_PROFILE") {
     Some(v) => v != "" && v != "0"
     None => false
   }

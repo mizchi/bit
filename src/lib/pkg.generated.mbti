@@ -96,10 +96,6 @@ pub fn diff_trees(&@bit.RepoFileSystem, String, @bit.ObjectId?, @bit.ObjectId) -
 
 pub async fn diff_worktree(&@bit.RepoFileSystem, String) -> Array[DiffFile] raise @bit.GitError
 
-pub fn env_current_dir() -> String?
-
-pub fn env_get(String) -> String?
-
 pub fn fast_forward_to(&@bit.FileSystem, &@bit.RepoFileSystem, String, @bit.ObjectId) -> Unit raise @bit.GitError
 
 pub fn find_tree_entry(ObjectDb, &@bit.RepoFileSystem, @bit.ObjectId, String) -> @bit.TreeEntry? raise @bit.GitError
@@ -264,8 +260,6 @@ pub fn read_sparse_patterns(&@bit.RepoFileSystem, String) -> Array[String] raise
 
 pub fn read_subdir_attributes(&@bit.RepoFileSystem, String) -> (String, String, String)?
 
-pub fn read_symlink_target_path(String) -> String?
-
 pub fn rebase_abort(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> Unit raise @bit.GitError
 
 pub fn rebase_continue(&@bit.FileSystem, &@bit.RepoFileSystem, String) -> RebaseResult raise @bit.GitError
@@ -336,10 +330,6 @@ pub fn rm_paths(&@bit.FileSystem, &@bit.RepoFileSystem, String, Array[String], c
 
 pub fn set_config_key(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, String, String, String) -> Unit raise @bit.GitError
 
-pub fn set_env_provider(EnvProvider) -> Unit
-
-pub fn set_worktree_probe(WorktreeProbeProvider) -> Unit
-
 pub fn should_log_ref(&@bit.RepoFileSystem, String, String, Bool) -> (Bool, Bool) raise @bit.GitError
 
 pub fn show_ref(&@bit.RepoFileSystem, String) -> Array[(String, @bit.ObjectId)] raise @bit.GitError
@@ -399,10 +389,6 @@ pub fn upload_pack(&@bit.RepoFileSystem, String, UploadPackRequest) -> Bytes rai
 pub fn upload_pack_v2(&@bit.RepoFileSystem, String, UploadPackRequestV2, UploadPackConfig) -> Bytes raise @bit.GitError
 
 pub fn working_files_cache(String) -> Array[String]?
-
-pub async fn worktree_entry(&@bit.RepoFileSystem, String) -> WorktreeEntry? noraise
-
-pub async fn worktree_entry_meta(&@bit.RepoFileSystem, String) -> WorktreeEntryMeta? noraise
 
 pub fn write_index_entries(&@bit.FileSystem, String, Array[IndexEntry]) -> Unit raise @bit.GitError
 
@@ -491,13 +477,6 @@ pub enum DiffKind {
   Modified
   Deleted
 }
-
-pub struct EnvProvider {
-  get : (String) -> String?
-  current_dir : () -> String?
-}
-pub fn EnvProvider::new((String) -> String?, () -> String?) -> Self
-pub fn EnvProvider::none() -> Self
 
 pub(all) struct FetchRefspec {
   negative : Bool
@@ -772,23 +751,6 @@ pub struct UploadPackRequestV2 {
   packfile_uris : String?
 }
 
-pub struct WorktreeEntry {
-  kind : WorktreeKind
-  mode : Int
-  size : Int?
-  mtime_sec : Int?
-  mtime_nsec : Int?
-}
-
-pub struct WorktreeEntryMeta {
-  kind : WorktreeKindMeta
-  mode : Int
-  size : Int?
-  mtime_sec : Int?
-  mtime_nsec : Int?
-}
-pub fn WorktreeEntryMeta::new(WorktreeKindMeta, Int, Int?, Int?, Int?) -> Self
-
 pub(all) struct WorktreeInfo {
   path : String
   head_id : @bit.ObjectId?
@@ -796,25 +758,6 @@ pub(all) struct WorktreeInfo {
   locked : Bool
   is_main : Bool
 }
-
-pub enum WorktreeKind {
-  Regular
-  Symlink(target~ : String)
-}
-
-pub enum WorktreeKindMeta {
-  Regular
-  Symlink
-}
-pub fn WorktreeKindMeta::regular() -> Self
-pub fn WorktreeKindMeta::symlink() -> Self
-
-pub struct WorktreeProbeProvider {
-  entry_meta : async (&@bit.RepoFileSystem, String) -> WorktreeEntryMeta? noraise
-  symlink_target : (String) -> String?
-}
-pub fn WorktreeProbeProvider::new(async (&@bit.RepoFileSystem, String) -> WorktreeEntryMeta? noraise, (String) -> String?) -> Self
-pub fn WorktreeProbeProvider::none() -> Self
 
 // Type aliases
 

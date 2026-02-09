@@ -69,7 +69,7 @@ async fn walk_dir_async(
     let child_rel = if rel == "" { name } else { rel + "/" + name }
     let child_path = join_path(root, child_rel)
     let is_dir = if fs.is_dir(child_path) {
-      not(read_symlink_target_path(child_path) is Some(_))
+      not(@gitio.read_symlink_target_path(child_path) is Some(_))
     } else {
       false
     }

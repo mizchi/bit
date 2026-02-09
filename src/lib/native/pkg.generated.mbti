@@ -11,10 +11,6 @@ pub async fn apply_worktree_modes_from_commit(&@bit.FileSystem, &@bit.RepoFileSy
 
 pub async fn clone_http(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, Bool) -> @bit.ObjectId? raise @bit.GitError
 
-pub fn init_env_provider() -> Unit
-
-pub fn init_worktree_probe() -> Unit
-
 pub fn native_promisor_db(&@bit.RepoFileSystem, String, lazy_load? : Bool) -> @lib.PromisorDb raise @bit.GitError
 
 pub async fn pull_http(&@bit.FileSystem, &@bit.RepoFileSystem, String, String, Bool, rebase? : Bool) -> @bit.ObjectId? raise @bit.GitError

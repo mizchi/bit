@@ -1,0 +1,16 @@
+import {
+  "mizchi/bit" as @git,
+  "mizchi/bit/io" as @gitio,
+  "moonbitlang/async" as @async,
+  "moonbitlang/async/fs" as @afs,
+  "moonbitlang/core/encoding/utf8" as @utf8,
+  "moonbitlang/core/env" as @env,
+  "moonbitlang/x/sys" as @sys,
+}
+
+options(
+  targets: {
+    "env_native.mbt": [ "native" ],
+    "worktree_probe_native.mbt": [ "native" ],
+  },
+)

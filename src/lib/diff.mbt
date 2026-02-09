@@ -68,7 +68,7 @@ pub async fn diff_worktree(
       }
     }
     let abs = join_path(root, path)
-    match worktree_entry_meta(fs, abs) {
+    match @gitio.worktree_entry_meta(fs, abs) {
       None => {
         let old = diff_read_blob(db, fs, entry.id)
         // Skip if blob not found (e.g., submodule)
@@ -89,7 +89,7 @@ pub async fn diff_worktree(
         let mut old_content : Bytes? = None
         let mut new_content : Bytes? = None
         match info.kind {
-          WorktreeKindMeta::Regular => {
+          @gitio.WorktreeKindMeta::Regular => {
             let mut stat_matches = false
             match info.size {
               Some(sz) =>
@@ -124,7 +124,7 @@ pub async fn diff_worktree(
               }
             }
           }
-          WorktreeKindMeta::Symlink => {
+          @gitio.WorktreeKindMeta::Symlink => {
             let mut stat_matches = false
             match info.mtime_sec {
               Some(ms) =>
@@ -141,7 +141,7 @@ pub async fn diff_worktree(
             if not(mode_changed) && stat_matches {
               content_changed = false
             } else {
-              match read_symlink_target_path(abs) {
+              match @gitio.read_symlink_target_path(abs) {
                 Some(target) => {
                   let bytes = @utf8.encode(target)
                   let id = @git.hash_blob(bytes)

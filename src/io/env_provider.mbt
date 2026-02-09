@@ -1,4 +1,21 @@
 ///|
+pub struct EnvProvider {
+  get : (String) -> String?
+  current_dir : () -> String?
+}
+
+///|
+pub fn EnvProvider::new(
+  get : (String) -> String?,
+  current_dir : () -> String?,
+) -> EnvProvider {
+  { get, current_dir }
+}
+
+///|
+pub fn EnvProvider::none() -> EnvProvider {
+  { get: fn(_ : String) { None }, current_dir: () => None }
+}
 
 ///|
 priv struct EnvProviderBox {

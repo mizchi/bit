@@ -49,22 +49,3 @@ pub(open) trait WorkingTree {
   snapshot(Self, String, String, Int64) -> @git.ObjectId raise @git.GitError
   checkout(Self, @git.ObjectId) -> Unit raise @git.GitError
 }
-
-///|
-pub struct EnvProvider {
-  get : (String) -> String?
-  current_dir : () -> String?
-}
-
-///|
-pub fn EnvProvider::new(
-  get : (String) -> String?,
-  current_dir : () -> String?,
-) -> EnvProvider {
-  { get, current_dir }
-}
-
-///|
-pub fn EnvProvider::none() -> EnvProvider {
-  { get: fn(_ : String) { None }, current_dir: () => None }
-}

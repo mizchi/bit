@@ -47,11 +47,11 @@ pub async fn status(
           continue
         }
         let abs = join_path(root, path)
-        match worktree_entry_meta(fs, abs) {
+        match @gitio.worktree_entry_meta(fs, abs) {
           None => ()
           Some(info) =>
             match info.kind {
-              WorktreeKindMeta::Regular => {
+              @gitio.WorktreeKindMeta::Regular => {
                 let mut stat_matches = false
                 let mut size_mismatch = false
                 match info.size {
@@ -93,7 +93,7 @@ pub async fn status(
                   }
                 }
               }
-              WorktreeKindMeta::Symlink => {
+              @gitio.WorktreeKindMeta::Symlink => {
                 let mode_changed = info.mode != entry.mode
                 let mut stat_matches = false
                 match info.mtime_sec {
@@ -111,7 +111,7 @@ pub async fn status(
                 if mode_changed {
                   unstaged_modified.push(path)
                 } else if not(stat_matches) {
-                  match read_symlink_target_path(abs) {
+                  match @gitio.read_symlink_target_path(abs) {
                     Some(target) => {
                       let id = target |> @utf8.encode |> @git.hash_blob
                       if id != entry.id {
@@ -121,7 +121,7 @@ pub async fn status(
                     None => ()
                   }
                 } else if racy_git {
-                  match read_symlink_target_path(abs) {
+                  match @gitio.read_symlink_target_path(abs) {
                     Some(target) => {
                       let id = target |> @utf8.encode |> @git.hash_blob
                       if id != entry.id {
@@ -147,7 +147,7 @@ pub async fn status(
           continue
         }
       }
-      if worktree_entry_meta(fs, abs) is None {
+      if @gitio.worktree_entry_meta(fs, abs) is None {
         unstaged_deleted.push(path)
       }
     }
@@ -328,11 +328,11 @@ pub async fn add_paths_async(
   let all_paths = expand_paths_async(rfs, root, paths)
   for path in all_paths {
     let abs = join_path(root, path)
-    match worktree_entry(rfs, abs) {
+    match @gitio.worktree_entry(rfs, abs) {
       None => map.remove(path)
       Some(info) =>
         match info.kind {
-          WorktreeKind::Regular => {
+          @gitio.WorktreeKind::Regular => {
             let content = rfs.read_file(abs)
             let normalized = normalize_worktree_content(content, autocrlf)
             let id = write_loose_object(
@@ -353,7 +353,7 @@ pub async fn add_paths_async(
               mtime_nsec,
             }
           }
-          WorktreeKind::Symlink(target~) => {
+          @gitio.WorktreeKind::Symlink(target~) => {
             let bytes = @utf8.encode(target)
             let id = write_loose_object(
               fs,
@@ -546,11 +546,11 @@ fn read_autocrlf_setting(
   git_dir : String,
 ) -> AutoCrlf {
   let mut value : AutoCrlf? = None
-  match env_get("HOME") {
+  match @gitio.env_get("HOME") {
     None => ()
     Some(home) => {
       let candidates : Array[String] = []
-      if env_get("XDG_CONFIG_HOME") is Some(base) {
+      if @gitio.env_get("XDG_CONFIG_HOME") is Some(base) {
         candidates.push(base + "/git/config")
       }
       candidates.push(home + "/.gitconfig")
@@ -646,7 +646,7 @@ fn parse_autocrlf_value(value : String) -> AutoCrlf {
 
 ///|
 fn racy_git_enabled() -> Bool {
-  match env_get("BIT_RACY_GIT") {
+  match @gitio.env_get("BIT_RACY_GIT") {
     Some(v) => v != "" && v != "0"
     None => false
   }

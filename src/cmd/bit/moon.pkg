@@ -5,6 +5,7 @@ import {
   "mizchi/bit/native" as @gitnative,
   "mizchi/bit/lib" as @gitlib,
   "mizchi/bit/lib/native" as @gitlibnative,
+  "mizchi/bit/io/native" as @gitionative,
   "mizchi/bit/x/collab" as @collab,
   "mizchi/bit/x/collab/native" as @collab_native,
   "mizchi/bit/x/agent" as @agent,

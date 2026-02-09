@@ -1,0 +1,72 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/bit/io"
+
+import {
+  "mizchi/bit",
+}
+
+// Values
+pub fn env_current_dir() -> String?
+
+pub fn env_get(String) -> String?
+
+pub fn read_symlink_target_path(String) -> String?
+
+pub fn set_env_provider(EnvProvider) -> Unit
+
+pub fn set_worktree_probe(WorktreeProbeProvider) -> Unit
+
+pub async fn worktree_entry(&@bit.RepoFileSystem, String) -> WorktreeEntry? noraise
+
+pub async fn worktree_entry_meta(&@bit.RepoFileSystem, String) -> WorktreeEntryMeta? noraise
+
+// Errors
+
+// Types and methods
+pub struct EnvProvider {
+  get : (String) -> String?
+  current_dir : () -> String?
+}
+pub fn EnvProvider::new((String) -> String?, () -> String?) -> Self
+pub fn EnvProvider::none() -> Self
+
+pub struct WorktreeEntry {
+  kind : WorktreeKind
+  mode : Int
+  size : Int?
+  mtime_sec : Int?
+  mtime_nsec : Int?
+}
+
+pub struct WorktreeEntryMeta {
+  kind : WorktreeKindMeta
+  mode : Int
+  size : Int?
+  mtime_sec : Int?
+  mtime_nsec : Int?
+}
+pub fn WorktreeEntryMeta::new(WorktreeKindMeta, Int, Int?, Int?, Int?) -> Self
+
+pub enum WorktreeKind {
+  Regular
+  Symlink(target~ : String)
+}
+
+pub enum WorktreeKindMeta {
+  Regular
+  Symlink
+}
+pub fn WorktreeKindMeta::regular() -> Self
+pub fn WorktreeKindMeta::symlink() -> Self
+
+pub struct WorktreeProbeProvider {
+  entry_meta : async (&@bit.RepoFileSystem, String) -> WorktreeEntryMeta? noraise
+  symlink_target : (String) -> String?
+}
+pub fn WorktreeProbeProvider::new(async (&@bit.RepoFileSystem, String) -> WorktreeEntryMeta? noraise, (String) -> String?) -> Self
+pub fn WorktreeProbeProvider::none() -> Self
+
+// Type aliases
+
+// Traits
+

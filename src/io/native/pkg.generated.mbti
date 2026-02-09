@@ -1,0 +1,16 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/bit/io/native"
+
+// Values
+pub fn init_env_provider() -> Unit
+
+pub fn init_worktree_probe() -> Unit
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

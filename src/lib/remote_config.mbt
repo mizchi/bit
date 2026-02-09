@@ -343,7 +343,7 @@ pub fn split_config_key(
 ///|
 pub fn parse_config_override_pairs() -> Array[(String, String)] {
   let out : Array[(String, String)] = []
-  let overrides = env_get("GIT_CONFIG_OVERRIDES")
+  let overrides = @gitio.env_get("GIT_CONFIG_OVERRIDES")
   guard overrides is Some(env_value) else { return out }
   for line in split_by_newline(env_value) {
     if line.length() == 0 {
