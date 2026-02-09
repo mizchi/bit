@@ -226,6 +226,11 @@ fn print_hub_sync_usage() -> Unit {
   println("Subcommands:")
   println("  push [<remote-url>]")
   println("  fetch [<remote-url>]")
+  println("")
+  println("Remote URL:")
+  println("  - Smart HTTP remote: https://host/repo.git")
+  println("  - Relay explicit: relay+http(s)://host")
+  println("  - Relay fallback: http(s)://host (when info/refs returns 404)")
 }
 
 ///|

@@ -5,8 +5,15 @@ import {
   "mizchi/bit/native" as @gitnative,
   "mizchi/bit/lib" as @lib,
   "mizchi/bit/x/hub" as @hub,
+  "moonbitlang/async" as @async,
+  "moonbitlang/core/encoding/utf8" as @utf8,
+  "moonbitlang/core/json" as @json,
+  "moonbitlang/core/strconv" as @strconv,
 }
 
 options(
-  targets: { "sync_native.mbt": [ "native" ] },
+  targets: {
+    "sync_native.mbt": [ "native" ],
+    "sync_native_wbtest.mbt": [ "native" ],
+  },
 )
