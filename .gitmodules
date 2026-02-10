@@ -1,6 +1,3 @@
 [submodule "third_party/git"]
 	path = third_party/git
 	url = https://github.com/git/git.git
-[submodule "third_party/llm"]
-	path = third_party/llm
-	url = https://github.com/mizchi/llm
