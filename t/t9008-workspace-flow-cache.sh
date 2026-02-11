@@ -130,6 +130,18 @@ test_expect_success 'workspace flow reruns dependent chain when upstream reposit
 	test_line_count = flow-logs/extra.log 3
 '
 
+test_expect_success 'workspace flow uses add-all style fingerprint for staged and unstaged mix' '
+	echo "dep-stage-1" > ws/dep/dep.txt &&
+	git -C ws/dep add dep.txt &&
+	echo "dep-worktree-2" > ws/dep/dep.txt &&
+	(cd ws &&
+	 BIT_WORKSPACE_FLOW_LOG_DIR="$PWD/../flow-logs" $BIT workspace flow test >../ws-flow-fourth.out 2>&1) &&
+	test_line_count = flow-logs/root.log 4 &&
+	test_line_count = flow-logs/dep.log 4 &&
+	test_line_count = flow-logs/leaf.log 4 &&
+	test_line_count = flow-logs/extra.log 3
+'
+
 test_expect_success 'workspace flow failure blocks downstream dependent node' '
 	(cd ws &&
 	 cat > .git/workspace.toml <<-\EOF
@@ -168,7 +180,7 @@ test_expect_success 'workspace flow failure blocks downstream dependent node' '
 	grep "\"status\": \"failed\"" ws/.git/txns/$(cat ws-flow-fail-txn.txt).json &&
 	grep "\"node_id\": \"leaf\"" ws/.git/txns/$(cat ws-flow-fail-txn.txt).json &&
 	grep "\"status\": \"blocked\"" ws/.git/txns/$(cat ws-flow-fail-txn.txt).json &&
-	test_line_count = flow-logs/leaf.log 3
+	test_line_count = flow-logs/leaf.log 4
 '
 
 test_expect_success 'git-compatible escape still works inside workspace after flow runs' '

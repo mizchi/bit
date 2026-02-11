@@ -16,6 +16,83 @@ async fn cleanup_tmp_dir(path : String) -> Unit {
 }
 
 ///|
+async fn git_write_tree_after_add_all(root : String) -> String? {
+  let add_code = @process.run("git", ["add", "-A"], inherit_env=true, cwd=root) catch {
+    _ => -1
+  }
+  if add_code != 0 {
+    return None
+  }
+  let (code, out, _) = @process.collect_output(
+    "git",
+    ["write-tree"],
+    inherit_env=true,
+    cwd=root,
+  ) catch {
+    _ => return None
+  }
+  if code != 0 {
+    return None
+  }
+  let text = out.text() catch { _ => return None }
+  Some(text.trim_end().to_string())
+}
+
+///|
+async fn git_cached_name_status(root : String) -> String? {
+  let (code, out, _) = @process.collect_output(
+    "git",
+    ["diff", "--cached", "--name-status"],
+    inherit_env=true,
+    cwd=root,
+  ) catch {
+    _ => return None
+  }
+  if code != 0 {
+    return None
+  }
+  let text = out.text() catch { _ => return None }
+  Some(text.trim_end().to_string())
+}
+
+///|
+async fn git_reset_clean(root : String) -> Bool {
+  let reset_code = @process.run(
+    "git",
+    ["reset", "--hard"],
+    inherit_env=true,
+    cwd=root,
+  ) catch {
+    _ => -1
+  }
+  if reset_code != 0 {
+    return false
+  }
+  let clean_code = @process.run(
+    "git",
+    ["clean", "-fd"],
+    inherit_env=true,
+    cwd=root,
+  ) catch {
+    _ => -1
+  }
+  clean_code == 0
+}
+
+///|
+async fn assert_git_add_all_equivalent(fs : @osfs.OsFs, root : String) -> Unit {
+  let cached_before = git_cached_name_status(root).unwrap_or("")
+  let ours = directory_fingerprint(fs, root, FingerprintMode::GitCompat)
+  let cached_after = git_cached_name_status(root).unwrap_or("")
+  assert_eq(cached_before, cached_after)
+  guard git_write_tree_after_add_all(root) is Some(expected) else {
+    assert_eq(1, 0)
+    return
+  }
+  assert_eq(ours, expected)
+}
+
+///|
 async test "fingerprint: parse mode aliases" {
   assert_eq(parse_fingerprint_mode("fast"), Some(FingerprintMode::Fast))
   assert_eq(parse_fingerprint_mode("git"), Some(FingerprintMode::GitCompat))
@@ -82,107 +159,96 @@ async test "fingerprint: git compat mode matches git write-tree for simple files
   fs.mkdir_p(root + "/pkg")
   fs.write_string(root + "/README.md", "hello\n")
   fs.write_string(root + "/pkg/mod.txt", "mod\n")
-  let root_entries = fs.readdir(root) catch { _ => [] }
-  root_entries.sort_by((a, b) => String::lexical_compare(a, b))
-  assert_eq(root_entries, [".git", "README.md", "pkg"])
-  let readme_blob = @git.hash_blob(fs.read_file(root + "/README.md")).to_hex()
-  let mod_blob = @git.hash_blob(fs.read_file(root + "/pkg/mod.txt")).to_hex()
-  let pkg_tree = build_git_tree_id(fs, root, "pkg", [".", "..", ".git", ".bit"])
-    .unwrap_or(@git.ObjectId::zero())
-    .to_hex()
-  let readme_id = @git.ObjectId::from_hex(readme_blob) catch {
-    _ => @git.ObjectId::zero()
+  let ours = directory_fingerprint(fs, root, FingerprintMode::GitCompat)
+  guard git_write_tree_after_add_all(root) is Some(expected) else {
+    cleanup_tmp_dir(root)
+    assert_eq(1, 0)
+    return
   }
-  let pkg_id = @git.ObjectId::from_hex(pkg_tree) catch {
-    _ => @git.ObjectId::zero()
-  }
-  let canonical_root = @git.create_tree([
-    @git.TreeEntry::new("100644", "README.md", readme_id),
-    @git.TreeEntry::new("40000", "pkg", pkg_id),
-  ]).0.to_hex()
-  let reversed_root = @git.create_tree([
-    @git.TreeEntry::new("40000", "pkg", pkg_id),
-    @git.TreeEntry::new("100644", "README.md", readme_id),
-  ]).0.to_hex()
-  let ours = directory_fingerprint(fs, root, FingerprintMode::GitCompat, ignore_entries=[
-    ".", "..", ".git", ".bit",
-  ])
-  let ours_with_git = directory_fingerprint(
-    fs,
-    root,
-    FingerprintMode::GitCompat,
-    ignore_entries=[".", "..", ".bit"],
-  )
-  assert_eq(ours == ours_with_git, false)
-  let add_code = @process.run("git", ["add", "-A"], inherit_env=true, cwd=root) catch {
+  assert_eq(ours, expected)
+  cleanup_tmp_dir(root)
+}
+
+///|
+async test "fingerprint: git compat matches git add -A write-tree with staged and unstaged mix" {
+  let fs : @osfs.OsFs = @osfs.OsFs::new()
+  let root = make_tmp_root("fingerprint-git-add-all-mix")
+  cleanup_tmp_dir(root)
+  fs.mkdir_p(root)
+  let init_code = @process.run(
+    "git",
+    ["init", "-b", "main"],
+    inherit_env=true,
+    cwd=root,
+  ) catch {
     _ => -1
   }
-  assert_eq(add_code, 0)
-  let (write_tree_code, out, _) = @process.collect_output(
+  if init_code != 0 {
+    cleanup_tmp_dir(root)
+    return
+  }
+  let cfg_email = @process.run(
     "git",
-    ["write-tree"],
+    ["config", "user.email", "test@example.com"],
     inherit_env=true,
     cwd=root,
   ) catch {
-    _ => {
-      cleanup_tmp_dir(root)
-      assert_eq(1, 0)
-      return
-    }
+    _ => -1
   }
-  assert_eq(write_tree_code, 0)
-  let (readme_code, readme_out, _) = @process.collect_output(
+  let cfg_name = @process.run(
     "git",
-    ["hash-object", "README.md"],
+    ["config", "user.name", "Test User"],
     inherit_env=true,
     cwd=root,
   ) catch {
-    _ => {
-      cleanup_tmp_dir(root)
-      assert_eq(1, 0)
-      return
-    }
+    _ => -1
   }
-  assert_eq(readme_code, 0)
-  let readme_expected = readme_out.text() catch { _ => "" }
-  let readme_expected = readme_expected.trim_end().to_string()
-  assert_eq(readme_blob, readme_expected)
-  let (mod_code, mod_out, _) = @process.collect_output(
+  assert_eq(cfg_email, 0)
+  assert_eq(cfg_name, 0)
+  fs.mkdir_p(root + "/dir")
+  fs.write_string(root + "/tracked.txt", "base\n")
+  fs.write_string(root + "/dir/a.txt", "a\n")
+  let add_base = @process.run("git", ["add", "-A"], inherit_env=true, cwd=root) catch {
+    _ => -1
+  }
+  let commit_base = @process.run(
     "git",
-    ["hash-object", "pkg/mod.txt"],
+    ["commit", "-m", "base"],
     inherit_env=true,
     cwd=root,
   ) catch {
-    _ => {
-      cleanup_tmp_dir(root)
-      assert_eq(1, 0)
-      return
-    }
+    _ => -1
   }
-  assert_eq(mod_code, 0)
-  let mod_expected = mod_out.text() catch { _ => "" }
-  let mod_expected = mod_expected.trim_end().to_string()
-  assert_eq(mod_blob, mod_expected)
-  let (pkg_code, pkg_out, _) = @process.collect_output(
+  assert_eq(add_base, 0)
+  assert_eq(commit_base, 0)
+
+  // staged + unstaged on tracked file
+  fs.write_string(root + "/tracked.txt", "stage-1\n")
+  let stage_code = @process.run(
     "git",
-    ["write-tree", "--prefix=pkg"],
+    ["add", "tracked.txt"],
     inherit_env=true,
     cwd=root,
   ) catch {
-    _ => {
-      cleanup_tmp_dir(root)
-      assert_eq(1, 0)
-      return
-    }
+    _ => -1
   }
-  assert_eq(pkg_code, 0)
-  let pkg_expected = pkg_out.text() catch { _ => "" }
-  let pkg_expected = pkg_expected.trim_end().to_string()
-  assert_eq(pkg_tree, pkg_expected)
-  let expected = out.text() catch { _ => "" }
-  let expected = expected.trim_end().to_string()
-  assert_eq(canonical_root, expected)
-  assert_eq(reversed_root == expected, false)
+  assert_eq(stage_code, 0)
+  fs.write_string(root + "/tracked.txt", "worktree-2\n")
+  // untracked file under new directory
+  fs.mkdir_p(root + "/newdir/sub")
+  fs.write_string(root + "/newdir/sub/file.txt", "u\n")
+  // unstaged delete
+  fs.remove_file(root + "/dir/a.txt")
+
+  let before_cached = git_cached_name_status(root).unwrap_or("")
+  let ours = directory_fingerprint(fs, root, FingerprintMode::GitCompat)
+  let after_cached = git_cached_name_status(root).unwrap_or("")
+  assert_eq(before_cached, after_cached)
+  guard git_write_tree_after_add_all(root) is Some(expected) else {
+    cleanup_tmp_dir(root)
+    assert_eq(1, 0)
+    return
+  }
   assert_eq(ours, expected)
   cleanup_tmp_dir(root)
 }
@@ -227,5 +293,124 @@ async test "fingerprint: fast and git compat produce different fingerprints" {
   let fast = directory_fingerprint(fs, root, FingerprintMode::Fast)
   let git = directory_fingerprint(fs, root, FingerprintMode::GitCompat)
   assert_eq(fast == git, false)
+  cleanup_tmp_dir(root)
+}
+
+///|
+async test "fingerprint: git compat add-all matrix matches git write-tree" {
+  let fs : @osfs.OsFs = @osfs.OsFs::new()
+  let root = make_tmp_root("fingerprint-git-add-all-matrix")
+  cleanup_tmp_dir(root)
+  fs.mkdir_p(root)
+  let init_code = @process.run(
+    "git",
+    ["init", "-b", "main"],
+    inherit_env=true,
+    cwd=root,
+  ) catch {
+    _ => -1
+  }
+  if init_code != 0 {
+    cleanup_tmp_dir(root)
+    return
+  }
+  ignore(
+    @process.run(
+      "git",
+      ["config", "user.email", "test@example.com"],
+      inherit_env=true,
+      cwd=root,
+    ),
+  ) catch {
+    _ => ()
+  }
+  ignore(
+    @process.run(
+      "git",
+      ["config", "user.name", "Test User"],
+      inherit_env=true,
+      cwd=root,
+    ),
+  ) catch {
+    _ => ()
+  }
+  fs.mkdir_p(root + "/dir")
+  fs.write_string(root + "/tracked.txt", "base\n")
+  fs.write_string(root + "/dir/a.txt", "a\n")
+  let add_base = @process.run("git", ["add", "-A"], inherit_env=true, cwd=root) catch {
+    _ => -1
+  }
+  let commit_base = @process.run(
+    "git",
+    ["commit", "-m", "base"],
+    inherit_env=true,
+    cwd=root,
+  ) catch {
+    _ => -1
+  }
+  assert_eq(add_base, 0)
+  assert_eq(commit_base, 0)
+
+  // case: untracked file
+  assert_true(git_reset_clean(root))
+  fs.write_string(root + "/untracked.txt", "u\n")
+  assert_git_add_all_equivalent(fs, root)
+
+  // case: untracked nested directory file
+  assert_true(git_reset_clean(root))
+  fs.mkdir_p(root + "/newdir/sub")
+  fs.write_string(root + "/newdir/sub/file.txt", "n\n")
+  assert_git_add_all_equivalent(fs, root)
+
+  // case: tracked unstaged modification
+  assert_true(git_reset_clean(root))
+  fs.write_string(root + "/tracked.txt", "mod\n")
+  assert_git_add_all_equivalent(fs, root)
+
+  // case: staged + unstaged on same tracked file
+  assert_true(git_reset_clean(root))
+  fs.write_string(root + "/tracked.txt", "stage-1\n")
+  ignore(
+    @process.run(
+      "git",
+      ["add", "tracked.txt"],
+      inherit_env=true,
+      cwd=root,
+    ),
+  ) catch {
+    _ => ()
+  }
+  fs.write_string(root + "/tracked.txt", "worktree-2\n")
+  assert_git_add_all_equivalent(fs, root)
+
+  // case: staged rename
+  assert_true(git_reset_clean(root))
+  ignore(
+    @process.run(
+      "git",
+      ["mv", "tracked.txt", "renamed.txt"],
+      inherit_env=true,
+      cwd=root,
+    ),
+  ) catch {
+    _ => ()
+  }
+  assert_git_add_all_equivalent(fs, root)
+
+  // case: staged delete + untracked file
+  assert_true(git_reset_clean(root))
+  ignore(
+    @process.run(
+      "git",
+      ["rm", "-f", "dir/a.txt"],
+      inherit_env=true,
+      cwd=root,
+    ),
+  ) catch {
+    _ => ()
+  }
+  fs.write_string(root + "/extra.txt", "x\n")
+  assert_git_add_all_equivalent(fs, root)
+
   cleanup_tmp_dir(root)
 }

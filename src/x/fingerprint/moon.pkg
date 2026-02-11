@@ -1,8 +1,11 @@
 import {
   "mizchi/bit" @git,
+  "mizchi/bit/lib" @gitlib,
+  "mizchi/bit/ignore" @gitignore,
   "mizchi/bit/osfs" @osfs,
   "moonbitlang/async" @async,
   "moonbitlang/async/process" @process,
+  "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/core/env" @env,
 }
 
