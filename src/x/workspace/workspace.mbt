@@ -837,52 +837,41 @@ fn workspace_json_string(
 }
 
 ///|
-fn workspace_hash_ignore_entry(name : String) -> Bool {
-  name == "." || name == ".." || name == ".git" || name == ".bit"
+fn workspace_fingerprint_mode() -> @fingerprint.FingerprintMode {
+  match @sys.get_env_var("BIT_WORKSPACE_FINGERPRINT_MODE") {
+    Some(raw) =>
+      match @fingerprint.parse_fingerprint_mode(raw) {
+        Some(mode) => mode
+        None => @fingerprint.FingerprintMode::GitCompat
+      }
+    None => @fingerprint.FingerprintMode::GitCompat
+  }
 }
 
 ///|
-fn workspace_collect_hash_files(
+fn workspace_directory_hash_with_mode(
   fs : @osfs.OsFs,
   root : String,
-  rel : String,
-  out : Array[String],
-) -> Unit {
-  let dir_path = if rel.length() == 0 { root } else { root + "/" + rel }
-  let entries = fs.readdir(dir_path) catch { _ => [] }
-  entries.sort()
-  for entry in entries {
-    if workspace_hash_ignore_entry(entry) {
-      continue
-    }
-    let child_rel = if rel.length() == 0 { entry } else { rel + "/" + entry }
-    let child_path = root + "/" + child_rel
-    if fs.is_dir(child_path) {
-      workspace_collect_hash_files(fs, root, child_rel, out)
-    } else if fs.is_file(child_path) {
-      out.push(child_rel)
-    }
-  }
+  mode : @fingerprint.FingerprintMode,
+) -> String {
+  @fingerprint.directory_fingerprint(fs, root, mode)
 }
 
 ///|
-fn workspace_directory_hash(fs : @osfs.OsFs, root : String) -> String {
-  if not(fs.is_dir(root)) {
-    return @git.hash_blob_string("missing").to_hex()
-  }
-  let files : Array[String] = []
-  workspace_collect_hash_files(fs, root, "", files)
-  let buf = StringBuilder::new()
-  for rel in files {
-    let file_path = root + "/" + rel
-    let content = fs.read_file(file_path) catch { _ => Bytes::from_array([]) }
-    let file_hash = @git.sha1(content).to_hex()
-    buf.write_string(rel)
-    buf.write_string("\t")
-    buf.write_string(file_hash)
-    buf.write_string("\n")
-  }
-  @git.hash_blob_string(buf.to_string()).to_hex()
+fn workspace_node_directory_signature_with_mode(
+  fs : @osfs.OsFs,
+  node_root : String,
+  mode : @fingerprint.FingerprintMode,
+) -> String? {
+  guard workspace_node_git_dir(fs, node_root) is Some(_) else { return None }
+  let head = workspace_node_head_hex(fs, node_root).unwrap_or("unknown")
+  let mode_name = @fingerprint.fingerprint_mode_name(mode)
+  let dir_hash = workspace_directory_hash_with_mode(fs, node_root, mode)
+  Some(
+    @git.hash_blob_string(
+      "mode=" + mode_name + "\nhead=" + head + "\ndir=" + dir_hash,
+    ).to_hex(),
+  )
 }
 
 ///|
@@ -890,10 +879,11 @@ fn workspace_node_directory_signature(
   fs : @osfs.OsFs,
   node_root : String,
 ) -> String? {
-  guard workspace_node_git_dir(fs, node_root) is Some(_) else { return None }
-  let head = workspace_node_head_hex(fs, node_root).unwrap_or("unknown")
-  let dir_hash = workspace_directory_hash(fs, node_root)
-  Some(@git.hash_blob_string("head=" + head + "\ndir=" + dir_hash).to_hex())
+  workspace_node_directory_signature_with_mode(
+    fs,
+    node_root,
+    workspace_fingerprint_mode(),
+  )
 }
 
 ///|
@@ -1200,11 +1190,14 @@ fn collect_changed_node_ids(
   workspace_root : String,
   manifest : WorkspaceManifest,
   lock_signatures : Map[String, String],
+  fingerprint_mode : @fingerprint.FingerprintMode,
 ) -> Map[String, Bool] {
   let changed : Map[String, Bool] = {}
   for node in manifest.nodes {
     let node_root = workspace_node_abs_path(workspace_root, node.path)
-    let current_signature = workspace_node_directory_signature(fs, node_root)
+    let current_signature = workspace_node_directory_signature_with_mode(
+      fs, node_root, fingerprint_mode,
+    )
     let lock_signature = lock_signatures.get(node.id)
     let drift = match (lock_signature, current_signature) {
       (Some(lock), Some(current)) => lock != current
@@ -1644,9 +1637,10 @@ async fn handle_workspace_run(args : Array[String]) -> Unit raise Error {
   let workspace_root = require_workspace_root(None)
   let manifest = load_workspace_manifest(fs, workspace_root)
   require_workspace_manifest_valid(fs, workspace_root, manifest, "run")
+  let fingerprint_mode = workspace_fingerprint_mode()
   let lock_signatures = read_workspace_lock_signatures(fs, workspace_root)
   let changed = collect_changed_node_ids(
-    fs, workspace_root, manifest, lock_signatures,
+    fs, workspace_root, manifest, lock_signatures, fingerprint_mode,
   )
   let selected = if affected_only {
     expand_affected_node_ids(manifest, changed)
@@ -1739,9 +1733,10 @@ async fn handle_workspace_flow(args : Array[String]) -> Unit raise Error {
   let workspace_root = require_workspace_root(None)
   let manifest = load_workspace_manifest(fs, workspace_root)
   require_workspace_manifest_valid(fs, workspace_root, manifest, "flow")
+  let fingerprint_mode = workspace_fingerprint_mode()
   let lock_signatures = read_workspace_lock_signatures(fs, workspace_root)
   let changed = collect_changed_node_ids(
-    fs, workspace_root, manifest, lock_signatures,
+    fs, workspace_root, manifest, lock_signatures, fingerprint_mode,
   )
   let selected = if affected_only {
     expand_affected_node_ids(manifest, changed)
@@ -1767,7 +1762,10 @@ async fn handle_workspace_flow(args : Array[String]) -> Unit raise Error {
   let node_repo_exists : Map[String, Bool] = {}
   for node in manifest.nodes {
     let node_root = workspace_node_abs_path(workspace_root, node.path)
-    match workspace_node_directory_signature(fs, node_root) {
+    match
+      workspace_node_directory_signature_with_mode(
+        fs, node_root, fingerprint_mode,
+      ) {
       Some(signature) => {
         node_repo_exists[node.id] = true
         node_signatures[node.id] = signature

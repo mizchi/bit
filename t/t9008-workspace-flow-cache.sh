@@ -107,14 +107,27 @@ test_expect_success 'workspace flow reuses cache without rerunning tasks' '
 	grep "\"status\": \"cached\"" ws/.git/txns/$(cat ws-flow-second-txn.txt).json
 '
 
+test_expect_success 'workspace flow cache is isolated by fingerprint mode switch' '
+	(cd ws &&
+	 BIT_WORKSPACE_FLOW_LOG_DIR="$PWD/../flow-logs" BIT_WORKSPACE_FINGERPRINT_MODE=fast $BIT workspace flow test >../ws-flow-fast-first.out 2>&1 &&
+	 BIT_WORKSPACE_FLOW_LOG_DIR="$PWD/../flow-logs" BIT_WORKSPACE_FINGERPRINT_MODE=fast $BIT workspace flow test >../ws-flow-fast-second.out 2>&1) &&
+	test_line_count = flow-logs/root.log 2 &&
+	test_line_count = flow-logs/dep.log 2 &&
+	test_line_count = flow-logs/leaf.log 2 &&
+	test_line_count = flow-logs/extra.log 2 &&
+	sed -n "s/.*workspace flow txn: \\([^ ]*\\).*/\\1/p" ws-flow-fast-second.out | head -n 1 > ws-flow-fast-second-txn.txt &&
+	test -s ws-flow-fast-second-txn.txt &&
+	grep "\"status\": \"cached\"" ws/.git/txns/$(cat ws-flow-fast-second-txn.txt).json
+'
+
 test_expect_success 'workspace flow reruns dependent chain when upstream repository changes' '
 	echo "root-dirty" >> ws/root.txt &&
 	(cd ws &&
 	 BIT_WORKSPACE_FLOW_LOG_DIR="$PWD/../flow-logs" $BIT workspace flow test >../ws-flow-third.out 2>&1) &&
-	test_line_count = flow-logs/root.log 2 &&
-	test_line_count = flow-logs/dep.log 2 &&
-	test_line_count = flow-logs/leaf.log 2 &&
-	test_line_count = flow-logs/extra.log 1
+	test_line_count = flow-logs/root.log 3 &&
+	test_line_count = flow-logs/dep.log 3 &&
+	test_line_count = flow-logs/leaf.log 3 &&
+	test_line_count = flow-logs/extra.log 3
 '
 
 test_expect_success 'workspace flow failure blocks downstream dependent node' '
@@ -155,7 +168,7 @@ test_expect_success 'workspace flow failure blocks downstream dependent node' '
 	grep "\"status\": \"failed\"" ws/.git/txns/$(cat ws-flow-fail-txn.txt).json &&
 	grep "\"node_id\": \"leaf\"" ws/.git/txns/$(cat ws-flow-fail-txn.txt).json &&
 	grep "\"status\": \"blocked\"" ws/.git/txns/$(cat ws-flow-fail-txn.txt).json &&
-	test_line_count = flow-logs/leaf.log 2
+	test_line_count = flow-logs/leaf.log 3
 '
 
 test_expect_success 'git-compatible escape still works inside workspace after flow runs' '

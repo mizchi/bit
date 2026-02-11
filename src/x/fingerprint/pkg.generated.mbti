@@ -1,0 +1,32 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/bit/x/fingerprint"
+
+import {
+  "mizchi/bit/types",
+}
+
+// Values
+pub fn directory_fingerprint(&@types.RepoFileSystem, String, FingerprintMode, ignore_entries? : Array[String]) -> String
+
+pub fn fast_directory_fingerprint(&@types.RepoFileSystem, String, ignore_entries? : Array[String]) -> String
+
+pub fn fingerprint_mode_name(FingerprintMode) -> String
+
+pub fn git_compat_directory_fingerprint(&@types.RepoFileSystem, String, ignore_entries? : Array[String]) -> String
+
+pub fn parse_fingerprint_mode(String) -> FingerprintMode?
+
+// Errors
+
+// Types and methods
+pub(all) enum FingerprintMode {
+  Fast
+  GitCompat
+}
+pub impl Eq for FingerprintMode
+pub impl Show for FingerprintMode
+
+// Type aliases
+
+// Traits
+

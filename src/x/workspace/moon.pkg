@@ -1,5 +1,6 @@
 import {
   "mizchi/bit" @git,
+  "mizchi/bit/x/fingerprint" @fingerprint,
   "mizchi/bit/lib" @gitlib,
   "mizchi/bitflow/workflow" @bitflow,
   "mizchi/bit/osfs" @osfs,

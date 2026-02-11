@@ -262,9 +262,17 @@ test "workspace: directory hash changes when file content changes" {
     get_current_timestamp().to_string()
   fs.mkdir_p(root + "/nested")
   fs.write_string(root + "/nested/file.txt", "hello\n")
-  let hash1 = workspace_directory_hash(fs, root)
+  let hash1 = @fingerprint.directory_fingerprint(
+    fs,
+    root,
+    @fingerprint.FingerprintMode::Fast,
+  )
   fs.write_string(root + "/nested/file.txt", "hello world\n")
-  let hash2 = workspace_directory_hash(fs, root)
+  let hash2 = @fingerprint.directory_fingerprint(
+    fs,
+    root,
+    @fingerprint.FingerprintMode::Fast,
+  )
   assert_eq(hash1 == hash2, false)
   fs.remove_file(root + "/nested/file.txt") catch {
     _ => ()
@@ -284,12 +292,20 @@ test "workspace: directory hash ignores .git and .bit metadata dirs" {
     get_current_timestamp().to_string()
   fs.mkdir_p(root)
   fs.write_string(root + "/tracked.txt", "payload\n")
-  let hash1 = workspace_directory_hash(fs, root)
+  let hash1 = @fingerprint.directory_fingerprint(
+    fs,
+    root,
+    @fingerprint.FingerprintMode::Fast,
+  )
   fs.mkdir_p(root + "/.git")
   fs.mkdir_p(root + "/.bit")
   fs.write_string(root + "/.git/HEAD", "ref: refs/heads/main\n")
   fs.write_string(root + "/.bit/WORKSPACE", "metadata\n")
-  let hash2 = workspace_directory_hash(fs, root)
+  let hash2 = @fingerprint.directory_fingerprint(
+    fs,
+    root,
+    @fingerprint.FingerprintMode::Fast,
+  )
   assert_eq(hash1, hash2)
   fs.remove_file(root + "/tracked.txt") catch {
     _ => ()
@@ -307,6 +323,49 @@ test "workspace: directory hash ignores .git and .bit metadata dirs" {
     _ => ()
   }
   fs.remove_dir(root) catch {
+    _ => ()
+  }
+}
+
+///|
+async test "workspace: node signature changes by fingerprint mode" {
+  let fs = @osfs.OsFs::new()
+  let root = "/tmp/bit-test-workspace-signature-mode-" +
+    get_current_timestamp().to_string()
+  ignore(@process.run("rm", ["-rf", root], inherit_env=true)) catch {
+    _ => ()
+  }
+  fs.mkdir_p(root)
+  let init_code = @process.run(
+    "git",
+    ["init", "-b", "main"],
+    inherit_env=true,
+    cwd=root,
+  ) catch {
+    _ => -1
+  }
+  if init_code != 0 {
+    ignore(@process.run("rm", ["-rf", root], inherit_env=true)) catch {
+      _ => ()
+    }
+    return
+  }
+  fs.write_string(root + "/file.txt", "payload\n")
+  let fast = workspace_node_directory_signature_with_mode(
+    fs,
+    root,
+    @fingerprint.FingerprintMode::Fast,
+  )
+  let git = workspace_node_directory_signature_with_mode(
+    fs,
+    root,
+    @fingerprint.FingerprintMode::GitCompat,
+  )
+  match (fast, git) {
+    (Some(fast_sig), Some(git_sig)) => assert_eq(fast_sig == git_sig, false)
+    _ => fail("workspace signature should exist for initialized repository")
+  }
+  ignore(@process.run("rm", ["-rf", root], inherit_env=true)) catch {
     _ => ()
   }
 }
