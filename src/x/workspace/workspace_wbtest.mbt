@@ -256,6 +256,62 @@ test "workspace: flow fingerprint changes when dependency signature changes" {
 }
 
 ///|
+test "workspace: directory hash changes when file content changes" {
+  let fs = @osfs.OsFs::new()
+  let root = "/tmp/bit-test-workspace-dirhash-" +
+    get_current_timestamp().to_string()
+  fs.mkdir_p(root + "/nested")
+  fs.write_string(root + "/nested/file.txt", "hello\n")
+  let hash1 = workspace_directory_hash(fs, root)
+  fs.write_string(root + "/nested/file.txt", "hello world\n")
+  let hash2 = workspace_directory_hash(fs, root)
+  assert_eq(hash1 == hash2, false)
+  fs.remove_file(root + "/nested/file.txt") catch {
+    _ => ()
+  }
+  fs.remove_dir(root + "/nested") catch {
+    _ => ()
+  }
+  fs.remove_dir(root) catch {
+    _ => ()
+  }
+}
+
+///|
+test "workspace: directory hash ignores .git and .bit metadata dirs" {
+  let fs = @osfs.OsFs::new()
+  let root = "/tmp/bit-test-workspace-dirhash-ignore-" +
+    get_current_timestamp().to_string()
+  fs.mkdir_p(root)
+  fs.write_string(root + "/tracked.txt", "payload\n")
+  let hash1 = workspace_directory_hash(fs, root)
+  fs.mkdir_p(root + "/.git")
+  fs.mkdir_p(root + "/.bit")
+  fs.write_string(root + "/.git/HEAD", "ref: refs/heads/main\n")
+  fs.write_string(root + "/.bit/WORKSPACE", "metadata\n")
+  let hash2 = workspace_directory_hash(fs, root)
+  assert_eq(hash1, hash2)
+  fs.remove_file(root + "/tracked.txt") catch {
+    _ => ()
+  }
+  fs.remove_file(root + "/.git/HEAD") catch {
+    _ => ()
+  }
+  fs.remove_file(root + "/.bit/WORKSPACE") catch {
+    _ => ()
+  }
+  fs.remove_dir(root + "/.git") catch {
+    _ => ()
+  }
+  fs.remove_dir(root + "/.bit") catch {
+    _ => ()
+  }
+  fs.remove_dir(root) catch {
+    _ => ()
+  }
+}
+
+///|
 test "workspace: path containment rejects escape outside workspace root" {
   let workspace_root = "/tmp/ws"
   let inside_path = workspace_node_abs_path(workspace_root, "dep")

@@ -837,6 +837,66 @@ fn workspace_json_string(
 }
 
 ///|
+fn workspace_hash_ignore_entry(name : String) -> Bool {
+  name == "." || name == ".." || name == ".git" || name == ".bit"
+}
+
+///|
+fn workspace_collect_hash_files(
+  fs : @osfs.OsFs,
+  root : String,
+  rel : String,
+  out : Array[String],
+) -> Unit {
+  let dir_path = if rel.length() == 0 { root } else { root + "/" + rel }
+  let entries = fs.readdir(dir_path) catch { _ => [] }
+  entries.sort()
+  for entry in entries {
+    if workspace_hash_ignore_entry(entry) {
+      continue
+    }
+    let child_rel = if rel.length() == 0 { entry } else { rel + "/" + entry }
+    let child_path = root + "/" + child_rel
+    if fs.is_dir(child_path) {
+      workspace_collect_hash_files(fs, root, child_rel, out)
+    } else if fs.is_file(child_path) {
+      out.push(child_rel)
+    }
+  }
+}
+
+///|
+fn workspace_directory_hash(fs : @osfs.OsFs, root : String) -> String {
+  if not(fs.is_dir(root)) {
+    return @git.hash_blob_string("missing").to_hex()
+  }
+  let files : Array[String] = []
+  workspace_collect_hash_files(fs, root, "", files)
+  let buf = StringBuilder::new()
+  for rel in files {
+    let file_path = root + "/" + rel
+    let content = fs.read_file(file_path) catch { _ => Bytes::from_array([]) }
+    let file_hash = @git.sha1(content).to_hex()
+    buf.write_string(rel)
+    buf.write_string("\t")
+    buf.write_string(file_hash)
+    buf.write_string("\n")
+  }
+  @git.hash_blob_string(buf.to_string()).to_hex()
+}
+
+///|
+fn workspace_node_directory_signature(
+  fs : @osfs.OsFs,
+  node_root : String,
+) -> String? {
+  guard workspace_node_git_dir(fs, node_root) is Some(_) else { return None }
+  let head = workspace_node_head_hex(fs, node_root).unwrap_or("unknown")
+  let dir_hash = workspace_directory_hash(fs, node_root)
+  Some(@git.hash_blob_string("head=" + head + "\ndir=" + dir_hash).to_hex())
+}
+
+///|
 fn write_workspace_lock_snapshot(
   fs : @osfs.OsFs,
   workspace_root : String,
@@ -846,11 +906,15 @@ fn write_workspace_lock_snapshot(
   for node in manifest.nodes {
     let node_root = workspace_node_abs_path(workspace_root, node.path)
     let commit_hex = workspace_node_head_hex(fs, node_root).unwrap_or("")
+    let dir_hash = workspace_node_directory_signature(fs, node_root).unwrap_or(
+      "",
+    )
     let node_obj : Map[String, Json] = {}
     node_obj["id"] = Json::string(node.id)
     node_obj["path"] = Json::string(node.path)
     node_obj["required"] = Json::boolean(node.required)
     node_obj["commit"] = Json::string(commit_hex)
+    node_obj["dir_hash"] = Json::string(dir_hash)
     match node.remote {
       Some(remote) => node_obj["remote"] = Json::string(remote)
       None => ()
@@ -892,6 +956,36 @@ fn read_workspace_lock_commits(
     let commit = workspace_json_string(node_obj, "commit", "")
     if id.length() > 0 {
       result[id] = commit
+    }
+  }
+  result
+}
+
+///|
+fn read_workspace_lock_signatures(
+  fs : @osfs.OsFs,
+  workspace_root : String,
+) -> Map[String, String] {
+  let path = workspace_lock_path(fs, workspace_root)
+  if not(fs.is_file(path)) {
+    return {}
+  }
+  let text = decode_bytes(fs.read_file(path)) catch { _ => return {} }
+  let parsed = @json.parse(text) catch { _ => return {} }
+  let result : Map[String, String] = {}
+  guard parsed is Json::Object(root_obj) else { return result }
+  guard root_obj.get("nodes") is Some(Json::Array(nodes)) else { return result }
+  for node in nodes {
+    guard node is Json::Object(node_obj) else { continue }
+    let id = workspace_json_string(node_obj, "id", "")
+    if id.length() == 0 {
+      continue
+    }
+    let dir_hash = workspace_json_string(node_obj, "dir_hash", "")
+    if dir_hash.length() > 0 {
+      result[id] = dir_hash
+    } else {
+      result[id] = workspace_json_string(node_obj, "commit", "")
     }
   }
   result
@@ -1101,24 +1195,24 @@ async fn workspace_is_node_dirty(fs : @osfs.OsFs, node_root : String) -> Bool {
 }
 
 ///|
-async fn collect_changed_node_ids(
+fn collect_changed_node_ids(
   fs : @osfs.OsFs,
   workspace_root : String,
   manifest : WorkspaceManifest,
-  lock_commits : Map[String, String],
+  lock_signatures : Map[String, String],
 ) -> Map[String, Bool] {
   let changed : Map[String, Bool] = {}
   for node in manifest.nodes {
     let node_root = workspace_node_abs_path(workspace_root, node.path)
-    let dirty = workspace_is_node_dirty(fs, node_root)
-    let head = workspace_node_head_hex(fs, node_root)
-    let lock_commit = lock_commits.get(node.id)
-    let drift = match (lock_commit, head) {
+    let current_signature = workspace_node_directory_signature(fs, node_root)
+    let lock_signature = lock_signatures.get(node.id)
+    let drift = match (lock_signature, current_signature) {
       (Some(lock), Some(current)) => lock != current
+      (Some(_), None) => true
       (None, Some(current)) => current.length() > 0
       _ => false
     }
-    if dirty || drift {
+    if drift {
       changed[node.id] = true
     }
   }
@@ -1550,9 +1644,9 @@ async fn handle_workspace_run(args : Array[String]) -> Unit raise Error {
   let workspace_root = require_workspace_root(None)
   let manifest = load_workspace_manifest(fs, workspace_root)
   require_workspace_manifest_valid(fs, workspace_root, manifest, "run")
-  let lock_commits = read_workspace_lock_commits(fs, workspace_root)
+  let lock_signatures = read_workspace_lock_signatures(fs, workspace_root)
   let changed = collect_changed_node_ids(
-    fs, workspace_root, manifest, lock_commits,
+    fs, workspace_root, manifest, lock_signatures,
   )
   let selected = if affected_only {
     expand_affected_node_ids(manifest, changed)
@@ -1645,9 +1739,9 @@ async fn handle_workspace_flow(args : Array[String]) -> Unit raise Error {
   let workspace_root = require_workspace_root(None)
   let manifest = load_workspace_manifest(fs, workspace_root)
   require_workspace_manifest_valid(fs, workspace_root, manifest, "flow")
-  let lock_commits = read_workspace_lock_commits(fs, workspace_root)
+  let lock_signatures = read_workspace_lock_signatures(fs, workspace_root)
   let changed = collect_changed_node_ids(
-    fs, workspace_root, manifest, lock_commits,
+    fs, workspace_root, manifest, lock_signatures,
   )
   let selected = if affected_only {
     expand_affected_node_ids(manifest, changed)
@@ -1665,28 +1759,23 @@ async fn handle_workspace_flow(args : Array[String]) -> Unit raise Error {
       "workspace flow invalid: " + flow_issues[0],
     )
   }
-  let ordered_ids = @bitflow.topological_nodes(flow_ir.nodes).map(node => node.id)
+  let ordered_ids = @bitflow.topological_nodes(flow_ir.nodes).map(node => {
+    node.id
+  })
   let node_map = workspace_node_map(manifest)
-  let flow_signature_nonce = workspace_txn_id("flow-sig")
   let node_signatures : Map[String, String] = {}
   let node_repo_exists : Map[String, Bool] = {}
-  let node_dirty : Map[String, Bool] = {}
   for node in manifest.nodes {
     let node_root = workspace_node_abs_path(workspace_root, node.path)
-    let repo_exists = workspace_node_git_dir(fs, node_root) is Some(_)
-    node_repo_exists[node.id] = repo_exists
-    if not(repo_exists) {
-      node_signatures[node.id] = "missing"
-      node_dirty[node.id] = false
-      continue
-    }
-    let dirty = workspace_is_node_dirty(fs, node_root)
-    node_dirty[node.id] = dirty
-    let head = workspace_node_head_hex(fs, node_root).unwrap_or("unknown")
-    node_signatures[node.id] = if dirty {
-      head + "+dirty@" + flow_signature_nonce
-    } else {
-      head
+    match workspace_node_directory_signature(fs, node_root) {
+      Some(signature) => {
+        node_repo_exists[node.id] = true
+        node_signatures[node.id] = signature
+      }
+      None => {
+        node_repo_exists[node.id] = false
+        node_signatures[node.id] = "missing"
+      }
     }
   }
   let flow_cache = if no_cache {
@@ -1746,7 +1835,6 @@ async fn handle_workspace_flow(args : Array[String]) -> Unit raise Error {
         let fingerprint = workspace_flow_fingerprint(
           task, task_cmd, node, node_signatures,
         )
-        let dirty = node_dirty.get(node.id).unwrap_or(false)
         let mut dep_ran = false
         for dep in node.depends_on {
           if selected.get(dep) is None {
@@ -1757,7 +1845,7 @@ async fn handle_workspace_flow(args : Array[String]) -> Unit raise Error {
             break
           }
         }
-        if not(no_cache) && not(dirty) && not(dep_ran) {
+        if not(no_cache) && not(dep_ran) {
           match flow_cache.get(cache_key) {
             Some(prev) if prev == fingerprint => {
               workspace_record_step(steps, node, "flow", "cached", task)
@@ -1782,11 +1870,7 @@ async fn handle_workspace_flow(args : Array[String]) -> Unit raise Error {
           node_success[node.id] = true
           node_ran[node.id] = true
           if not(no_cache) {
-            if dirty {
-              flow_cache.remove(cache_key)
-            } else {
-              flow_cache[cache_key] = fingerprint
-            }
+            flow_cache[cache_key] = fingerprint
           }
         } else {
           workspace_record_step(
