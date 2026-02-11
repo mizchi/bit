@@ -53,6 +53,9 @@ async fn show_help() -> Unit {
     #|   pr           Shortcut for 'hub pr' (gh-like)
     #|   issue        Shortcut for 'hub issue' (gh-like)
     #|   agent        P2P agent for automated PR hub workflow
+    #|   workspace    Manage hierarchical bit workspace projects
+    #|   ws           Shortcut for 'workspace'
+    #|   repo         Run regular bit command without workspace translation
     #|   subdir-clone  Clone subdirectory as independent repository
     #|   hq            ghq-compatible repository management (~/bhq)
     #|
@@ -121,6 +124,14 @@ async fn show_command_help(cmd : String) -> Bool {
     }
     "agent" => {
       print_agent_usage()
+      true
+    }
+    "workspace" | "ws" => {
+      print_workspace_usage()
+      true
+    }
+    "repo" => {
+      print_repo_usage()
       true
     }
     "clone" => {
@@ -712,7 +723,12 @@ async fn run_main_for_args(args : Array[String]) -> Unit {
   } else {
     alias_rest
   }
-  dispatch_command(alias_cmd, effective_rest) catch {
+  let (dispatch_cmd, dispatch_rest) = workspace_translate_implicit_command(
+    opts.cwd,
+    alias_cmd,
+    effective_rest,
+  )
+  dispatch_command(dispatch_cmd, dispatch_rest) catch {
     err if @async.is_cancellation_error(err) => raise err
     err => exit_with_error("dispatch", err)
   }
@@ -876,6 +892,7 @@ fn normalize_dispatch_command(cmd : String) -> String {
       ("git-upload-pack", "upload-pack"),
       ("show-branch", "show-branches"),
       ("--version", "version"),
+      ("ws", "workspace"),
     ] {
     if cmd == entry.0 {
       return entry.1
@@ -954,6 +971,8 @@ async fn dispatch_known_command(
     "pr" => handle_hub_pr(rest)
     "issue" => handle_hub_issue(rest)
     "agent" => handle_agent(rest)
+    "workspace" => handle_workspace(rest)
+    "repo" => handle_repo(rest)
     "hq" => handle_hq(rest)
     "sparse-checkout" => handle_sparse_checkout(rest)
     "rev-parse" => handle_rev_parse(rest)

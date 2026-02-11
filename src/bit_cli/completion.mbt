@@ -246,6 +246,37 @@ fn generate_bash_completion() -> String {
     #|        init)
     #|            COMPREPLY=( $(compgen -W "--bare --template --separate-git-dir --initial-branch -b --shared --quiet -q" -- "$cur") )
     #|            ;;
+    #|        workspace|ws)
+    #|            if ((cword == subcmd_idx + 1)); then
+    #|                COMPREPLY=( $(compgen -W "init status commit push run export doctor help" -- "$cur") )
+    #|            else
+    #|                local ws_subcmd="${words[subcmd_idx + 1]}"
+    #|                case "$ws_subcmd" in
+    #|                    commit)
+    #|                        COMPREPLY=( $(compgen -W "-m --message --allow-empty" -- "$cur") )
+    #|                        ;;
+    #|                    push)
+    #|                        COMPREPLY=( $(compgen -W "--resume" -- "$cur") )
+    #|                        ;;
+    #|                    run)
+    #|                        COMPREPLY=( $(compgen -W "--affected" -- "$cur") )
+    #|                        ;;
+    #|                    export)
+    #|                        COMPREPLY=( $(compgen -W "--format" -- "$cur") )
+    #|                        ;;
+    #|                    *)
+    #|                        COMPREPLY=()
+    #|                        ;;
+    #|                esac
+    #|            fi
+    #|            ;;
+    #|        repo)
+    #|            if ((cword == subcmd_idx + 1)); then
+    #|                __bit_commands
+    #|            else
+    #|                COMPREPLY=()
+    #|            fi
+    #|            ;;
     #|        clean)
     #|            COMPREPLY=( $(compgen -W "-d -f --force -n --dry-run -q --quiet -x -X -e --exclude" -- "$cur") )
     #|            ;;
@@ -653,6 +684,38 @@ fn generate_zsh_completion() -> String {
     #|                '(-q --quiet)'{-q,--quiet}'[quiet]' \
     #|                '1:directory:_directories'
     #|            ;;
+    #|        workspace|ws)
+    #|            if ((CURRENT == 2)); then
+    #|                _arguments '1:workspace-command:(init status commit push run export doctor help)'
+    #|            else
+    #|                case $line[2] in
+    #|                commit)
+    #|                    _arguments \
+    #|                        '(-m --message)'{-m,--message}'[commit message]:message' \
+    #|                        '--allow-empty[allow empty commit]'
+    #|                    ;;
+    #|                push)
+    #|                    _arguments '--resume=[resume transaction id]:txn-id'
+    #|                    ;;
+    #|                run)
+    #|                    _arguments '--affected[run only affected closure]' '1:task'
+    #|                    ;;
+    #|                export)
+    #|                    _arguments '--format=[export format]:format:(git-interop)'
+    #|                    ;;
+    #|                *)
+    #|                    _files
+    #|                    ;;
+    #|                esac
+    #|            fi
+    #|            ;;
+    #|        repo)
+    #|            if ((CURRENT == 2)); then
+    #|                __bit_commands
+    #|            else
+    #|                _files
+    #|            fi
+    #|            ;;
     #|        clean)
     #|            _arguments \
     #|                '-d[remove directories]' \
@@ -732,6 +795,7 @@ fn all_subcommands() -> Array[(String, String)] {
     ("push", "Update remote refs along with associated objects"),
     ("range-diff", "Compare two commit ranges"),
     ("read-tree", "Read tree information into the index"),
+    ("repo", "Run regular bit command without workspace translation"),
     ("rebase", "Reapply commits on top of another base tip"),
     ("receive-pack", "Receive what is pushed into the repository"),
     ("reflog", "Manage reflog information"),
@@ -763,6 +827,8 @@ fn all_subcommands() -> Array[(String, String)] {
     ("upload-pack", "Send objects packed back to git-fetch-pack"),
     ("verify-pack", "Validate packed Git archive files"),
     ("worktree", "Manage multiple working trees"),
+    ("workspace", "Manage hierarchical bit workspace projects"),
+    ("ws", "Shortcut for workspace"),
     ("write-tree", "Create a tree object from the current index"),
   ]
 }

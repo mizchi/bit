@@ -76,3 +76,7 @@ test_done
 | `t9000-subdir-clone.sh` | Subdir-clone: cloning subdirectories |
 | `t9001-subdir-push.sh` | Subdir-push: pushing changes back upstream |
 | `t9002-shallow-sparse.sh` | Shallow clone and sparse checkout |
+| `t9004-workspace-routing.sh` | Workspace command routing, implicit translation, and repo escape |
+| `t9005-workspace-commit-push.sh` | Workspace commit/push transaction and resume behavior |
+| `t9006-workspace-run-export-doctor.sh` | Workspace run/export/doctor with multi-node manifests |
+| `t9007-workspace-nested-translation.sh` | Nested directory translation and fallback behavior |

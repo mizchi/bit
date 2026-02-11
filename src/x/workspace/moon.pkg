@@ -1,0 +1,24 @@
+import {
+  "mizchi/bit" @git,
+  "mizchi/bit/lib" @gitlib,
+  "mizchi/bit/osfs" @osfs,
+  "moonbitlang/async" @async,
+  "moonbitlang/async/process" @process,
+  "moonbitlang/async/stdio" @stdio,
+  "moonbitlang/core/env" @env,
+  "moonbitlang/core/json" @json,
+  "moonbitlang/core/strconv" @strconv,
+  "moonbitlang/x/encoding" @encoding,
+  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/path" @path,
+  "moonbitlang/x/sys" @sys,
+}
+
+warnings = "-29"
+
+options(
+  targets: {
+    "workspace.mbt": [ "native" ],
+    "workspace_wbtest.mbt": [ "native" ],
+  },
+)

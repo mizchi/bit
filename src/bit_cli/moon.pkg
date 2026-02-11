@@ -18,6 +18,7 @@ import {
   "mizchi/bit/x/fs" @bitfs,
   "mizchi/bit/x/hq" @hq,
   "mizchi/bit/x/subdir" @subdir,
+  "mizchi/bit/x/workspace" @workspace,
   "mizchi/zlib" @zlib,
   "moonbitlang/async" @async,
   "moonbitlang/async/process" @process,
@@ -143,6 +144,7 @@ options(
     "upload_pack.mbt": [ "native" ],
     "verify_pack.mbt": [ "native" ],
     "worktree.mbt": [ "native" ],
+    "workspace.mbt": [ "native" ],
     "write_tree.mbt": [ "native" ],
   },
 )
