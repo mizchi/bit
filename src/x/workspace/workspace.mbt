@@ -1036,6 +1036,39 @@ fn workspace_flow_nodes(
 }
 
 ///|
+fn workspace_flow_ir(
+  manifest : WorkspaceManifest,
+  selected : Map[String, Bool],
+  task : String,
+) -> @bitflow.FlowIr {
+  let nodes : Array[@bitflow.FlowNode] = []
+  let tasks : Array[@bitflow.FlowTask] = []
+  for node in manifest.nodes {
+    if selected.get(node.id) is None {
+      continue
+    }
+    let depends_on : Array[String] = []
+    for dep in node.depends_on {
+      if selected.get(dep) is Some(_) {
+        depends_on.push(dep)
+      }
+    }
+    nodes.push(@bitflow.new_node(node.id, depends_on, required=node.required))
+    let cmd = node.tasks.get(task).unwrap_or("")
+    tasks.push(
+      @bitflow.new_task(
+        node.id,
+        node.id,
+        cmd,
+        depends_on,
+        required=node.required,
+      ),
+    )
+  }
+  @bitflow.new_ir("workspace-flow-" + task, nodes, tasks, max_parallel=1)
+}
+
+///|
 fn workspace_topological_nodes(
   manifest : WorkspaceManifest,
 ) -> Array[WorkspaceNode] {
@@ -1625,7 +1658,15 @@ async fn handle_workspace_flow(args : Array[String]) -> Unit raise Error {
     }
     all_ids
   }
-  let ordered = workspace_topological_nodes(manifest)
+  let flow_ir = workspace_flow_ir(manifest, selected, task)
+  let flow_issues = @bitflow.ir_issues(flow_ir)
+  if flow_issues.length() > 0 {
+    raise @git.GitError::InvalidObject(
+      "workspace flow invalid: " + flow_issues[0],
+    )
+  }
+  let ordered_ids = @bitflow.topological_nodes(flow_ir.nodes).map(node => node.id)
+  let node_map = workspace_node_map(manifest)
   let flow_signature_nonce = workspace_txn_id("flow-sig")
   let node_signatures : Map[String, String] = {}
   let node_repo_exists : Map[String, Bool] = {}
@@ -1661,10 +1702,8 @@ async fn handle_workspace_flow(args : Array[String]) -> Unit raise Error {
   let node_success : Map[String, Bool] = {}
   let node_ran : Map[String, Bool] = {}
   let mut required_failed = false
-  for node in ordered {
-    if selected.get(node.id) is None {
-      continue
-    }
+  for node_id in ordered_ids {
+    guard node_map.get(node_id) is Some(node) else { continue }
     let blocked_deps : Array[String] = []
     for dep in node.depends_on {
       if selected.get(dep) is None {

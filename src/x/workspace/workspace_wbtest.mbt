@@ -30,6 +30,44 @@ test "workspace: flow graph conversion preserves node shape" {
 }
 
 ///|
+test "workspace: flow ir keeps selected dependency edges" {
+  let root = workspace_new_node()
+  root.id = "root"
+  root.path = "."
+  root.depends_on = []
+  root.tasks["test"] = "echo root"
+  let dep = workspace_new_node()
+  dep.id = "dep"
+  dep.path = "dep"
+  dep.depends_on = ["root"]
+  dep.tasks["test"] = "echo dep"
+  let extra = workspace_new_node()
+  extra.id = "extra"
+  extra.path = "extra"
+  extra.depends_on = []
+  extra.tasks["test"] = "echo extra"
+  let manifest : WorkspaceManifest = { version: 1, nodes: [root, dep, extra] }
+  let selected : Map[String, Bool] = { "root": true, "dep": true }
+  let ir = workspace_flow_ir(manifest, selected, "test")
+  assert_eq(ir.nodes.length(), 2)
+  assert_eq(ir.tasks.length(), 2)
+  let task_map : Map[String, @bitflow.FlowTask] = {}
+  for task in ir.tasks {
+    task_map[task.id] = task
+  }
+  assert_true(task_map.get("root") is Some(_))
+  assert_true(task_map.get("dep") is Some(_))
+  assert_true(task_map.get("extra") is None)
+  match task_map.get("dep") {
+    Some(task) => {
+      assert_eq(task.needs.length(), 1)
+      assert_eq(task.needs[0], "root")
+    }
+    None => fail("dep task missing")
+  }
+}
+
+///|
 test "workspace: parse manifest with dependencies and tasks" {
   let manifest_text =
     #|version = 1
