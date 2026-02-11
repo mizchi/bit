@@ -741,15 +741,7 @@ fn workspace_manifest_issues(
   include_repo_checks : Bool,
 ) -> Array[String] {
   let issues : Array[String] = []
-  let seen_ids : Map[String, Bool] = {}
   for node in manifest.nodes {
-    if node.id.length() == 0 {
-      issues.push("node id is empty")
-    } else if seen_ids.get(node.id) is Some(_) {
-      issues.push("duplicate node id '\{node.id}'")
-    } else {
-      seen_ids[node.id] = true
-    }
     let node_root = workspace_node_abs_path(workspace_root, node.path)
     if not(path_is_within_workspace_root(workspace_root, node_root)) {
       issues.push("node '\{node.id}' path escapes workspace root: \{node.path}")
@@ -764,16 +756,9 @@ fn workspace_manifest_issues(
       }
     }
   }
-  let id_set = workspace_node_id_set(manifest)
-  for node in manifest.nodes {
-    for dep in node.depends_on {
-      if id_set.get(dep) is None {
-        issues.push("node '\{node.id}' depends on unknown node '\{dep}'")
-      }
-    }
-  }
-  if workspace_has_dependency_cycle(manifest) {
-    issues.push("dependency graph has a cycle")
+  let flow_nodes = workspace_flow_nodes(manifest)
+  for issue in @bitflow.graph_issues(flow_nodes) {
+    issues.push(issue)
   }
   issues
 }
@@ -1031,15 +1016,6 @@ fn read_successful_push_nodes(
 }
 
 ///|
-fn workspace_node_id_set(manifest : WorkspaceManifest) -> Map[String, Bool] {
-  let ids : Map[String, Bool] = {}
-  for node in manifest.nodes {
-    ids[node.id] = true
-  }
-  ids
-}
-
-///|
 fn workspace_node_map(
   manifest : WorkspaceManifest,
 ) -> Map[String, WorkspaceNode] {
@@ -1051,57 +1027,27 @@ fn workspace_node_map(
 }
 
 ///|
+fn workspace_flow_nodes(
+  manifest : WorkspaceManifest,
+) -> Array[@bitflow.FlowNode] {
+  manifest.nodes.map(node => {
+    @bitflow.new_node(node.id, node.depends_on, required=node.required)
+  })
+}
+
+///|
 fn workspace_topological_nodes(
   manifest : WorkspaceManifest,
 ) -> Array[WorkspaceNode] {
-  let ids = workspace_node_id_set(manifest)
+  let flow_nodes = workspace_flow_nodes(manifest)
+  let ordered_flow_nodes = @bitflow.topological_nodes(flow_nodes)
   let node_map = workspace_node_map(manifest)
-  let indegree : Map[String, Int] = {}
-  let dependents : Map[String, Array[String]] = {}
-  for node in manifest.nodes {
-    indegree[node.id] = 0
-    dependents[node.id] = []
-  }
-  for node in manifest.nodes {
-    let mut deg = indegree.get(node.id).unwrap_or(0)
-    for dep in node.depends_on {
-      if ids.get(dep) is Some(_) {
-        deg += 1
-        let next = dependents.get(dep).unwrap_or([])
-        next.push(node.id)
-        dependents[dep] = next
-      }
-    }
-    indegree[node.id] = deg
-  }
-  let queue : Array[String] = []
-  for node in manifest.nodes {
-    if indegree.get(node.id).unwrap_or(0) == 0 {
-      queue.push(node.id)
-    }
-  }
-  let order_ids : Array[String] = []
-  let visited : Map[String, Bool] = {}
-  while queue.length() > 0 {
-    let current = queue.pop().unwrap_or("")
-    if current.length() == 0 || visited.get(current) is Some(_) {
-      continue
-    }
-    visited[current] = true
-    order_ids.push(current)
-    let followers = dependents.get(current).unwrap_or([])
-    for follower in followers {
-      let next_deg = indegree.get(follower).unwrap_or(0) - 1
-      indegree[follower] = next_deg
-      if next_deg == 0 {
-        queue.push(follower)
-      }
-    }
-  }
   let ordered : Array[WorkspaceNode] = []
-  for id in order_ids {
-    if node_map.get(id) is Some(node) {
+  let visited : Map[String, Bool] = {}
+  for flow_node in ordered_flow_nodes {
+    if node_map.get(flow_node.id) is Some(node) {
       ordered.push(node)
+      visited[node.id] = true
     }
   }
   for node in manifest.nodes {
@@ -1110,52 +1056,6 @@ fn workspace_topological_nodes(
     }
   }
   ordered
-}
-
-///|
-fn workspace_has_dependency_cycle(manifest : WorkspaceManifest) -> Bool {
-  let ids = workspace_node_id_set(manifest)
-  let indegree : Map[String, Int] = {}
-  let dependents : Map[String, Array[String]] = {}
-  for node in manifest.nodes {
-    indegree[node.id] = 0
-    dependents[node.id] = []
-  }
-  for node in manifest.nodes {
-    let mut deg = indegree.get(node.id).unwrap_or(0)
-    for dep in node.depends_on {
-      if ids.get(dep) is Some(_) {
-        deg += 1
-        let next = dependents.get(dep).unwrap_or([])
-        next.push(node.id)
-        dependents[dep] = next
-      }
-    }
-    indegree[node.id] = deg
-  }
-  let queue : Array[String] = []
-  for node in manifest.nodes {
-    if indegree.get(node.id).unwrap_or(0) == 0 {
-      queue.push(node.id)
-    }
-  }
-  let mut visited_count = 0
-  while queue.length() > 0 {
-    let current = queue.pop().unwrap_or("")
-    if current.length() == 0 {
-      continue
-    }
-    visited_count += 1
-    let followers = dependents.get(current).unwrap_or([])
-    for follower in followers {
-      let next_deg = indegree.get(follower).unwrap_or(0) - 1
-      indegree[follower] = next_deg
-      if next_deg == 0 {
-        queue.push(follower)
-      }
-    }
-  }
-  visited_count < manifest.nodes.length()
 }
 
 ///|
@@ -1197,76 +1097,12 @@ fn expand_affected_node_ids(
   manifest : WorkspaceManifest,
   initial : Map[String, Bool],
 ) -> Map[String, Bool] {
-  // Use ripple query graph to model transitive change propagation.
-  let db = @ripple.Database::new()
-  let rt = db.runtime()
-  let changed_input : @ripple.Input[String, Bool] = db.input()
-  changed_input.register(rt)
-  let neighbors_input : @ripple.Input[String, Array[String]] = db.input()
-  neighbors_input.register(rt)
-  let known_ids = workspace_node_id_set(manifest)
-  let dependents : Map[String, Array[String]] = {}
-  for node in manifest.nodes {
-    dependents[node.id] = []
-  }
-  for node in manifest.nodes {
-    for dep in node.depends_on {
-      if known_ids.get(dep) is Some(_) {
-        let next = dependents.get(dep).unwrap_or([])
-        next.push(node.id)
-        dependents[dep] = next
-      }
-    }
-  }
-  for node in manifest.nodes {
-    let neighbors : Array[String] = []
-    let seen_neighbor : Map[String, Bool] = {}
-    for dep in node.depends_on {
-      if known_ids.get(dep) is Some(_) {
-        neighbors.push(dep)
-        seen_neighbor[dep] = true
-      }
-    }
-    for follower in dependents.get(node.id).unwrap_or([]) {
-      if seen_neighbor.get(follower) is None {
-        neighbors.push(follower)
-        seen_neighbor[follower] = true
-      }
-    }
-    neighbors_input.set(rt, node.id, neighbors) |> ignore
-    changed_input.set(rt, node.id, initial.get(node.id) is Some(_)) |> ignore
-  }
-  let affected_ref : Ref[@ripple.CycleQuery[String, Bool]?] = { val: None }
-  let affected_query : @ripple.CycleQuery[String, Bool] = db.cycle_query_with_fallback(
-    fn(rt, node_id) {
-      if changed_input.get(rt, node_id).unwrap_or(false) {
-        return true
-      }
-      let neighbors = neighbors_input.get(rt, node_id).unwrap_or([])
-      let self = affected_ref.val.unwrap()
-      for neighbor in neighbors {
-        if self.fetch(rt, neighbor) {
-          return true
-        }
-      }
-      false
-    },
-    false,
-  )
-  affected_ref.val = Some(affected_query)
-  affected_query.register(rt)
-  let affected : Map[String, Bool] = {}
-  for node in manifest.nodes {
-    if affected_query.fetch(rt, node.id) {
-      affected[node.id] = true
-    }
-  }
-  affected
+  @bitflow.expand_affected_nodes(workspace_flow_nodes(manifest), initial)
 }
 
 ///|
 fn workspace_flow_cache_key(task : String, node_id : String) -> String {
-  task + "::" + node_id
+  @bitflow.flow_cache_key(task, node_id)
 }
 
 ///|
@@ -1276,22 +1112,12 @@ fn workspace_flow_fingerprint(
   node : WorkspaceNode,
   signatures : Map[String, String],
 ) -> String {
-  let buf = StringBuilder::new()
-  buf.write_string("task=")
-  buf.write_string(task)
-  buf.write_string("\nnode=")
-  buf.write_string(node.id)
-  buf.write_string("\ncommand=")
-  buf.write_string(task_cmd)
-  buf.write_string("\nself=")
-  buf.write_string(signatures.get(node.id).unwrap_or("missing"))
-  for dep in node.depends_on {
-    buf.write_string("\ndep:")
-    buf.write_string(dep)
-    buf.write_string("=")
-    buf.write_string(signatures.get(dep).unwrap_or("missing"))
-  }
-  buf.to_string()
+  @bitflow.flow_fingerprint(
+    task,
+    task_cmd,
+    @bitflow.new_node(node.id, node.depends_on, required=node.required),
+    signatures,
+  )
 }
 
 ///|

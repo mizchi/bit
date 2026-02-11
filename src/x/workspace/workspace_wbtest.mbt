@@ -9,6 +9,27 @@ fn issues_contain(issues : Array[String], needle : String) -> Bool {
 }
 
 ///|
+test "workspace: flow graph conversion preserves node shape" {
+  let root = workspace_new_node()
+  root.id = "root"
+  root.path = "."
+  root.depends_on = []
+  let dep = workspace_new_node()
+  dep.id = "dep"
+  dep.path = "dep"
+  dep.required = false
+  dep.depends_on = ["root"]
+  let manifest : WorkspaceManifest = { version: 1, nodes: [root, dep] }
+  let flow_nodes = workspace_flow_nodes(manifest)
+  assert_eq(flow_nodes.length(), 2)
+  assert_eq(flow_nodes[0].id, "root")
+  assert_eq(flow_nodes[1].id, "dep")
+  assert_eq(flow_nodes[1].required, false)
+  assert_eq(flow_nodes[1].depends_on.length(), 1)
+  assert_eq(flow_nodes[1].depends_on[0], "root")
+}
+
+///|
 test "workspace: parse manifest with dependencies and tasks" {
   let manifest_text =
     #|version = 1
@@ -97,7 +118,7 @@ test "workspace: manifest template rejects unknown name" {
 }
 
 ///|
-test "workspace: expand affected uses ripple graph propagation" {
+test "workspace: expand affected follows workspace dependency graph" {
   let root = workspace_new_node()
   root.id = "root"
   root.path = "."
