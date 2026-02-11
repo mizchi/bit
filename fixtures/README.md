@@ -6,6 +6,24 @@
 ./fixtures/regen_idx.sh
 ```
 
+## workspace_flow fixture (workspace flow e2e)
+
+Bootstrap nested repositories for workspace-flow tests:
+
+```sh
+./fixtures/workspace_flow/bootstrap.sh /tmp/ws-flow
+```
+
+Then initialize workspace metadata and install fixture manifests:
+
+```sh
+cd /tmp/ws-flow
+bit workspace init
+cp /path/to/repo/fixtures/workspace_flow/workspace.toml .git/workspace.toml
+# failure profile
+cp /path/to/repo/fixtures/workspace_flow/workspace.fail.toml .git/workspace.toml
+```
+
 ## hello.pack
 
 Generated via:

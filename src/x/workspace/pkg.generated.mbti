@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/bit/x/workspace"
+
+// Values
+pub async fn handle_workspace(Array[String], async (String, String, Array[String]) -> (Int, String)) -> Unit
+
+pub fn print_repo_usage() -> Unit
+
+pub fn print_workspace_usage() -> Unit
+
+pub fn workspace_translate_implicit_command(String?, String, Array[String]) -> (String, Array[String])
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

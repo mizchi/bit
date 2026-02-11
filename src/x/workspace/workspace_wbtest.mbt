@@ -57,6 +57,36 @@ test "workspace: format and parse roundtrip keeps node shape" {
 }
 
 ///|
+test "workspace: flow template manifest scaffolds expected node graph" {
+  let manifest = workspace_manifest_for_template(Some("flow")) catch {
+    err => fail("unexpected error: \{err.to_string()}")
+  }
+  assert_eq(manifest.nodes.length(), 4)
+  assert_eq(manifest.nodes[0].id, "root")
+  assert_eq(manifest.nodes[1].id, "dep")
+  assert_eq(manifest.nodes[2].id, "leaf")
+  assert_eq(manifest.nodes[3].id, "extra")
+  assert_eq(manifest.nodes[1].depends_on[0], "root")
+  assert_eq(manifest.nodes[2].depends_on[0], "dep")
+  let root_task = manifest.nodes[0].tasks.get("test").unwrap_or("")
+  assert_true(root_task.contains("BIT_WORKSPACE_FLOW_LOG_DIR"))
+}
+
+///|
+test "workspace: manifest template rejects unknown name" {
+  ignore(
+    workspace_manifest_for_template(Some("nope-template")) catch {
+      @git.GitError::InvalidObject(message) => {
+        assert_true(message.contains("unknown workspace template"))
+        return ()
+      }
+      err => fail("unexpected error: \{err.to_string()}")
+    },
+  )
+  fail("expected invalid object error")
+}
+
+///|
 test "workspace: expand affected uses ripple graph propagation" {
   let root = workspace_new_node()
   root.id = "root"

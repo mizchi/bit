@@ -81,3 +81,6 @@ test_done
 | `t9006-workspace-run-export-doctor.sh` | Workspace run/export/doctor with multi-node manifests |
 | `t9007-workspace-nested-translation.sh` | Nested directory translation and fallback behavior |
 | `t9008-workspace-flow-cache.sh` | Workspace flow PoC: topological task execution with cache and dependency blocking |
+| `t9009-workspace-flow-fixture.sh` | Workspace flow fixture bootstrap and e2e verification |
+| `t90010-workspace-git-compat.sh` | Workspace flow/commit/push compatibility checks against native git behavior |
+| `t9011-workspace-init-template.sh` | Workspace init template scaffolding (`--template flow`) and invalid template validation |

@@ -228,6 +228,55 @@ fn workspace_default_manifest() -> WorkspaceManifest {
 }
 
 ///|
+fn workspace_flow_template_manifest() -> WorkspaceManifest {
+  let root = workspace_new_node()
+  root.id = "root"
+  root.path = "."
+  root.depends_on = []
+  root.tasks["test"] = "echo root >> \"$BIT_WORKSPACE_FLOW_LOG_DIR/root.log\""
+
+  let dep = workspace_new_node()
+  dep.id = "dep"
+  dep.path = "dep"
+  dep.depends_on = ["root"]
+  dep.tasks["test"] = "echo dep >> \"$BIT_WORKSPACE_FLOW_LOG_DIR/dep.log\""
+
+  let leaf = workspace_new_node()
+  leaf.id = "leaf"
+  leaf.path = "leaf"
+  leaf.depends_on = ["dep"]
+  leaf.tasks["test"] = "echo leaf >> \"$BIT_WORKSPACE_FLOW_LOG_DIR/leaf.log\""
+
+  let extra = workspace_new_node()
+  extra.id = "extra"
+  extra.path = "extra"
+  extra.depends_on = []
+  extra.tasks["test"] = "echo extra >> \"$BIT_WORKSPACE_FLOW_LOG_DIR/extra.log\""
+
+  { version: 1, nodes: [root, dep, leaf, extra] }
+}
+
+///|
+fn workspace_manifest_for_template(
+  template : String?,
+) -> WorkspaceManifest raise @git.GitError {
+  match template {
+    None => workspace_default_manifest()
+    Some(raw) => {
+      let name = trim_string(raw).to_lower()
+      match name {
+        "" | "default" | "basic" | "minimal" => workspace_default_manifest()
+        "flow" => workspace_flow_template_manifest()
+        _ =>
+          raise @git.GitError::InvalidObject(
+            "unknown workspace template: '" + raw + "'",
+          )
+      }
+    }
+  }
+}
+
+///|
 fn workspace_subcommand_names() -> Array[String] {
   ["init", "status", "commit", "push", "run", "flow", "export", "doctor"]
 }
@@ -1175,7 +1224,8 @@ pub fn print_workspace_usage() -> Unit {
     #|       bit ws <command> [options]
     #|
     #|Commands:
-    #|  init                Initialize workspace metadata
+    #|  init [--force] [--template default|flow]
+    #|                      Initialize workspace metadata (optional scaffold)
     #|  status              Show workspace node statuses
     #|  commit -m <msg>     Commit changed nodes as one workspace transaction
     #|  push [--resume ID]  Push nodes in dependency order
@@ -1258,16 +1308,29 @@ fn workspace_txn_id(prefix : String) -> String {
 async fn handle_workspace_init(args : Array[String]) -> Unit raise Error {
   let fs = @osfs.OsFs::new()
   let mut force = false
-  for arg in args {
+  let mut template : String? = None
+  let mut i = 0
+  while i < args.length() {
+    let arg = args[i]
     match arg {
       "-f" | "--force" => force = true
+      "--template" if i + 1 < args.length() => {
+        template = Some(args[i + 1])
+        i += 2
+        continue
+      }
       "-h" | "--help" => {
         print_workspace_usage()
         return
       }
+      _ if arg.has_prefix("--template=") =>
+        template = Some(
+          String::unsafe_substring(arg, start=11, end=arg.length()),
+        )
       _ if arg.has_prefix("-") => warn_unimplemented_arg("workspace init", arg)
       _ => ()
     }
+    i += 1
   }
   let start = resolve_workspace_probe_dir(None)
   match find_workspace_root_from(start) {
@@ -1279,7 +1342,7 @@ async fn handle_workspace_init(args : Array[String]) -> Unit raise Error {
   }
   let target_root = start
   let _ = ensure_workspace_meta_dir(fs, target_root)
-  let manifest = workspace_default_manifest()
+  let manifest = workspace_manifest_for_template(template)
   fs.write_string(
     workspace_manifest_write_path(fs, target_root),
     format_workspace_manifest(manifest),
