@@ -94,6 +94,7 @@ options(
     "merge.mbt": [ "native" ],
     "mktree.mbt": [ "native" ],
     "multi_pack_index.mbt": [ "native" ],
+    "multi_pack_index_wbtest.mbt": [ "native" ],
     "mv.mbt": [ "native" ],
     "notes.mbt": [ "native" ],
     "osfs.mbt": [ "native" ],

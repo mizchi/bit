@@ -16,6 +16,8 @@ async fn handle_multi_pack_index(args : Array[String]) -> Unit raise Error {
   let mut object_dir : String? = None
   let mut progress = false
   let mut preferred_pack : String? = None
+  let mut stdin_packs = false
+  let mut bitmap = false
   let mut batch_size = 0
   let mut unsupported_opt : String? = None
   let mut i = 0
@@ -51,8 +53,9 @@ async fn handle_multi_pack_index(args : Array[String]) -> Unit raise Error {
       }
       _ if arg.has_prefix("--preferred-pack=") =>
         preferred_pack = Some(arg[17:].to_string())
-      "--stdin-packs" | "--bitmap" | "--incremental" =>
-        unsupported_opt = Some(arg)
+      "--stdin-packs" => stdin_packs = true
+      "--bitmap" => bitmap = true
+      "--incremental" => unsupported_opt = Some(arg)
       _ if arg.has_prefix("--refs-snapshot") => unsupported_opt = Some(arg)
       "write" | "verify" | "expire" | "repack" => subcommand = Some(arg)
       _ if arg.has_prefix("-") => {
@@ -86,7 +89,9 @@ async fn handle_multi_pack_index(args : Array[String]) -> Unit raise Error {
   }
   match subcommand {
     Some("write") =>
-      midx_write(fs, effective_pack_dir, progress, preferred_pack)
+      midx_write(
+        fs, effective_pack_dir, progress, preferred_pack, stdin_packs, bitmap,
+      )
     Some("verify") => midx_verify(fs, effective_pack_dir, progress)
     Some("expire") => midx_expire(fs, effective_pack_dir, progress)
     Some("repack") => midx_repack(fs, effective_pack_dir, batch_size, progress)
@@ -110,12 +115,42 @@ async fn midx_write(
   pack_dir : String,
   progress : Bool,
   preferred_pack : String?,
+  stdin_packs : Bool,
+  bitmap : Bool,
 ) -> Unit raise Error {
-  // Find all pack files
-  let pack_files = midx_find_pack_files(fs, pack_dir)
+  let all_pack_files = midx_find_pack_files(fs, pack_dir)
+  let pack_files = if stdin_packs {
+    let input = read_all_stdin()
+    let (include_names, exclude_names) = parse_stdin_pack_lines(input)
+    midx_select_pack_files_from_stdin(
+      all_pack_files, include_names, exclude_names,
+    )
+  } else {
+    all_pack_files
+  }
   let midx_path = pack_dir + "/multi-pack-index"
   let has_existing_midx = fs.is_file(midx_path)
+  let normalized_preferred = match preferred_pack {
+    Some(name) => {
+      let mut value = name
+      if value.has_suffix(".idx") {
+        let end = value.length() - 4
+        value = String::unsafe_substring(value, start=0, end~) + ".pack"
+      }
+      match value.rev_find("/") {
+        Some(idx) =>
+          String::unsafe_substring(value, start=idx + 1, end=value.length())
+        None => value
+      }
+    }
+    None => ""
+  }
   if pack_files.length() == 0 {
+    if normalized_preferred.length() > 0 {
+      eprint_line(
+        "warning: unknown preferred pack: '" + normalized_preferred + "'",
+      )
+    }
     if has_existing_midx {
       eprint_line("could not load pack")
     } else {
@@ -143,21 +178,6 @@ async fn midx_write(
   ignore(has_alternates)
   ignore(non_sha1_repo)
   ignore(prefer_requested)
-  let normalized_preferred = match preferred_pack {
-    Some(name) => {
-      let mut value = name
-      if value.has_suffix(".idx") {
-        let end = value.length() - 4
-        value = String::unsafe_substring(value, start=0, end~) + ".pack"
-      }
-      match value.rev_find("/") {
-        Some(idx) =>
-          String::unsafe_substring(value, start=idx + 1, end=value.length())
-        None => value
-      }
-    }
-    None => ""
-  }
   let mut preferred_pack_idx : Int? = None
   // Collect all objects from all packs
   let all_entries : Array[MidxEntry] = []
@@ -239,8 +259,32 @@ async fn midx_write(
     return
   }
   // Build MIDX file
-  let midx_bytes = midx_build(pack_files, unique_entries)
+  let midx_bytes = midx_build(pack_files, unique_entries, bitmap)
+  if has_existing_midx {
+    match midx_try_read_file(fs, midx_path) {
+      Some(existing) => {
+        if not(midx_has_valid_checksum(existing)) {
+          eprint_line("error: checksum.mismatch in existing multi-pack-index")
+        }
+        if midx_bytes_equal(existing, midx_bytes) {
+          midx_cleanup_rev_files(fs, pack_dir)
+          if progress {
+            eprint_line(
+              "Wrote multi-pack-index with " +
+              unique_entries.length().to_string() +
+              " objects from " +
+              pack_files.length().to_string() +
+              " packs",
+            )
+          }
+          return
+        }
+      }
+      None => ()
+    }
+  }
   fs.write_file(midx_path, midx_bytes)
+  midx_cleanup_rev_files(fs, pack_dir)
   if progress {
     eprint_line(
       "Wrote multi-pack-index with " +
@@ -636,7 +680,7 @@ async fn midx_expire(
   let midx_path = pack_dir + "/multi-pack-index"
   if not(fs.is_file(midx_path)) {
     if progress {
-      print_line("No multi-pack-index to expire")
+      eprint_line("No multi-pack-index to expire")
     }
     return
   }
@@ -703,11 +747,11 @@ async fn midx_expire(
     }
   }
   if progress {
-    print_line("Expired " + expired.to_string() + " pack(s)")
+    eprint_line("Expired " + expired.to_string() + " pack(s)")
   }
   // Rewrite MIDX without expired packs
   if expired > 0 {
-    midx_write(fs, pack_dir, false, None)
+    midx_write(fs, pack_dir, false, None, false, false)
   }
 }
 
@@ -722,16 +766,16 @@ async fn midx_repack(
   let pack_files = midx_find_pack_files(fs, pack_dir)
   if pack_files.length() < 2 {
     if progress {
-      print_line("Not enough packs to repack")
+      eprint_line("Not enough packs to repack")
     }
     return
   }
   // For simplicity, just suggest running git repack
   if progress {
-    print_line(
+    eprint_line(
       "Found " + pack_files.length().to_string() + " pack files to consolidate",
     )
-    print_line("Use 'git repack' for full repacking functionality")
+    eprint_line("Use 'git repack' for full repacking functionality")
   }
   ignore(batch_size)
 }
@@ -763,6 +807,130 @@ fn midx_find_pack_files(fs : OsFs, pack_dir : String) -> Array[String] {
   }
   midx_sort_strings_lex_in_place(files)
   files
+}
+
+///|
+fn midx_try_read_file(fs : OsFs, path : String) -> Bytes? {
+  let data = fs.read_file(path) catch { _ => return None }
+  Some(data)
+}
+
+///|
+fn midx_bytes_equal(a : Bytes, b : Bytes) -> Bool {
+  if a.length() != b.length() {
+    return false
+  }
+  for i in 0..<a.length() {
+    if a[i] != b[i] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn midx_normalize_stdin_pack_name(name : String) -> String? {
+  let trimmed = name.trim().to_string()
+  if trimmed.length() == 0 {
+    return None
+  }
+  let base = match trimmed.rev_find("/") {
+    Some(idx) =>
+      String::unsafe_substring(trimmed, start=idx + 1, end=trimmed.length())
+    None => trimmed
+  }
+  if base.has_suffix(".idx") {
+    return Some(
+      String::unsafe_substring(base, start=0, end=base.length() - 4) + ".pack",
+    )
+  }
+  if base.has_suffix(".pack") {
+    return Some(base)
+  }
+  if base.has_prefix("pack-") {
+    return Some(base + ".pack")
+  }
+  None
+}
+
+///|
+fn midx_array_has_string(values : Array[String], target : String) -> Bool {
+  for value in values {
+    if value == target {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn midx_select_pack_files_from_stdin(
+  all_pack_files : Array[String],
+  include_names : Array[String],
+  exclude_names : Array[String],
+) -> Array[String] {
+  let selected : Array[String] = []
+  for name in include_names {
+    match midx_normalize_stdin_pack_name(name) {
+      Some(pack_name) =>
+        if midx_array_has_string(all_pack_files, pack_name) &&
+          not(midx_array_has_string(selected, pack_name)) {
+          selected.push(pack_name)
+        }
+      None => ()
+    }
+  }
+  if exclude_names.length() == 0 {
+    return selected
+  }
+  let excluded : Array[String] = []
+  for name in exclude_names {
+    match midx_normalize_stdin_pack_name(name) {
+      Some(pack_name) =>
+        if not(midx_array_has_string(excluded, pack_name)) {
+          excluded.push(pack_name)
+        }
+      None => ()
+    }
+  }
+  if excluded.length() == 0 {
+    return selected
+  }
+  let filtered : Array[String] = []
+  for name in selected {
+    if not(midx_array_has_string(excluded, name)) {
+      filtered.push(name)
+    }
+  }
+  filtered
+}
+
+///|
+fn midx_has_valid_checksum(data : Bytes) -> Bool {
+  if data.length() < 20 {
+    return false
+  }
+  let body_len = data.length() - 20
+  let body = Bytes::from_array(FixedArray::makei(body_len, i => data[i]))
+  let checksum = @git.sha1(body)
+  for i in 0..<20 {
+    if checksum.bytes[i] != data[body_len + i] {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn midx_cleanup_rev_files(fs : OsFs, pack_dir : String) -> Unit {
+  let entries = fs.readdir(pack_dir) catch { _ => return }
+  for entry in entries {
+    if entry.has_prefix("multi-pack-index-") && entry.has_suffix(".rev") {
+      fs.remove_file(pack_dir + "/" + entry) catch {
+        _ => ()
+      }
+    }
+  }
 }
 
 ///|
@@ -842,8 +1010,13 @@ fn midx_read_pack_index(
 }
 
 ///|
-fn midx_build(pack_files : Array[String], entries : Array[MidxEntry]) -> Bytes {
+fn midx_build(
+  pack_files : Array[String],
+  entries : Array[MidxEntry],
+  bitmap : Bool,
+) -> Bytes {
   let out : Array[Byte] = []
+  let num_chunks = if bitmap { 5 } else { 4 }
   // Header
   out.push(b'M')
   out.push(b'I')
@@ -851,7 +1024,7 @@ fn midx_build(pack_files : Array[String], entries : Array[MidxEntry]) -> Bytes {
   out.push(b'X')
   out.push(b'\x01') // version
   out.push(b'\x01') // OID version (SHA-1)
-  out.push(b'\x04') // number of chunks (PNAM, OIDF, OIDL, OOFF)
+  out.push(num_chunks.to_byte()) // chunk count
   out.push(b'\x00') // number of base MIDX files
   midx_push_u32(out, pack_files.length())
   // Build chunks
@@ -859,9 +1032,14 @@ fn midx_build(pack_files : Array[String], entries : Array[MidxEntry]) -> Bytes {
   let oidf_chunk = midx_build_oidf(entries)
   let oidl_chunk = midx_build_oidl(entries)
   let ooff_chunk = midx_build_ooff(entries)
-  // Chunk lookup table (5 entries = 4 chunks + terminator, 12 bytes each)
+  let btmp_chunk = if bitmap {
+    Some(midx_build_btmp(pack_files.length(), entries))
+  } else {
+    None
+  }
+  // Chunk lookup table ((N + 1) entries, 12 bytes each)
   let header_size = 12
-  let chunk_table_size = 5 * 12
+  let chunk_table_size = (num_chunks + 1) * 12
   let mut offset = header_size + chunk_table_size
   // Calculate PNAM padded length (4-byte aligned)
   let pnam_padded_len = (pnam_chunk.length() + 3) / 4 * 4
@@ -893,6 +1071,17 @@ fn midx_build(pack_files : Array[String], entries : Array[MidxEntry]) -> Bytes {
   out.push(b'F')
   midx_push_u64(out, offset)
   offset += ooff_chunk.length()
+  match btmp_chunk {
+    Some(chunk) => {
+      out.push(b'B')
+      out.push(b'T')
+      out.push(b'M')
+      out.push(b'P')
+      midx_push_u64(out, offset)
+      offset += chunk.length()
+    }
+    None => ()
+  }
   // Terminator
   out.push(b'\x00')
   out.push(b'\x00')
@@ -916,6 +1105,13 @@ fn midx_build(pack_files : Array[String], entries : Array[MidxEntry]) -> Bytes {
   }
   for b in ooff_chunk {
     out.push(b)
+  }
+  match btmp_chunk {
+    Some(chunk) =>
+      for b in chunk {
+        out.push(b)
+      }
+    None => ()
   }
   // Checksum
   let content = Bytes::from_array(FixedArray::makei(out.length(), i => out[i]))
@@ -978,6 +1174,25 @@ fn midx_build_ooff(entries : Array[MidxEntry]) -> Array[Byte] {
   for entry in entries {
     midx_push_u32(out, entry.pack_idx)
     midx_push_u32(out, entry.offset)
+  }
+  out
+}
+
+///|
+fn midx_build_btmp(pack_count : Int, entries : Array[MidxEntry]) -> Array[Byte] {
+  let counts : Array[Int] = Array::make(pack_count, 0)
+  for entry in entries {
+    if entry.pack_idx >= 0 && entry.pack_idx < pack_count {
+      counts[entry.pack_idx] = counts[entry.pack_idx] + 1
+    }
+  }
+  let out : Array[Byte] = []
+  let mut bitmap_pos = 0
+  for i in 0..<pack_count {
+    let bitmap_nr = counts[i]
+    midx_push_u32(out, bitmap_pos)
+    midx_push_u32(out, bitmap_nr)
+    bitmap_pos += bitmap_nr
   }
   out
 }
