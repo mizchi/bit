@@ -30,6 +30,12 @@ eval "$(bit completion bash)"
 eval "$(bit completion zsh)"
 ```
 
+## Project Management Extensions (Experimental)
+
+- **Partial checkout for nested projects**: `bit clone <repo>:<subdir>` can extract a subdirectory as an independent repository with its own `.git` (usable as an embedded repo inside a parent workspace).
+- **Distributed filesystem primitives**: `x/fs` (Git-backed virtual filesystem) and `x/kv` (Gossip-synced KV on Git objects) are designed as building blocks for distributed state sharing.
+- **Workspace fingerprint extension**: `bit workspace flow` cache keys include per-node directory fingerprints. Default `git` mode is aligned with `git add -A` style snapshots (includes staged + unstaged changes).
+
 ## Subdirectory Clone
 
 Clone subdirectories directly from GitHub:
@@ -118,6 +124,7 @@ Full upstream run (`just git-t`) summary on macOS (2026-02-07):
 - `BIT_BENCH_GIT_DIR`: override .git path for bench_real (x/fs benchmarks).
 - `BIT_PACK_CACHE_LIMIT`: max number of pack files to keep in memory (default: 2; 0 disables cache).
 - `BIT_RACY_GIT`: when set, rehash even if stat matches to avoid racy-git false negatives.
+- `BIT_WORKSPACE_FINGERPRINT_MODE`: workspace fingerprint mode (`git` default, `fast` optional). `git` mode follows add-all-style Git-compatible directory snapshots for flow cache decisions.
 
 ## Extensions
 

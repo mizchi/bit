@@ -181,3 +181,138 @@ async test "relay: relay_push_with_http sends local hub records" {
   assert_true(result.success())
   assert_true(result.message().contains("relay accepted 1/1"))
 }
+
+///|
+async test "relay: relay push forwards auth token header" {
+  let fs = @git.TestFs::new()
+  let git_dir = "/repo/.git"
+  fs.mkdir_p(git_dir)
+  let db = @lib.ObjectDb::load_lazy(fs, git_dir)
+  let native_objects : NativeObjectStore = { db, rfs: fs, fs, git_dir }
+  let native_refs : NativeRefStore = { fs, rfs: fs, git_dir }
+  let objects : &@lib.ObjectStore = native_objects
+  let refs : &@lib.RefStore = native_refs
+  let store = @hub.HubStore::load(objects, refs, node_id="node-local")
+  let clock : FixedClock = { now_ts: 1L }
+  let clock_ref : &@lib.Clock = clock
+  ignore(
+    store.put_record(
+      objects, refs, clock_ref, "hub/pr/1/meta", "hub.pr", "payload", "node-local",
+    ),
+  )
+  let seen_auth : Array[String] = []
+  let post = async fn(
+    _url : String,
+    _body : Bytes,
+    headers : Map[String, String],
+  ) -> (@git.HttpResponse, Bytes) raise @git.GitError {
+    let no_ops : Array[async () -> Unit] = []
+    ignore(
+      @async.all(no_ops) catch {
+        err => raise @git.GitError::IoError(err.to_string())
+      },
+    )
+    match headers.get("Authorization") {
+      Some(value) => seen_auth.push(value)
+      None => ()
+    }
+    (
+      @git.HttpResponse::new(200),
+      @utf8.encode("{\"ok\":true,\"accepted\":true,\"cursor\":1}"),
+    )
+  }
+  let result = relay_push_with_http(
+    fs,
+    git_dir,
+    "http://relay.test",
+    post,
+    auth_token=Some("token-1"),
+  )
+  assert_true(result.success())
+  assert_eq(seen_auth.length(), 1)
+  assert_eq(seen_auth[0], "Bearer token-1")
+}
+
+///|
+async test "relay: relay fetch forwards auth token header" {
+  let fs = @git.TestFs::new()
+  let git_dir = "/repo/.git"
+  fs.mkdir_p(git_dir)
+  let db = @lib.ObjectDb::load_lazy(fs, git_dir)
+  let native_objects : NativeObjectStore = { db, rfs: fs, fs, git_dir }
+  let native_refs : NativeRefStore = { fs, rfs: fs, git_dir }
+  let objects : &@lib.ObjectStore = native_objects
+  let refs : &@lib.RefStore = native_refs
+  let hub = @hub.Hub::load(objects, refs, node_id="node-local")
+  let seen_auth : Array[String] = []
+  let get = async fn(
+    _url : String,
+    headers : Map[String, String],
+  ) -> (@git.HttpResponse, Bytes) raise @git.GitError {
+    let no_ops : Array[async () -> Unit] = []
+    ignore(
+      @async.all(no_ops) catch {
+        err => raise @git.GitError::IoError(err.to_string())
+      },
+    )
+    match headers.get("Authorization") {
+      Some(value) => seen_auth.push(value)
+      None => ()
+    }
+    let body = "{\"ok\":true,\"room\":\"main\",\"next_cursor\":1,\"envelopes\":[]}"
+    (@git.HttpResponse::new(200), @utf8.encode(body))
+  }
+  let result = relay_fetch_with_http(
+    hub,
+    fs,
+    fs,
+    git_dir,
+    "http://relay.test",
+    get,
+    auth_token=Some("token-2"),
+  )
+  assert_true(result.success())
+  assert_eq(seen_auth.length(), 1)
+  assert_eq(seen_auth[0], "Bearer token-2")
+}
+
+///|
+async test "relay: strict signed policy rejects unsigned records during fetch" {
+  let fs = @git.TestFs::new()
+  let git_dir = "/repo/.git"
+  fs.mkdir_p(git_dir)
+  let db = @lib.ObjectDb::load_lazy(fs, git_dir)
+  let native_objects : NativeObjectStore = { db, rfs: fs, fs, git_dir }
+  let native_refs : NativeRefStore = { fs, rfs: fs, git_dir }
+  let objects : &@lib.ObjectStore = native_objects
+  let refs : &@lib.RefStore = native_refs
+  let hub = @hub.Hub::load(
+    objects,
+    refs,
+    node_id="node-local",
+    signing_key=Some("k1"),
+    require_signed=true,
+  )
+  let result = relay_fetch_with_http(
+    hub,
+    fs,
+    fs,
+    git_dir,
+    "http://relay.test",
+    relay_test_http_get_ok,
+    signing_key=Some("k1"),
+    require_signed=true,
+  )
+  assert_true(result.success())
+  let notes_ref = @lib.resolve_ref(fs, git_dir, @hub.hub_notes_ref_name())
+  assert_true(notes_ref is None)
+  let strict_store = @hub.HubStore::load(
+    objects,
+    refs,
+    node_id="node-local",
+    signing_key=Some("k1"),
+    require_signed=true,
+  )
+  let record = strict_store.get_record(objects, "hub/pr/1/meta")
+  assert_true(record is None)
+}

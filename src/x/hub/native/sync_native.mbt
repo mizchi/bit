@@ -150,6 +150,51 @@ fn is_http_url(url : String) -> Bool {
 }
 
 ///|
+fn relay_signing_key() -> String? {
+  match @sys.get_env_var("BIT_COLLAB_SIGN_KEY") {
+    Some(value) => if value.length() > 0 { Some(value) } else { None }
+    None => None
+  }
+}
+
+///|
+fn relay_require_signed() -> Bool {
+  match @sys.get_env_var("BIT_COLLAB_REQUIRE_SIGNED") {
+    Some(value) => {
+      let normalized = value.to_lower()
+      normalized == "1" || normalized == "true" || normalized == "yes"
+    }
+    None => false
+  }
+}
+
+///|
+fn relay_auth_token() -> String? {
+  match @sys.get_env_var("BIT_RELAY_AUTH_TOKEN") {
+    Some(value) => if value.length() > 0 { Some(value) } else { None }
+    None => None
+  }
+}
+
+///|
+fn relay_headers_with_auth(
+  headers : Map[String, String],
+  auth_token : String?,
+) -> Map[String, String] {
+  let out = headers
+  match auth_token {
+    Some(token) =>
+      if token.has_prefix("Bearer ") || token.has_prefix("bearer ") {
+        out["Authorization"] = token
+      } else {
+        out["Authorization"] = "Bearer " + token
+      }
+    None => ()
+  }
+  out
+}
+
+///|
 fn parse_relay_base_url(remote_url : String) -> String? {
   if remote_url.has_prefix("relay+http://") ||
     remote_url.has_prefix("relay+https://") {
@@ -267,6 +312,79 @@ fn hub_record_entry_name(key : String) -> String {
 }
 
 ///|
+fn relay_clock_to_string(clock : Map[String, Int64]) -> String {
+  if clock.length() == 0 {
+    return ""
+  }
+  let items = clock.to_array()
+  items.sort_by((a, b) => String::compare(a.0, b.0))
+  let parts : Array[String] = []
+  for item in items {
+    let (key, value) = item
+    parts.push(key + "=" + value.to_string())
+  }
+  parts.join(",")
+}
+
+///|
+fn relay_serialize_record_unsigned(record : @hub.HubRecord) -> String {
+  let sb = StringBuilder::new()
+  sb.write_string("version ")
+  sb.write_string(record.version.to_string())
+  sb.write_char('\n')
+  sb.write_string("key ")
+  sb.write_string(record.key)
+  sb.write_char('\n')
+  sb.write_string("kind ")
+  sb.write_string(record.kind)
+  sb.write_char('\n')
+  sb.write_string("clock ")
+  sb.write_string(relay_clock_to_string(record.clock))
+  sb.write_char('\n')
+  sb.write_string("timestamp ")
+  sb.write_string(record.timestamp.to_string())
+  sb.write_char('\n')
+  sb.write_string("node ")
+  sb.write_string(record.node)
+  sb.write_char('\n')
+  sb.write_string("deleted ")
+  sb.write_string(if record.deleted { "1" } else { "0" })
+  sb.write_char('\n')
+  sb.write_char('\n')
+  sb.write_string(record.payload)
+  sb.to_string()
+}
+
+///|
+fn relay_compute_record_signature(
+  record : @hub.HubRecord,
+  signing_key : String,
+) -> String {
+  let state = @git.Sha1State::new()
+  state.update_string(relay_serialize_record_unsigned(record))
+  state.update_string("\n--signing-key--\n")
+  state.update_string(signing_key)
+  state.finish().to_hex()
+}
+
+///|
+fn relay_record_matches_signing_policy(
+  record : @hub.HubRecord,
+  signing_key : String?,
+  require_signed : Bool,
+) -> Bool {
+  match signing_key {
+    Some(key) =>
+      match record.signature {
+        Some(signature) =>
+          signature == relay_compute_record_signature(record, key)
+        None => not(require_signed)
+      }
+    None => not(require_signed)
+  }
+}
+
+///|
 fn commit_relay_notes(
   store : @hub.HubStore,
   objects : &@lib.ObjectStore,
@@ -309,6 +427,15 @@ fn apply_relay_record(
   objects : &@lib.ObjectStore,
   record : @hub.HubRecord,
 ) -> Bool raise @git.GitError {
+  if not(
+    relay_record_matches_signing_policy(
+      record,
+      store.signing_key(),
+      store.require_signed(),
+    )
+  ) {
+    return false
+  }
   let entry_name = hub_record_entry_name(record.key)
   let incoming_bytes = @utf8.encode(record.serialize())
   let current_blob_id = store.entries.get(entry_name)
@@ -430,6 +557,9 @@ async fn relay_push_with_http(
     @git.HttpResponse,
     Bytes,
   ) raise @git.GitError,
+  signing_key? : String? = None,
+  require_signed? : Bool = false,
+  auth_token? : String? = None,
 ) -> @hub.PrSyncResult raise @git.GitError {
   let ref_name = @hub.hub_notes_ref_name()
   let local_commit = @lib.resolve_ref(rfs, git_dir, ref_name)
@@ -447,9 +577,17 @@ async fn relay_push_with_http(
   let ro_refs : NativeReadRefStore = { rfs, git_dir }
   let objects : &@lib.ObjectStore = ro_objects
   let refs : &@lib.RefStore = ro_refs
-  let store = @hub.HubStore::load(objects, refs, node_id="relay")
+  let store = @hub.HubStore::load(
+    objects,
+    refs,
+    node_id="relay",
+    signing_key~,
+    require_signed=require_signed,
+  )
   let records = store.list_records(objects, "hub/", include_deleted=true)
-  let headers : Map[String, String] = { "Content-Type": "application/json" }
+  let headers = relay_headers_with_auth({
+    "Content-Type": "application/json",
+  }, auth_token)
   let mut accepted = 0
   for record in records {
     let payload_obj : Map[String, Json] = {}
@@ -493,12 +631,15 @@ async fn relay_fetch_with_http(
   git_dir : String,
   remote_url : String,
   http_get : async (String, Map[String, String]) -> (@git.HttpResponse, Bytes) raise @git.GitError,
+  signing_key? : String? = None,
+  require_signed? : Bool = false,
+  auth_token? : String? = None,
 ) -> @hub.PrSyncResult raise @git.GitError {
   let base_url = trim_trailing_slash(remote_url)
   let before = @lib.resolve_ref(rfs, git_dir, @hub.hub_notes_ref_name())
   let cursor = read_relay_cursor(rfs, git_dir, base_url)
   let url = relay_poll_url(base_url, cursor, 200)
-  let headers : Map[String, String] = { "Accept": "application/json" }
+  let headers = relay_headers_with_auth({ "Accept": "application/json" }, auth_token)
   let (response, data) = http_get(url, headers)
   if response.code != 200 {
     let body_text = @utf8.decode_lossy(data[:])
@@ -516,7 +657,13 @@ async fn relay_fetch_with_http(
   let native_refs : NativeRefStore = { fs, rfs, git_dir }
   let objects : &@lib.ObjectStore = native_objects
   let refs : &@lib.RefStore = native_refs
-  let store = @hub.HubStore::load(objects, refs, node_id="relay")
+  let store = @hub.HubStore::load(
+    objects,
+    refs,
+    node_id="relay",
+    signing_key~,
+    require_signed=require_signed,
+  )
   let mut max_ts : Int64 = 0
   for record in records {
     if record.timestamp > max_ts {
@@ -659,9 +806,20 @@ pub async fn hub_push(
   git_dir : String,
   remote_url : String,
 ) -> @hub.PrSyncResult raise @git.GitError {
+  let signing_key = relay_signing_key()
+  let require_signed = relay_require_signed()
+  let auth_token = relay_auth_token()
   match parse_relay_base_url(remote_url) {
     Some(base_url) =>
-      relay_push_with_http(rfs, git_dir, base_url, @gitnative.native_http_post)
+      relay_push_with_http(
+        rfs,
+        git_dir,
+        base_url,
+        @gitnative.native_http_post,
+        signing_key~,
+        require_signed=require_signed,
+        auth_token~,
+      )
     None =>
       hub_push_git_http(rfs, git_dir, remote_url) catch {
         err if should_fallback_to_relay(err, remote_url) =>
@@ -670,6 +828,9 @@ pub async fn hub_push(
             git_dir,
             trim_trailing_slash(remote_url),
             @gitnative.native_http_post,
+            signing_key~,
+            require_signed=require_signed,
+            auth_token~,
           )
         other => raise other
       }
@@ -685,10 +846,21 @@ pub async fn hub_fetch(
   git_dir : String,
   remote_url : String,
 ) -> @hub.PrSyncResult raise @git.GitError {
+  let signing_key = relay_signing_key()
+  let require_signed = relay_require_signed()
+  let auth_token = relay_auth_token()
   match parse_relay_base_url(remote_url) {
     Some(base_url) =>
       relay_fetch_with_http(
-        hub, fs, rfs, git_dir, base_url, @gitnative.native_http_get,
+        hub,
+        fs,
+        rfs,
+        git_dir,
+        base_url,
+        @gitnative.native_http_get,
+        signing_key~,
+        require_signed=require_signed,
+        auth_token~,
       )
     None =>
       hub_fetch_git_http(hub, fs, rfs, git_dir, remote_url) catch {
@@ -700,6 +872,9 @@ pub async fn hub_fetch(
             git_dir,
             trim_trailing_slash(remote_url),
             @gitnative.native_http_get,
+            signing_key~,
+            require_signed=require_signed,
+            auth_token~,
           )
         other => raise other
       }

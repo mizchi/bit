@@ -8,6 +8,7 @@ import {
   "moonbitlang/async" @async,
   "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/core/json" @json,
+  "moonbitlang/x/sys" @sys,
   "moonbitlang/core/strconv" @strconv,
 }
 
