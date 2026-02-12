@@ -87,12 +87,23 @@ jobs:
 
       - name: Build bit
         run: |
+          set -euo pipefail
           moon build --target native
-          bin_path="_build/native/release/build/bit_cli/bit_cli.exe"
-          if [ ! -f "$bin_path" ]; then
-            echo "bit binary not found at $bin_path"
+          bin_path=""
+          for candidate in \
+            "_build/native/release/build/bit_cli/bit_cli.exe" \
+            "_build/native/debug/build/bit_cli/bit_cli.exe"; do
+            if [ -f "$candidate" ]; then
+              bin_path="$candidate"
+              break
+            fi
+          done
+          if [ -z "$bin_path" ]; then
+            echo "bit binary not found in _build/native/*/build/bit_cli/bit_cli.exe"
+            find _build/native -maxdepth 6 -type f -name 'bit_cli.exe' || true
             exit 1
           fi
+          echo "Using bit binary: $bin_path"
           cp "$bin_path" tools/git-shim/moon
           chmod +x tools/git-shim/moon
 
