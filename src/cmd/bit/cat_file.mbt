@@ -165,6 +165,19 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
         "--batch, --batch-check, and --batch-command take no arguments",
       )
     }
+    let batch_input_separator = if nul_terminated || nul_terminated_upper {
+      b'\x00'
+    } else {
+      b'\n'
+    }
+    let batch_output_separator = if nul_terminated_upper {
+      "\u{00}"
+    } else {
+      "\n"
+    }
+    let batch_output_separator_bytes = cat_file_string_to_bytes(
+      batch_output_separator,
+    )
     let dbs = cat_file_load_object_dbs(fs, git_dir)
     if batch_all_objects_mode {
       let object_dirs = cat_file_collect_object_dirs(fs, git_dir)
@@ -177,18 +190,55 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
       let objects = cat_file_collect_batch_all_objects(
         fs, object_dirs, batch_unordered,
       )
-      for o in objects {
-        let id = o.id
+      let batch_check_needs_object = cat_file_batch_check_format_needs_object(
+        batch_format,
+      )
+      let batch_check_placeholder_obj = @git.PackObject::new(
+        @git.ObjectType::Blob,
+        bytes_from_array([]),
+      )
+      for id in objects {
+        if batch_check_mode && !batch_check_needs_object {
+          @stdio.stdout.write(
+            cat_file_string_to_bytes(
+              cat_file_format_batch_check_line(
+                batch_format,
+                id,
+                batch_check_placeholder_obj,
+                "",
+                None,
+                None,
+                None,
+              ) +
+              batch_output_separator,
+            ),
+          )
+          continue
+        }
+        let obj = cat_file_find_object_in_dbs_lenient(dbs, fs, id)
+        guard obj is Some(o) else {
+          if batch_check_mode {
+            @stdio.stdout.write(
+              cat_file_string_to_bytes(
+                id.to_hex() + " missing" + batch_output_separator,
+              ),
+            )
+          }
+          continue
+        }
         if batch_check_mode {
-          print_line(
-            cat_file_format_batch_check_line(
-              batch_format,
-              id,
-              o,
-              "",
-              None,
-              None,
-              None,
+          @stdio.stdout.write(
+            cat_file_string_to_bytes(
+              cat_file_format_batch_check_line(
+                batch_format,
+                id,
+                o,
+                "",
+                None,
+                None,
+                None,
+              ) +
+              batch_output_separator,
             ),
           )
           continue
@@ -211,23 +261,28 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
             textconv_mode,
           )
         }
-        print_line(
-          id.to_hex() +
-          " " +
-          o.obj_type.to_string() +
-          " " +
-          o.data.length().to_string(),
+        @stdio.stdout.write(
+          cat_file_string_to_bytes(
+            cat_file_format_batch_check_line(
+              batch_format,
+              id,
+              o,
+              "",
+              None,
+              None,
+              None,
+            ) +
+            batch_output_separator,
+          ),
         )
         @stdio.stdout.write(out)
-        @stdio.stdout.write("\n")
+        @stdio.stdout.write(batch_output_separator_bytes)
       }
       return ()
     }
-    let input = decode_bytes(read_all_stdin())
     let lines : Array[String] = []
-    for line_view in input.split("\n") {
-      lines.push(line_view.to_string())
-    }
+    let mut input_record_bytes : Array[Byte] = []
+    let mut input_eof = false
     let mut pending_chunks : Array[Bytes] = []
     let buffer_enabled = batch_buffer && !batch_no_buffer
     let suppress_flush_on_exit = match @sys.get_env_var(
@@ -238,166 +293,325 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
     }
     let format_uses_rest = cat_file_batch_format_uses_rest(batch_format)
     let mut line_index = 0
-    while line_index < lines.length() {
-      let raw_line = lines[line_index]
-      let line = trim_string(raw_line)
-      if line.length() == 0 {
-        if batch_command_mode && line_index + 1 < lines.length() {
-          eprint_line("fatal: empty command in input")
+    while true {
+      while line_index < lines.length() {
+        let raw_line = lines[line_index]
+        let line = trim_string(raw_line)
+        if batch_command_mode &&
+          (raw_line.has_prefix(" ") || raw_line.has_prefix("\t")) {
+          eprint_line("fatal: whitespace before command")
           @sys.exit(128)
         }
-        line_index += 1
-        continue
-      }
-      let mut spec = line
-      let mut rest = ""
-      let mut line_path : String? = None
-      let mut output_info_mode = batch_check_mode
-      if batch_command_mode {
-        let mut command = line
-        let mut command_arg = ""
-        match line.find(" ") {
-          Some(idx) => {
-            command = String::unsafe_substring(line, start=0, end=idx)
-            command_arg = trim_string(
-              String::unsafe_substring(
-                line,
-                start=idx + 1,
-                end=line.length(),
-              ),
-            )
-          }
-          None => ()
-        }
-        if command == "flush" {
-          if command_arg.length() > 0 {
-            eprint_line("fatal: flush takes no arguments")
+        if line.length() == 0 {
+          if batch_command_mode {
+            eprint_line("fatal: empty command in input")
             @sys.exit(128)
           }
-          if !buffer_enabled {
-            eprint_line("fatal: flush is only for --buffer mode")
-            @sys.exit(128)
+          let missing = cat_file_string_to_bytes(
+            " missing" + batch_output_separator,
+          )
+          if buffer_enabled {
+            pending_chunks.push(missing)
+          } else {
+            @stdio.stdout.write(missing)
           }
-          for chunk in pending_chunks {
-            @stdio.stdout.write(chunk)
-          }
-          pending_chunks = []
           line_index += 1
           continue
         }
-        if command != "info" && command != "contents" {
-          eprint_line("fatal: unknown command")
-          @sys.exit(128)
-        }
-        if command_arg.length() == 0 {
-          eprint_line("fatal: \{command} requires arguments")
-          @sys.exit(128)
-        }
-        spec = command_arg
-        output_info_mode = command == "info"
-      } else {
-        if transform_mode || format_uses_rest {
+        let mut spec = line
+        let mut rest = ""
+        let mut line_path : String? = None
+        let mut output_info_mode = batch_check_mode
+        if batch_command_mode {
+          let mut command = line
+          let mut command_arg = ""
           match line.find(" ") {
             Some(idx) => {
-              spec = String::unsafe_substring(line, start=0, end=idx)
-              rest = trim_string(
+              command = String::unsafe_substring(line, start=0, end=idx)
+              command_arg = trim_string(
                 String::unsafe_substring(
                   line,
                   start=idx + 1,
                   end=line.length(),
                 ),
               )
-              if transform_mode && rest.length() > 0 {
-                line_path = Some(rest)
-              }
             }
             None => ()
           }
-        }
-      }
-      let effective_path = match line_path {
-        Some(path) => Some(path)
-        None =>
-          match explicit_path {
-            Some(path) => Some(path)
-            None => cat_file_path_from_spec(spec)
+          if command == "flush" {
+            if command_arg.length() > 0 {
+              eprint_line("fatal: flush takes no arguments")
+              @sys.exit(128)
+            }
+            if !buffer_enabled {
+              eprint_line("fatal: flush is only for --buffer mode")
+              @sys.exit(128)
+            }
+            for chunk in pending_chunks {
+              @stdio.stdout.write(chunk)
+            }
+            pending_chunks = []
+            line_index += 1
+            continue
           }
-      }
-      if transform_mode && effective_path is None {
-        eprint_line("fatal: --textconv/--filters needs a path")
-        @sys.exit(1)
-      }
-      let mut object_mode : String? = None
-      let mut resolved_oid : @git.ObjectId? = None
-      match cat_file_split_object_path_spec(spec) {
-        Some((rev_part, path_part)) =>
-          if dbs.length() > 0 {
-            let base = cat_file_rev_parse_with_compat(fs, git_dir, rev_part)
-            if base is Some(base_id) {
-              let entry = cat_file_find_tree_entry_from_base(
-                dbs[0], fs, base_id, path_part,
-              ) catch {
-                _ => None
+          if command != "info" && command != "contents" {
+            eprint_line("fatal: unknown command")
+            @sys.exit(128)
+          }
+          if command_arg.length() == 0 {
+            eprint_line("fatal: \{command} requires arguments")
+            @sys.exit(128)
+          }
+          spec = command_arg
+          output_info_mode = command == "info"
+        } else {
+          if transform_mode || format_uses_rest {
+            match line.find(" ") {
+              Some(idx) => {
+                spec = String::unsafe_substring(line, start=0, end=idx)
+                rest = trim_string(
+                  String::unsafe_substring(
+                    line,
+                    start=idx + 1,
+                    end=line.length(),
+                  ),
+                )
+                if transform_mode && rest.length() > 0 {
+                  line_path = Some(rest)
+                }
               }
-              if entry is Some(tree_entry) {
-                resolved_oid = Some(tree_entry.id)
-                object_mode = Some(tree_entry.mode)
-              }
+              None => ()
             }
           }
-        None =>
-          if spec.has_prefix(":") && spec.length() > 1 {
-            let index_path = String::unsafe_substring(
-              spec,
-              start=1,
-              end=spec.length(),
-            )
-            let index_entry = cat_file_find_index_entry(fs, git_dir, index_path)
-            if index_entry is Some(entry) {
-              resolved_oid = Some(entry.id)
-              object_mode = Some(cat_file_mode_to_text(entry.mode))
+        }
+        let effective_path = match line_path {
+          Some(path) => Some(path)
+          None =>
+            match explicit_path {
+              Some(path) => Some(path)
+              None => cat_file_path_from_spec(spec)
             }
+        }
+        if transform_mode && effective_path is None {
+          eprint_line("fatal: --textconv/--filters needs a path")
+          @sys.exit(1)
+        }
+        let mut object_mode : String? = None
+        let mut resolved_oid : @git.ObjectId? = None
+        match cat_file_split_object_path_spec(spec) {
+          Some((rev_part, path_part)) =>
+            if dbs.length() > 0 {
+              let base = cat_file_rev_parse_with_compat(fs, git_dir, rev_part)
+              if base is Some(base_id) {
+                if path_part.length() == 0 {
+                  let base_obj = dbs[0].get(fs, base_id) catch {
+                    _ => None
+                  }
+                  if base_obj is Some(obj) {
+                    match obj.obj_type {
+                      @git.ObjectType::Commit => {
+                        resolved_oid = Some(@git.parse_commit(obj.data).tree)
+                        object_mode = Some("040000")
+                      }
+                      @git.ObjectType::Tree => {
+                        resolved_oid = Some(base_id)
+                        object_mode = Some("040000")
+                      }
+                      _ => ()
+                    }
+                  }
+                } else if follow_symlinks && output_info_mode {
+                  let follow_result = cat_file_resolve_tree_entry_follow_symlinks(
+                    dbs[0],
+                    fs,
+                    base_id,
+                    path_part,
+                  ) catch {
+                    _ => CatFileFollowResolution::{
+                      kind: "missing",
+                      id: None,
+                      mode: None,
+                      symlink_target: None,
+                    }
+                  }
+                  match follow_result.kind {
+                    "resolved" => {
+                      resolved_oid = follow_result.id
+                      object_mode = follow_result.mode
+                    }
+                    "missing" => ()
+                    "symlink" => {
+                      let payload = follow_result.symlink_target.unwrap_or("")
+                      let line = cat_file_follow_symlink_status_record(
+                        "symlink",
+                        payload,
+                        batch_output_separator,
+                      )
+                      if buffer_enabled {
+                        pending_chunks.push(line)
+                      } else {
+                        @stdio.stdout.write(line)
+                      }
+                      line_index += 1
+                      continue
+                    }
+                    "notdir" => {
+                      let line = cat_file_follow_symlink_status_record(
+                        "notdir",
+                        spec,
+                        batch_output_separator,
+                      )
+                      if buffer_enabled {
+                        pending_chunks.push(line)
+                      } else {
+                        @stdio.stdout.write(line)
+                      }
+                      line_index += 1
+                      continue
+                    }
+                    "dangling" => {
+                      let line = cat_file_follow_symlink_status_record(
+                        "dangling",
+                        spec,
+                        batch_output_separator,
+                      )
+                      if buffer_enabled {
+                        pending_chunks.push(line)
+                      } else {
+                        @stdio.stdout.write(line)
+                      }
+                      line_index += 1
+                      continue
+                    }
+                    "loop" => {
+                      let line = cat_file_follow_symlink_status_record(
+                        "loop",
+                        spec,
+                        batch_output_separator,
+                      )
+                      if buffer_enabled {
+                        pending_chunks.push(line)
+                      } else {
+                        @stdio.stdout.write(line)
+                      }
+                      line_index += 1
+                      continue
+                    }
+                    _ => ()
+                  }
+                } else {
+                  let entry = cat_file_find_tree_entry_from_base(
+                    dbs[0], fs, base_id, path_part,
+                  ) catch {
+                    _ => None
+                  }
+                  if entry is Some(tree_entry) {
+                    resolved_oid = Some(tree_entry.id)
+                    object_mode = Some(tree_entry.mode)
+                  }
+                }
+              }
+            }
+          None =>
+            if spec.has_prefix(":") && spec.length() > 1 {
+              let index_path = String::unsafe_substring(
+                spec,
+                start=1,
+                end=spec.length(),
+              )
+              let index_entry = cat_file_find_index_entry(
+                fs,
+                git_dir,
+                index_path,
+              )
+              if index_entry is Some(entry) {
+                resolved_oid = Some(entry.id)
+                object_mode = Some(cat_file_mode_to_text(entry.mode))
+              }
+            }
+        }
+        if resolved_oid is None &&
+          spec.length() == 40 &&
+          cat_file_is_hex_string(spec) {
+          let parsed_id = @git.ObjectId::from_hex(spec)
+          resolved_oid = Some(parsed_id)
+        }
+        if resolved_oid is None {
+          resolved_oid = cat_file_rev_parse_with_compat(fs, git_dir, spec)
+        }
+        guard resolved_oid is Some(id) else {
+          let missing = cat_file_string_to_bytes(
+            spec + " missing" + batch_output_separator,
+          )
+          if buffer_enabled {
+            pending_chunks.push(missing)
+          } else {
+            @stdio.stdout.write(missing)
           }
-      }
-      if resolved_oid is None {
-        resolved_oid = cat_file_rev_parse_with_compat(fs, git_dir, spec)
-      }
-      guard resolved_oid is Some(id) else {
-        let missing = cat_file_string_to_bytes(spec + " missing\n")
-        if buffer_enabled {
-          pending_chunks.push(missing)
-        } else {
-          @stdio.stdout.write(missing)
+          line_index += 1
+          continue
         }
-        line_index += 1
-        continue
-      }
-      let obj = cat_file_find_object_in_dbs(dbs, fs, id)
-      guard obj is Some(o) else {
-        let missing = cat_file_string_to_bytes(spec + " missing\n")
-        if buffer_enabled {
-          pending_chunks.push(missing)
-        } else {
-          @stdio.stdout.write(missing)
+        let obj = cat_file_find_object_in_dbs_lenient(dbs, fs, id)
+        guard obj is Some(o) else {
+          let missing = cat_file_string_to_bytes(
+            spec + " missing" + batch_output_separator,
+          )
+          if buffer_enabled {
+            pending_chunks.push(missing)
+          } else {
+            @stdio.stdout.write(missing)
+          }
+          line_index += 1
+          continue
         }
-        line_index += 1
-        continue
-      }
-      let display_object_name = cat_file_batch_display_object_name(
-        fs,
-        git_dir,
-        spec,
-        id.to_hex(),
-      )
-      let target_oid_len = display_object_name.length()
-      let display_data = cat_file_convert_object_data_for_display(
-        fs,
-        git_dir,
-        o,
-        target_oid_len,
-      )
-      if output_info_mode {
-        let info = cat_file_string_to_bytes(
+        let display_object_name = cat_file_batch_display_object_name(
+          fs,
+          git_dir,
+          spec,
+          id.to_hex(),
+        )
+        let target_oid_len = display_object_name.length()
+        let display_data = cat_file_convert_object_data_for_display(
+          fs,
+          git_dir,
+          o,
+          target_oid_len,
+        )
+        if output_info_mode {
+          let info = cat_file_string_to_bytes(
+            cat_file_format_batch_check_line(
+              batch_format,
+              id,
+              o,
+              rest,
+              object_mode,
+              Some(display_object_name),
+              Some(display_data.length()),
+            ) +
+            batch_output_separator,
+          )
+          if buffer_enabled {
+            pending_chunks.push(info)
+          } else {
+            @stdio.stdout.write(info)
+          }
+          line_index += 1
+          continue
+        }
+        let mut out = display_data
+        if transform_mode {
+          let path = effective_path.unwrap_or("")
+          out = cat_file_apply_path_transforms(
+            fs,
+            git_dir,
+            root,
+            path,
+            display_data,
+            filters_mode,
+            textconv_mode,
+          )
+        }
+        let header = cat_file_string_to_bytes(
           cat_file_format_batch_check_line(
             batch_format,
             id,
@@ -407,51 +621,41 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
             Some(display_object_name),
             Some(display_data.length()),
           ) +
-          "\n",
+          batch_output_separator,
         )
         if buffer_enabled {
-          pending_chunks.push(info)
+          pending_chunks.push(header)
+          pending_chunks.push(out)
+          pending_chunks.push(batch_output_separator_bytes)
         } else {
-          @stdio.stdout.write(info)
+          @stdio.stdout.write(header)
+          @stdio.stdout.write(out)
+          @stdio.stdout.write(batch_output_separator_bytes)
         }
         line_index += 1
-        continue
       }
-      let mut out = display_data
-      if transform_mode {
-        let path = effective_path.unwrap_or("")
-        out = cat_file_apply_path_transforms(
-          fs,
-          git_dir,
-          root,
-          path,
-          display_data,
-          filters_mode,
-          textconv_mode,
-        )
+      if input_eof {
+        break
       }
-      let header = cat_file_string_to_bytes(
-        cat_file_format_batch_check_line(
-          batch_format,
-          id,
-          o,
-          rest,
-          object_mode,
-          Some(display_object_name),
-          Some(display_data.length()),
-        ) +
-        "\n",
-      )
-      if buffer_enabled {
-        pending_chunks.push(header)
-        pending_chunks.push(out)
-        pending_chunks.push(cat_file_string_to_bytes("\n"))
-      } else {
-        @stdio.stdout.write(header)
-        @stdio.stdout.write(out)
-        @stdio.stdout.write("\n")
+      match @stdio.stdin.read_some(max_len=8192) {
+        Some(bytes) => {
+          for b in bytes {
+            if b == batch_input_separator {
+              lines.push(decode_bytes(bytes_from_array(input_record_bytes)))
+              input_record_bytes = []
+            } else {
+              input_record_bytes.push(b)
+            }
+          }
+        }
+        None => {
+          if input_record_bytes.length() > 0 {
+            lines.push(decode_bytes(bytes_from_array(input_record_bytes)))
+            input_record_bytes = []
+          }
+          input_eof = true
+        }
       }
-      line_index += 1
     }
     if buffer_enabled && !suppress_flush_on_exit {
       for chunk in pending_chunks {
@@ -488,18 +692,42 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
         @sys.exit(128)
       }
       let db_for_path = @gitlib.ObjectDb::load(fs, git_dir)
-      let entry = cat_file_find_tree_entry_from_base(
-        db_for_path,
-        fs,
-        base,
-        path_part,
-      )
-      guard entry is Some(tree_entry) else {
-        eprint_line("fatal: path '\{path_part}' does not exist in '\{rev_part}'")
-        @sys.exit(128)
+      if path_part.length() == 0 {
+        let base_obj = db_for_path.get(fs, base) catch {
+          _ => None
+        }
+        guard base_obj is Some(obj) else {
+          eprint_line("fatal: path '\{path_part}' does not exist in '\{rev_part}'")
+          @sys.exit(128)
+        }
+        match obj.obj_type {
+          @git.ObjectType::Commit => {
+            resolved_obj_id = Some(@git.parse_commit(obj.data).tree)
+            resolved_mode = Some("040000")
+          }
+          @git.ObjectType::Tree => {
+            resolved_obj_id = Some(base)
+            resolved_mode = Some("040000")
+          }
+          _ => {
+            eprint_line("fatal: path '\{path_part}' does not exist in '\{rev_part}'")
+            @sys.exit(128)
+          }
+        }
+      } else {
+        let entry = cat_file_find_tree_entry_from_base(
+          db_for_path,
+          fs,
+          base,
+          path_part,
+        )
+        guard entry is Some(tree_entry) else {
+          eprint_line("fatal: path '\{path_part}' does not exist in '\{rev_part}'")
+          @sys.exit(128)
+        }
+        resolved_obj_id = Some(tree_entry.id)
+        resolved_mode = Some(tree_entry.mode)
       }
-      resolved_obj_id = Some(tree_entry.id)
-      resolved_mode = Some(tree_entry.mode)
       if explicit_path is None {
         effective_path = Some(path_part)
       }
@@ -678,34 +906,65 @@ fn cat_file_find_object_in_dbs(
 }
 
 ///|
+fn cat_file_find_object_in_dbs_lenient(
+  dbs : Array[@gitlib.ObjectDb],
+  fs : OsFs,
+  id : @git.ObjectId,
+) -> @git.PackObject? {
+  for db in dbs {
+    let obj = db.get(fs, id) catch {
+      _ => None
+    }
+    if obj is Some(o) {
+      return Some(o)
+    }
+  }
+  None
+}
+
+///|
 fn cat_file_collect_batch_all_objects(
   fs : OsFs,
   object_dirs : Array[String],
   unordered : Bool,
-) -> Array[@git.PackObject] {
-  let by_id : Map[String, @git.PackObject] = {}
+) -> Array[@git.ObjectId] {
+  let seen_ids : Map[String, Bool] = {}
   for scan_object_dir in object_dirs {
-    let objects = @gitlib.load_all_objects_from_object_dir(fs, scan_object_dir) catch {
-      _ => []
+    let db = @gitlib.ObjectDb::load_from_objects_dir(fs, scan_object_dir) catch {
+      _ => continue
     }
-    for obj in objects {
-      by_id[obj.id.to_hex()] = obj
+    for item in db.loose_paths.to_array() {
+      let (hex, _) = item
+      seen_ids[hex] = true
+    }
+    for pack in db.packs {
+      for hex in pack.ids {
+        seen_ids[hex] = true
+      }
+    }
+    for lazy_pack in db.lazy_packs {
+      let pack = lazy_pack.get(fs) catch {
+        _ => continue
+      }
+      for hex in pack.ids {
+        seen_ids[hex] = true
+      }
     }
   }
   let ids : Array[String] = []
-  for item in by_id.to_array() {
+  for item in seen_ids.to_array() {
     let (hex, _) = item
     ids.push(hex)
   }
   if not(unordered) {
     ids.sort()
   }
-  let out : Array[@git.PackObject] = []
+  let out : Array[@git.ObjectId] = []
   for hex in ids {
-    match by_id.get(hex) {
-      Some(obj) => out.push(obj)
-      None => ()
+    let id = @git.ObjectId::from_hex(hex) catch {
+      _ => continue
     }
+    out.push(id)
   }
   out
 }
@@ -779,12 +1038,14 @@ fn cat_file_format_batch_check_line(
     _ => "%(objectname) %(objecttype) %(objectsize)"
   }
   let id_hex = object_name_override.unwrap_or(id.to_hex())
-  let object_size = object_size_override.unwrap_or(obj.data.length()).to_string()
   let zero_oid = cat_file_zero_oid(id_hex.length())
+  if out.contains("%(objectsize)") || out.contains("%(objectsize:disk)") {
+    let object_size = object_size_override.unwrap_or(obj.data.length()).to_string()
+    out = out.replace_all(old="%(objectsize:disk)", new=object_size)
+    out = out.replace_all(old="%(objectsize)", new=object_size)
+  }
   out = out.replace_all(old="%(objectname)", new=id_hex)
   out = out.replace_all(old="%(objecttype)", new=obj.obj_type.to_string())
-  out = out.replace_all(old="%(objectsize:disk)", new=object_size)
-  out = out.replace_all(old="%(objectsize)", new=object_size)
   out = out.replace_all(old="%(deltabase)", new=zero_oid)
   out = out.replace_all(old="%(rest)", new=rest)
   out = out.replace_all(old="%(objectmode)", new=object_mode.unwrap_or(""))
@@ -797,6 +1058,33 @@ fn cat_file_batch_format_uses_rest(format : String?) -> Bool {
     Some(fmt) => fmt.contains("%(rest)")
     None => false
   }
+}
+
+///|
+fn cat_file_batch_check_format_needs_object(format : String?) -> Bool {
+  let effective = match format {
+    Some(fmt) if fmt.length() > 0 => fmt
+    _ => "%(objectname) %(objecttype) %(objectsize)"
+  }
+  effective.contains("%(objecttype)") ||
+  effective.contains("%(objectsize)") ||
+  effective.contains("%(objectsize:disk)")
+}
+
+///|
+fn cat_file_follow_symlink_status_record(
+  kind : String,
+  payload : String,
+  separator : String,
+) -> Bytes {
+  cat_file_string_to_bytes(
+    kind +
+    " " +
+    payload.length().to_string() +
+    separator +
+    payload +
+    separator,
+  )
 }
 
 ///|
@@ -1246,7 +1534,7 @@ fn cat_file_path_from_spec(spec : String) -> String? {
 ///|
 fn cat_file_split_object_path_spec(spec : String) -> (String, String)? {
   match spec.find(":") {
-    Some(idx) if idx > 0 && idx + 1 < spec.length() =>
+    Some(idx) if idx > 0 =>
       Some((
         String::unsafe_substring(spec, start=0, end=idx),
         String::unsafe_substring(spec, start=idx + 1, end=spec.length()),
@@ -1308,6 +1596,316 @@ fn cat_file_find_tree_entry_from_base(
     _ => return None
   }
   @gitlib.find_tree_entry(db, fs, tree_id, path)
+}
+
+///|
+struct CatFileFollowResolution {
+  kind : String
+  id : @git.ObjectId?
+  mode : String?
+  symlink_target : String?
+}
+
+///|
+fn cat_file_is_tree_mode(mode : String) -> Bool {
+  mode == "40000" || mode == "040000"
+}
+
+///|
+fn cat_file_split_repo_path_parts(path : String) -> Array[String] {
+  let parts : Array[String] = []
+  for part_view in path.split("/") {
+    let part = part_view.to_string()
+    if part.length() == 0 || part == "." {
+      continue
+    }
+    parts.push(part)
+  }
+  parts
+}
+
+///|
+fn cat_file_copy_path_parts(
+  parts : Array[String],
+  start : Int,
+  end : Int,
+) -> Array[String] {
+  let out : Array[String] = []
+  let mut i = start
+  while i < end && i < parts.length() {
+    out.push(parts[i])
+    i += 1
+  }
+  out
+}
+
+///|
+fn cat_file_find_tree_entry_by_name(
+  db : @gitlib.ObjectDb,
+  fs : OsFs,
+  tree_id : @git.ObjectId,
+  name : String,
+) -> @git.TreeEntry? raise Error {
+  let tree_obj = db.get(fs, tree_id)
+  guard tree_obj is Some(tree) else { return None }
+  if tree.obj_type != @git.ObjectType::Tree {
+    return None
+  }
+  let entries = @git.parse_tree(tree.data)
+  for entry in entries {
+    if entry.name == name {
+      return Some(entry)
+    }
+  }
+  None
+}
+
+///|
+fn cat_file_read_symlink_target_from_entry(
+  db : @gitlib.ObjectDb,
+  fs : OsFs,
+  entry : @git.TreeEntry,
+) -> String? raise Error {
+  let obj = db.get(fs, entry.id)
+  guard obj is Some(o) else { return None }
+  match o.obj_type {
+    @git.ObjectType::Blob => Some(decode_bytes(o.data))
+    _ => None
+  }
+}
+
+///|
+fn cat_file_expand_symlink_follow_path(
+  parent_parts : Array[String],
+  target : String,
+  rest_parts : Array[String],
+) -> (Array[String], String?) {
+  if target.has_prefix("/") {
+    let mut outside = target
+    if rest_parts.length() > 0 {
+      if outside.has_suffix("/") {
+        outside = outside + rest_parts.join("/")
+      } else {
+        outside = outside + "/" + rest_parts.join("/")
+      }
+    }
+    return ([], Some(outside))
+  }
+  let expanded : Array[String] = []
+  for part in parent_parts {
+    expanded.push(part)
+  }
+  for token_view in target.split("/") {
+    let token = token_view.to_string()
+    if token.length() == 0 || token == "." {
+      continue
+    }
+    expanded.push(token)
+  }
+  for part in rest_parts {
+    if part.length() == 0 || part == "." {
+      continue
+    }
+    expanded.push(part)
+  }
+  (expanded, None)
+}
+
+///|
+fn cat_file_render_outside_path(
+  parts : Array[String],
+  start : Int,
+  keep_trailing_slash : Bool,
+) -> String {
+  let outside : Array[String] = []
+  let mut i = start
+  while i < parts.length() {
+    let token = parts[i]
+    if token.length() == 0 || token == "." {
+      i += 1
+      continue
+    }
+    outside.push(token)
+    i += 1
+  }
+  let mut rendered = if outside.length() == 0 {
+    ".."
+  } else {
+    outside.join("/")
+  }
+  if keep_trailing_slash && !rendered.has_suffix("/") {
+    rendered = rendered + "/"
+  }
+  rendered
+}
+fn cat_file_resolve_tree_entry_follow_symlinks(
+  db : @gitlib.ObjectDb,
+  fs : OsFs,
+  base_id : @git.ObjectId,
+  path : String,
+) -> CatFileFollowResolution raise Error {
+  let missing = CatFileFollowResolution::{
+    kind: "missing",
+    id: None,
+    mode: None,
+    symlink_target: None,
+  }
+  let base_obj = db.get(fs, base_id)
+  guard base_obj is Some(base) else { return missing }
+  let root_tree_id = match base.obj_type {
+    @git.ObjectType::Commit => @git.parse_commit(base.data).tree
+    @git.ObjectType::Tree => base_id
+    _ => return missing
+  }
+  let initial_parts = cat_file_split_repo_path_parts(path)
+  if initial_parts.length() == 0 {
+    return missing
+  }
+  let mut parts = initial_parts
+  let mut followed_symlink = false
+  let mut symlink_hops = 0
+  let mut outside_trailing_slash = false
+  let seen_paths : Map[String, Bool] = {}
+  seen_paths[parts.join("/")] = true
+  while true {
+    if parts.length() == 0 {
+      return CatFileFollowResolution::{
+        kind: "resolved",
+        id: Some(root_tree_id),
+        mode: Some("040000"),
+        symlink_target: None,
+      }
+    }
+    let mut current_tree = root_tree_id
+    let tree_stack : Array[@git.ObjectId] = [root_tree_id]
+    let mut idx = 0
+    let mut restarted = false
+    while idx < parts.length() {
+      let name = parts[idx]
+      if name == "." {
+        idx += 1
+        continue
+      }
+      if name == ".." {
+        if tree_stack.length() <= 1 {
+          return CatFileFollowResolution::{
+            kind: "symlink",
+            id: None,
+            mode: None,
+            symlink_target: Some(
+              cat_file_render_outside_path(
+                parts,
+                idx,
+                outside_trailing_slash,
+              ),
+            ),
+          }
+        }
+        ignore(tree_stack.pop())
+        current_tree = tree_stack[tree_stack.length() - 1]
+        idx += 1
+        continue
+      }
+      let entry_opt = cat_file_find_tree_entry_by_name(db, fs, current_tree, name)
+      guard entry_opt is Some(entry) else {
+        if followed_symlink {
+          return CatFileFollowResolution::{
+            kind: "dangling",
+            id: None,
+            mode: None,
+            symlink_target: None,
+          }
+        }
+        return missing
+      }
+      if cat_file_mode_is_symlink(Some(entry.mode)) {
+        let target_opt = cat_file_read_symlink_target_from_entry(db, fs, entry)
+        guard target_opt is Some(target) else {
+          return CatFileFollowResolution::{
+            kind: "dangling",
+            id: None,
+            mode: None,
+            symlink_target: None,
+          }
+        }
+        followed_symlink = true
+        symlink_hops += 1
+        if symlink_hops > 40 {
+          return CatFileFollowResolution::{
+            kind: "loop",
+            id: None,
+            mode: None,
+            symlink_target: None,
+          }
+        }
+        let parent_parts = cat_file_copy_path_parts(parts, 0, idx)
+        let rest_parts = cat_file_copy_path_parts(parts, idx + 1, parts.length())
+        outside_trailing_slash = target.has_suffix("/") && rest_parts.length() == 0
+        let (expanded, outside) = cat_file_expand_symlink_follow_path(
+          parent_parts,
+          target,
+          rest_parts,
+        )
+        match outside {
+          Some(outside_path) =>
+            return CatFileFollowResolution::{
+              kind: "symlink",
+              id: None,
+              mode: None,
+              symlink_target: Some(outside_path),
+            }
+          None => {
+            let key = if expanded.length() == 0 { "." } else { expanded.join("/") }
+            if seen_paths.contains(key) {
+              return CatFileFollowResolution::{
+                kind: "loop",
+                id: None,
+                mode: None,
+                symlink_target: None,
+              }
+            }
+            seen_paths[key] = true
+            parts = expanded
+            restarted = true
+            break
+          }
+        }
+      }
+      if idx + 1 == parts.length() {
+        return CatFileFollowResolution::{
+          kind: "resolved",
+          id: Some(entry.id),
+          mode: Some(entry.mode),
+          symlink_target: None,
+        }
+      }
+      if cat_file_is_tree_mode(entry.mode) {
+        current_tree = entry.id
+        tree_stack.push(current_tree)
+        idx += 1
+        continue
+      }
+      return CatFileFollowResolution::{
+        kind: "notdir",
+        id: None,
+        mode: None,
+        symlink_target: None,
+      }
+    }
+    if restarted {
+      continue
+    }
+    if idx >= parts.length() {
+      return CatFileFollowResolution::{
+        kind: "resolved",
+        id: Some(current_tree),
+        mode: Some("040000"),
+        symlink_target: None,
+      }
+    }
+    return missing
+  }
+  missing
 }
 
 ///|

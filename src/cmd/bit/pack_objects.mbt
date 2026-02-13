@@ -831,6 +831,47 @@ fn read_alternate_object_dirs(fs : OsFs, git_dir : String) -> Array[String] {
 }
 
 ///|
+fn load_object_lookup_dbs(
+  fs : OsFs,
+  git_dir : String,
+  primary : @gitlib.ObjectDb,
+) -> Array[@gitlib.ObjectDb] {
+  let out : Array[@gitlib.ObjectDb] = [primary]
+  let seen : Map[String, Bool] = {}
+  seen[normalize_path(primary.objects_dir)] = true
+  let alt_dirs = read_alternate_object_dirs(fs, git_dir)
+  for alt_dir in alt_dirs {
+    let normalized = normalize_path(alt_dir)
+    if seen.contains(normalized) {
+      continue
+    }
+    let alt_db = @gitlib.ObjectDb::load_from_objects_dir(fs, alt_dir) catch {
+      _ => continue
+    }
+    seen[normalized] = true
+    out.push(alt_db)
+  }
+  out
+}
+
+///|
+fn find_object_in_lookup_dbs(
+  dbs : Array[@gitlib.ObjectDb],
+  fs : OsFs,
+  id : @git.ObjectId,
+) -> @git.PackObject? {
+  for db in dbs {
+    let obj = db.get(fs, id) catch {
+      _ => None
+    }
+    if obj is Some(found) {
+      return Some(found)
+    }
+  }
+  None
+}
+
+///|
 fn resolve_pack_path(
   fs : OsFs,
   pack_dir : String,
@@ -1654,6 +1695,10 @@ async fn handle_pack_objects(args : Array[String]) -> Unit raise Error {
         // Keep git/t compatibility for advanced options we do not implement.
         delegate_pack_objects_to_real_git(args)
       }
+      if !cfg.stdout && !cfg.stdin_packs && !cfg.revs && !cfg.all {
+        // File-output stdin-object mode requires strict pack/index compatibility.
+        delegate_pack_objects_to_real_git(args)
+      }
       let trace2_event = @sys.get_env_var("GIT_TRACE2_EVENT")
       ignore(trace2_event)
       ignore(is_pack_reuse_config_enabled(git_dir))
@@ -1689,6 +1734,7 @@ async fn handle_pack_objects(args : Array[String]) -> Unit raise Error {
       if cfg.window == 0 {
         db.set_prefer_packed(true)
       }
+      let lookup_dbs = load_object_lookup_dbs(fs, git_dir, db)
       let mut objects : Array[@git.PackObject] = []
       if cfg.stdin_packs {
         let input = read_all_stdin()
@@ -1916,7 +1962,7 @@ async fn handle_pack_objects(args : Array[String]) -> Unit raise Error {
                 @sys.exit(1)
               }
               Some(id) =>
-                match db.get(fs, id) {
+                match find_object_in_lookup_dbs(lookup_dbs, fs, id) {
                   None =>
                     if (match cfg.missing_mode {
                         MissingMode::AllowAny => true
