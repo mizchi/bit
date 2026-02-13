@@ -731,7 +731,16 @@ pub fn write_object_bytes(
     "objects/" + String::unsafe_substring(hex, start=0, end=2),
   )
   fs.mkdir_p(dir)
-  fs.write_file(path, compressed)
+  fs.write_file(path, compressed) catch {
+    // Loose objects may already exist as read-only files.
+    @git.GitError::IoError(msg) if msg.contains("Permission denied") => {
+      fs.remove_file(path) catch {
+        _ => raise @git.GitError::IoError(msg)
+      }
+      fs.write_file(path, compressed)
+    }
+    err => raise err
+  }
 }
 
 ///|

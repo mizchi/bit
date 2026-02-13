@@ -169,15 +169,103 @@ fn peel_cat_file_object_to_type(
         "object is of type \{current.obj_type.to_string()}, not \{expected_type.to_string()}",
       )
     }
-    let tag_target = parse_tag_object(decode_bytes(current.data)) catch {
-      _ => None
-    }
+    let tag_text = decode_bytes(current.data)
+    let tag_target = rev_parse_parse_tag_target_with_compat(db, fs, tag_text)
     guard tag_target is Some(target_id) else {
       raise @git.GitError::InvalidObject("malformed tag object")
     }
     current_id = target_id
   }
   raise @git.GitError::InvalidObject("tag dereference depth exceeded")
+}
+
+///|
+fn rev_parse_parse_tag_target_with_compat(
+  db : @gitlib.ObjectDb,
+  fs : &@git.RepoFileSystem,
+  tag_text : String,
+) -> @git.ObjectId? {
+  let target_name = rev_parse_extract_tag_target_name(tag_text)
+  guard target_name is Some(raw_name) else { return None }
+  let direct_id : @git.ObjectId? = Some(@git.ObjectId::from_hex(raw_name)) catch {
+    _ => None
+  }
+  if direct_id is Some(id) && (db.get(fs, id) catch { _ => None }) is Some(_) {
+    return direct_id
+  }
+  let osfs = OsFs::new()
+  let root = get_work_root()
+  let git_dir = resolve_git_dir(osfs, root)
+  match rev_parse_lookup_loose_object_idx(osfs, git_dir, raw_name) {
+    Some(mapped_name) => {
+      let mapped_id : @git.ObjectId? = Some(
+        @git.ObjectId::from_hex(mapped_name),
+      ) catch {
+        _ => None
+      }
+      if mapped_id is Some(id) &&
+        (db.get(fs, id) catch { _ => None }) is Some(_) {
+        return mapped_id
+      }
+      direct_id
+    }
+    None => direct_id
+  }
+}
+
+///|
+fn rev_parse_extract_tag_target_name(tag_text : String) -> String? {
+  for line_view in tag_text.split("\n") {
+    let line = line_view.to_string()
+    if line.has_prefix("object ") {
+      return Some(
+        trim_string(String::unsafe_substring(line, start=7, end=line.length())),
+      )
+    }
+  }
+  None
+}
+
+///|
+fn rev_parse_lookup_loose_object_idx(
+  fs : OsFs,
+  git_dir : String,
+  spec : String,
+) -> String? {
+  let idx_path = git_dir + "/objects/loose-object-idx"
+  if !fs.is_file(idx_path) {
+    return None
+  }
+  let text = decode_bytes(
+    fs.read_file(idx_path) catch {
+      _ => return None
+    },
+  )
+  for line_view in text.split("\n") {
+    let line = trim_string(line_view.to_string())
+    if line.length() == 0 || line.has_prefix("#") {
+      continue
+    }
+    let cols : Array[String] = []
+    for col_view in line.split(" ") {
+      let col = trim_string(col_view.to_string())
+      if col.length() > 0 {
+        cols.push(col)
+      }
+    }
+    if cols.length() < 2 {
+      continue
+    }
+    let a = cols[0]
+    let b = cols[1]
+    if spec == a {
+      return Some(b)
+    }
+    if spec == b {
+      return Some(a)
+    }
+  }
+  None
 }
 
 ///|

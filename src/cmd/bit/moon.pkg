@@ -76,6 +76,7 @@ options(
     "handlers_shell_wbtest.mbt": [ "native" ],
     "handlers_subdir_wbtest.mbt": [ "native" ],
     "hash_object.mbt": [ "native" ],
+    "hash_object_wbtest.mbt": [ "native" ],
     "helpers.mbt": [ "native" ],
     "helpers_wbtest.mbt": [ "native" ],
     "hq.mbt": [ "native" ],
