@@ -45,7 +45,7 @@ jobs:
         run: moon update
 
       - name: Build
-        run: moon build --target native
+        run: moon build --target native --release
 
       - name: Prepare artifact (Unix)
         if: runner.os != 'Windows'
