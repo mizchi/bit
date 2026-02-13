@@ -106,7 +106,8 @@ fn split_shell_words(cmdline : String) -> Array[String] raise @git.GitError {
 ///|
 fn command_basename(path : String) -> String {
   match path.rev_find("/") {
-    Some(idx) => String::unsafe_substring(path, start=idx + 1, end=path.length())
+    Some(idx) =>
+      String::unsafe_substring(path, start=idx + 1, end=path.length())
     None => path
   }
 }
@@ -138,7 +139,11 @@ fn split_bracket_host_port(value : String) -> (String, String?) {
   match (value.find(":"), value.rev_find(":")) {
     (Some(first), Some(last)) if first == last => {
       let host = String::unsafe_substring(value, start=0, end=first)
-      let port = String::unsafe_substring(value, start=first + 1, end=value.length())
+      let port = String::unsafe_substring(
+        value,
+        start=first + 1,
+        end=value.length(),
+      )
       if host.length() > 0 && is_digits(port) {
         (host, Some(port))
       } else {
@@ -155,7 +160,11 @@ fn parse_scp_endpoint(raw : String) -> SshEndpoint? {
     match raw.find("]:") {
       Some(idx) => {
         let inside = String::unsafe_substring(raw, start=1, end=idx)
-        let path = String::unsafe_substring(raw, start=idx + 2, end=raw.length())
+        let path = String::unsafe_substring(
+          raw,
+          start=idx + 2,
+          end=raw.length(),
+        )
         if inside.length() == 0 || path.length() == 0 || inside.contains("/") {
           None
         } else {
@@ -169,7 +178,11 @@ fn parse_scp_endpoint(raw : String) -> SshEndpoint? {
     match raw.find(":") {
       Some(idx) => {
         let host = String::unsafe_substring(raw, start=0, end=idx)
-        let path = String::unsafe_substring(raw, start=idx + 1, end=raw.length())
+        let path = String::unsafe_substring(
+          raw,
+          start=idx + 1,
+          end=raw.length(),
+        )
         if host.length() == 0 || path.length() == 0 || host.contains("/") {
           None
         } else {
@@ -245,11 +258,7 @@ fn parse_ssh_authority(authority : String) -> (String, String?) {
       }
     }
     let host_clean = if host_part.has_suffix(":") {
-      String::unsafe_substring(
-        host_part,
-        start=0,
-        end=host_part.length() - 1,
-      )
+      String::unsafe_substring(host_part, start=0, end=host_part.length() - 1)
     } else {
       host_part
     }
@@ -281,7 +290,11 @@ fn parse_ssh_url_endpoint(raw : String) -> SshEndpoint? {
   let (authority, path) = match rest.find("/") {
     Some(idx) => {
       let auth = String::unsafe_substring(rest, start=0, end=idx)
-      let tail = String::unsafe_substring(rest, start=idx + 1, end=rest.length())
+      let tail = String::unsafe_substring(
+        rest,
+        start=idx + 1,
+        end=rest.length(),
+      )
       (auth, "/" + tail)
     }
     None => (rest, "")
@@ -318,8 +331,7 @@ fn detect_named_ssh_variant(base_name : String) -> SshVariant? {
   let name = base_name.to_lower()
   if name == "ssh" || name == "ssh.exe" {
     Some(Ssh)
-  } else if
-    name == "plink" ||
+  } else if name == "plink" ||
     name == "plink.exe" ||
     name == "putty" ||
     name == "putty.exe" {
@@ -364,8 +376,7 @@ fn read_ssh_variant_override() -> String? {
                       line,
                       start=eq_idx + 1,
                       end=line.length(),
-                    )
-                      .to_lower(),
+                    ).to_lower(),
                   )
                 }
               }
@@ -379,7 +390,10 @@ fn read_ssh_variant_override() -> String? {
 }
 
 ///|
-fn resolve_ssh_variant(cmd : String, needs_special_options : Bool) -> SshVariant {
+fn resolve_ssh_variant(
+  cmd : String,
+  needs_special_options : Bool,
+) -> SshVariant {
   let base_name = command_basename(cmd)
   let auto_variant = match detect_named_ssh_variant(base_name) {
     Some(v) => v
@@ -474,18 +488,16 @@ fn build_upload_pack_process_spec(
       raise @git.GitError::ProtocolError(
         "HTTP transport is not supported by process client",
       )
-    @protocol.RemoteKind::File => build_upload_pack_file_spec(
-      spec.path,
-      advertise_refs,
-      prefer_v2,
-    )
+    @protocol.RemoteKind::File =>
+      build_upload_pack_file_spec(spec.path, advertise_refs, prefer_v2)
     @protocol.RemoteKind::Ssh => {
       let endpoint = match resolve_ssh_endpoint(spec) {
         Some(v) => v
         None => raise @git.GitError::ProtocolError("SSH remote missing host")
       }
       let ip_option = read_ssh_ip_option()
-      let needs_special_options = endpoint.port is Some(_) || ip_option is Some(_)
+      let needs_special_options = endpoint.port is Some(_) ||
+        ip_option is Some(_)
       let ssh = resolve_ssh_command_spec()
       let variant = resolve_ssh_variant(ssh.cmd, needs_special_options)
       let args : Array[String] = []
@@ -548,12 +560,7 @@ fn cleanup_temp_files(paths : Array[String]) -> Unit {
 ///|
 fn maybe_trace_packfile(pack : Bytes) -> Unit {
   match @sys.get_env_var("GIT_TRACE_PACKFILE") {
-    Some(path) =>
-      ignore(
-        @fs.write_bytes_to_file(path, pack) catch {
-          _ => ()
-        },
-      )
+    Some(path) => ignore(@fs.write_bytes_to_file(path, pack) catch { _ => () })
     None => ()
   }
 }
@@ -697,11 +704,7 @@ pub async fn upload_pack_info_refs_process(
       Some(v) => v
       None => raise @git.GitError::ProtocolError("SSH remote missing host")
     }
-    let local_spec = build_upload_pack_file_spec(
-      endpoint.path,
-      true,
-      prefer_v2,
-    )
+    let local_spec = build_upload_pack_file_spec(endpoint.path, true, prefer_v2)
     return run_upload_pack_process(local_spec, None)
   }
   let proc = build_upload_pack_process_spec(
@@ -870,29 +873,18 @@ pub async fn clone_process_to_fs(
   let store = @git.ObjectStore::from_pack(objects)
   match default_ref {
     None => ()
-    Some((refname, commit_id)) => {
+    Some((refname, commit_id)) =>
       if filter.is_partial() {
         write_partial_clone_metadata(
-          fs,
-          root,
-          refname,
-          commit_id,
-          remote,
-          filter,
+          fs, root, refname, commit_id, remote, filter,
         )
       } else if effective_no_checkout {
         @git.write_git_metadata(store, commit_id, refname, remote, fs, root)
       } else {
         @git.materialize_clone_to_fs(
-          store,
-          commit_id,
-          refname,
-          remote,
-          fs,
-          root,
+          store, commit_id, refname, remote, fs, root,
         )
       }
-    }
   }
   if depth > 0 {
     let shallow_ids : Array[String] = []

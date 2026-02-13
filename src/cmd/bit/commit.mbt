@@ -191,12 +191,7 @@ async fn run_pre_commit_hook(fs : OsFs, root : String, git_dir : String) -> Int 
     return 0
   }
   let work_root = abs_path(root)
-  @process.run(
-    hook_path,
-    [],
-    inherit_env=true,
-    cwd=work_root,
-  ) catch {
+  @process.run(hook_path, [], inherit_env=true, cwd=work_root) catch {
     _ => 1
   }
 }

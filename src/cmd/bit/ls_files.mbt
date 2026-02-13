@@ -68,7 +68,8 @@ async fn handle_ls_files(args : Array[String]) -> Unit raise Error {
       // Show untracked files
       let all_files = @ignore.list_working_files_async(fs, root)
       for path in all_files {
-        if not(tracked.contains(path)) && ls_files_matches_filters(path, filters) {
+        if not(tracked.contains(path)) &&
+          ls_files_matches_filters(path, filters) {
           print_str(path + terminator)
         }
       }

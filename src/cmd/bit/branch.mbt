@@ -1,16 +1,20 @@
 ///| Branch handlers: branch, checkout, switch, reset, rebase, stash, cherry-pick
 
 ///|
-fn is_reftable_repo_for_branch(fs : &@git.RepoFileSystem, git_dir : String) -> Bool {
+fn is_reftable_repo_for_branch(
+  fs : &@git.RepoFileSystem,
+  git_dir : String,
+) -> Bool {
   if fs.is_dir(git_dir + "/reftable") {
     return true
   }
-  match @gitlib.read_config_value(
-    fs,
-    git_dir + "/config",
-    "extensions",
-    "refstorage",
-  ) {
+  match
+    @gitlib.read_config_value(
+      fs,
+      git_dir + "/config",
+      "extensions",
+      "refstorage",
+    ) {
     Some(value) => value.to_lower() == "reftable"
     None => false
   }

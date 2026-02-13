@@ -861,9 +861,7 @@ fn find_object_in_lookup_dbs(
   id : @git.ObjectId,
 ) -> @git.PackObject? {
   for db in dbs {
-    let obj = db.get(fs, id) catch {
-      _ => None
-    }
+    let obj = db.get(fs, id) catch { _ => None }
     if obj is Some(found) {
       return Some(found)
     }
@@ -1668,10 +1666,9 @@ async fn handle_pack_objects(args : Array[String]) -> Unit raise Error {
     }
   }
   match parse_pack_objects_args(args) {
-    PackObjectsParse::Unsupported => {
+    PackObjectsParse::Unsupported =>
       // Keep git/t compatibility for advanced options we do not implement.
       delegate_pack_objects_to_real_git(args)
-    }
     PackObjectsParse::Error(msg) => {
       @stdio.stderr.write(msg + "\n")
       @sys.exit(1)

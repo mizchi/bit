@@ -135,8 +135,12 @@ async fn handle_diff(args : Array[String]) -> Unit raise Error {
           let old_tree = resolve_diff_tree_id(db, rfs, old_id)
           let new_tree = resolve_diff_tree_id(db, rfs, new_id)
           match (old_tree, new_tree) {
-            (Some(ot), Some(nt)) => @gitdiff.diff_trees(rfs, repo_git_dir, Some(ot), nt)
-            _ => raise @git.GitError::InvalidObject("unsupported diff range: " + spec)
+            (Some(ot), Some(nt)) =>
+              @gitdiff.diff_trees(rfs, repo_git_dir, Some(ot), nt)
+            _ =>
+              raise @git.GitError::InvalidObject(
+                "unsupported diff range: " + spec,
+              )
           }
         }
         None =>

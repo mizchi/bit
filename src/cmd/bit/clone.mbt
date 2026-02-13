@@ -132,9 +132,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
       continue
     }
     if arg.has_prefix("--branch=") {
-      ref_spec = Some(
-        String::unsafe_substring(arg, start=9, end=arg.length()),
-      )
+      ref_spec = Some(String::unsafe_substring(arg, start=9, end=arg.length()))
       i += 1
       continue
     }
@@ -158,11 +156,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
       continue
     }
     if arg.has_prefix("--separate-git-dir=") {
-      let dir = String::unsafe_substring(
-        arg,
-        start=19,
-        end=arg.length(),
-      )
+      let dir = String::unsafe_substring(arg, start=19, end=arg.length())
       separate_git_dir_raw = Some(dir)
       i += 1
       continue
@@ -175,9 +169,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
     if arg == "--ref-format" && i + 1 < args.length() {
       let value = args[i + 1]
       if value != "files" && value != "reftable" {
-        @stdio.stderr.write(
-          "fatal: unknown ref storage format '\{value}'\n",
-        )
+        @stdio.stderr.write("fatal: unknown ref storage format '\{value}'\n")
         @sys.exit(1)
       }
       ref_format = value
@@ -185,15 +177,9 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
       continue
     }
     if arg.has_prefix("--ref-format=") {
-      let value = String::unsafe_substring(
-        arg,
-        start=13,
-        end=arg.length(),
-      )
+      let value = String::unsafe_substring(arg, start=13, end=arg.length())
       if value != "files" && value != "reftable" {
-        @stdio.stderr.write(
-          "fatal: unknown ref storage format '\{value}'\n",
-        )
+        @stdio.stderr.write("fatal: unknown ref storage format '\{value}'\n")
         @sys.exit(1)
       }
       ref_format = value
@@ -201,11 +187,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
       continue
     }
     if arg.has_prefix("--reference=") {
-      let ref_path = String::unsafe_substring(
-        arg,
-        start=12,
-        end=arg.length(),
-      )
+      let ref_path = String::unsafe_substring(arg, start=12, end=arg.length())
       reference_paths_raw.push(ref_path)
       i += 1
       continue
@@ -272,7 +254,9 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
     @sys.exit(1)
   }
   let fs = OsFs::new()
-  let local_src_path = @gitlib.resolve_local_repo_path(fs, command_root, remote_url)
+  let local_src_path = @gitlib.resolve_local_repo_path(
+    fs, command_root, remote_url,
+  )
   // Check for ambiguity with local directories only when path is not local.
   if local_src_path is None {
     match check_shorthand_ambiguity(remote_url, p => fs.is_dir(p)) {
@@ -312,34 +296,40 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
     raise @git.GitError::InvalidObject("repository URL required")
   }
   // Derive destination from URL if not specified
-  let relative_target = trim_trailing_slashes(match dest {
-    Some(d) => d
-    None => {
-      let source_name = if remote_url.has_suffix(".git") {
-        String::unsafe_substring(
-          remote_url,
-          start=0,
-          end=remote_url.length() - 4,
-        )
-      } else {
-        remote_url
-      }
-      let base = match source_name.rev_find("/") {
-        Some(i) =>
+  let relative_target = trim_trailing_slashes(
+    match dest {
+      Some(d) => d
+      None => {
+        let source_name = if remote_url.has_suffix(".git") {
           String::unsafe_substring(
-            source_name,
-            start=i + 1,
-            end=source_name.length(),
+            remote_url,
+            start=0,
+            end=remote_url.length() - 4,
           )
-        None => source_name
+        } else {
+          remote_url
+        }
+        let base = match source_name.rev_find("/") {
+          Some(i) =>
+            String::unsafe_substring(
+              source_name,
+              start=i + 1,
+              end=source_name.length(),
+            )
+          None => source_name
+        }
+        if bare {
+          if base.has_suffix(".git") {
+            base
+          } else {
+            base + ".git"
+          }
+        } else {
+          base
+        }
       }
-      if bare {
-        if base.has_suffix(".git") { base } else { base + ".git" }
-      } else {
-        base
-      }
-    }
-  })
+    },
+  )
   let target = absolutize_clone_path(command_root, relative_target)
   let mut separate_git_dir = match separate_git_dir_raw {
     Some(dir) =>
@@ -419,9 +409,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
         remote_name == "origin"
       if use_transport_clone {
         let clone_filter = resolve_clone_transport_filter(
-          remote_display,
-          transport_prefer_v2,
-          filter,
+          remote_display, transport_prefer_v2, filter,
         )
         let refs = @gitionative.clone_http_to_fs(
           remote_display,
@@ -439,23 +427,17 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
           raise @git.GitError::InvalidObject("Clone failed: no refs found")
         }
         if clone_filter.is_partial() && not(no_checkout) && not(bare) {
-          let checkout_spec = read_head_checkout_spec_for_clone(fs, clone_git_dir)
+          let checkout_spec = read_head_checkout_spec_for_clone(
+            fs, clone_git_dir,
+          )
           let checked_id = checkout_with_promisor_retry_clone(
-            fs,
-            clone_root,
-            checkout_spec,
+            fs, clone_root, checkout_spec,
           )
           warn_case_insensitive_collisions_from_commit(
-            fs,
-            clone_git_dir,
-            checked_id,
+            fs, clone_git_dir, checked_id,
           )
           @gitlibnative.apply_worktree_modes_from_commit(
-            fs,
-            fs,
-            clone_root,
-            clone_git_dir,
-            checked_id,
+            fs, fs, clone_root, clone_git_dir, checked_id,
           )
         }
       } else {
@@ -473,25 +455,19 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
           reference_alternates=reference_object_dirs,
         )
         if not(bare) && not(filter.is_partial()) {
-              if not(no_checkout) {
-                match @gitlib.resolve_head_commit(fs, clone_git_dir) {
-                  Some(commit_id) => {
-                    warn_case_insensitive_collisions_from_commit(
-                      fs,
-                      clone_git_dir,
-                      commit_id,
-                    )
-                    @gitlibnative.apply_worktree_modes_from_commit(
-                      fs,
-                      fs,
-                      clone_root,
-                      clone_git_dir,
-                      commit_id,
-                    )
-                  }
-                  None => ()
-                }
+          if not(no_checkout) {
+            match @gitlib.resolve_head_commit(fs, clone_git_dir) {
+              Some(commit_id) => {
+                warn_case_insensitive_collisions_from_commit(
+                  fs, clone_git_dir, commit_id,
+                )
+                @gitlibnative.apply_worktree_modes_from_commit(
+                  fs, fs, clone_root, clone_git_dir, commit_id,
+                )
               }
+              None => ()
+            }
+          }
           pack_remote_tracking_refs(fs, clone_git_dir, remote_name)
         }
         if ref_spec is Some(refname) &&
@@ -502,24 +478,16 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
           if @gitlib.resolve_ref(fs, clone_git_dir, local_branch_ref) is Some(_) {
             let checked_id = @gitlib.checkout(fs, fs, clone_root, refname)
             warn_case_insensitive_collisions_from_commit(
-              fs,
-              clone_git_dir,
-              checked_id,
+              fs, clone_git_dir, checked_id,
             )
             @gitlibnative.apply_worktree_modes_from_commit(
-              fs,
-              fs,
-              clone_root,
-              clone_git_dir,
-              checked_id,
+              fs, fs, clone_root, clone_git_dir, checked_id,
             )
           } else {
-            match resolve_local_clone_checkout_target(
-              fs,
-              clone_git_dir,
-              src_path,
-              refname,
-            ) {
+            match
+              resolve_local_clone_checkout_target(
+                fs, clone_git_dir, src_path, refname,
+              ) {
               Some(target_id) => {
                 let checked_id = @gitlib.checkout(
                   fs,
@@ -529,16 +497,10 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
                   detach=true,
                 )
                 warn_case_insensitive_collisions_from_commit(
-                  fs,
-                  clone_git_dir,
-                  checked_id,
+                  fs, clone_git_dir, checked_id,
                 )
                 @gitlibnative.apply_worktree_modes_from_commit(
-                  fs,
-                  fs,
-                  clone_root,
-                  clone_git_dir,
-                  checked_id,
+                  fs, fs, clone_root, clone_git_dir, checked_id,
                 )
               }
               None =>
@@ -560,9 +522,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
         )
       }
       let clone_filter = resolve_clone_transport_filter(
-        remote_url,
-        transport_prefer_v2,
-        filter,
+        remote_url, transport_prefer_v2, filter,
       )
       let refs = @gitionative.clone_http_to_fs(
         remote_url,
@@ -579,17 +539,13 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
       if clone_filter.is_partial() && not(no_checkout) && not(bare) {
         let checkout_spec = read_head_checkout_spec_for_clone(fs, clone_git_dir)
         let checked_id = checkout_with_promisor_retry_clone(
-          fs,
-          clone_root,
-          checkout_spec,
+          fs, clone_root, checkout_spec,
         )
-        warn_case_insensitive_collisions_from_commit(fs, clone_git_dir, checked_id)
+        warn_case_insensitive_collisions_from_commit(
+          fs, clone_git_dir, checked_id,
+        )
         @gitlibnative.apply_worktree_modes_from_commit(
-          fs,
-          fs,
-          clone_root,
-          clone_git_dir,
-          checked_id,
+          fs, fs, clone_root, clone_git_dir, checked_id,
         )
       }
       if not(bare) && not(clone_filter.is_partial()) {
@@ -597,16 +553,10 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
           match @gitlib.resolve_head_commit(fs, clone_git_dir) {
             Some(commit_id) => {
               warn_case_insensitive_collisions_from_commit(
-                fs,
-                clone_git_dir,
-                commit_id,
+                fs, clone_git_dir, commit_id,
               )
               @gitlibnative.apply_worktree_modes_from_commit(
-                fs,
-                fs,
-                clone_root,
-                clone_git_dir,
-                commit_id,
+                fs, fs, clone_root, clone_git_dir, commit_id,
               )
             }
             None => ()
@@ -630,10 +580,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
                 )
                 let objects = @pack.parse_packfile(pack)
                 @pack.write_packfile_with_index(
-                  fs,
-                  clone_git_dir,
-                  pack,
-                  objects,
+                  fs, clone_git_dir, pack, objects,
                 )
                 db = @gitlib.ObjectDb::load_lazy(fs, clone_git_dir)
               }
@@ -662,16 +609,10 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
                   }
                   let checked_id = @gitlib.checkout(fs, fs, clone_root, name)
                   warn_case_insensitive_collisions_from_commit(
-                    fs,
-                    clone_git_dir,
-                    checked_id,
+                    fs, clone_git_dir, checked_id,
                   )
                   @gitlibnative.apply_worktree_modes_from_commit(
-                    fs,
-                    fs,
-                    clone_root,
-                    clone_git_dir,
-                    checked_id,
+                    fs, fs, clone_root, clone_git_dir, checked_id,
                   )
                 }
                 None => {
@@ -683,16 +624,10 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
                     detach=true,
                   )
                   warn_case_insensitive_collisions_from_commit(
-                    fs,
-                    clone_git_dir,
-                    checked_id,
+                    fs, clone_git_dir, checked_id,
                   )
                   @gitlibnative.apply_worktree_modes_from_commit(
-                    fs,
-                    fs,
-                    clone_root,
-                    clone_git_dir,
-                    checked_id,
+                    fs, fs, clone_root, clone_git_dir, checked_id,
                   )
                 }
               }
@@ -720,10 +655,10 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
     }
   }
   let bundle_uris = discover_clone_bundle_uris(
-    remote_url,
-    transport_prefer_v2,
-    config_overrides,
-  ) catch { _ => [] }
+    remote_url, transport_prefer_v2, config_overrides,
+  ) catch {
+    _ => []
+  }
   emit_clone_bundle_trace_events(fs, bundle_uris)
 }
 
@@ -737,8 +672,7 @@ async fn resolve_clone_transport_filter(
     return requested
   }
   let (_, caps, version, _symrefs) = @gitionative.discover_upload_refs_http(
-    remote,
-    prefer_v2,
+    remote, prefer_v2,
   )
   if clone_remote_supports_filter(caps, version) {
     return requested
@@ -827,8 +761,7 @@ async fn discover_clone_bundle_uris(
     return []
   }
   let (_, caps, version, _symrefs) = @gitionative.discover_upload_refs_http(
-    remote,
-    prefer_v2,
+    remote, prefer_v2,
   )
   if version != @protocol.ProtocolVersion::V2 {
     return []
@@ -879,7 +812,9 @@ fn build_bundle_uri_request_for_clone() -> Bytes {
 }
 
 ///|
-fn parse_bundle_uri_response_for_clone(data : Bytes) -> Array[String] raise Error {
+fn parse_bundle_uri_response_for_clone(
+  data : Bytes,
+) -> Array[String] raise Error {
   let lines = @protocol.pktline_decode(data)
   let kv_lines : Array[String] = []
   for item in lines {
@@ -995,12 +930,15 @@ fn parse_bundle_uri_lines_for_clone(lines : Array[String]) -> Array[String] {
 }
 
 ///|
-fn emit_clone_bundle_trace_events(fs : OsFs, bundle_uris : Array[String]) -> Unit {
+fn emit_clone_bundle_trace_events(
+  fs : OsFs,
+  bundle_uris : Array[String],
+) -> Unit {
   if bundle_uris.length() == 0 {
     return ()
   }
   match @sys.get_env_var("GIT_TRACE2_EVENT") {
-    Some(path) => {
+    Some(path) =>
       for uri in bundle_uris {
         append_clone_trace_line(
           fs,
@@ -1010,7 +948,6 @@ fn emit_clone_bundle_trace_events(fs : OsFs, bundle_uris : Array[String]) -> Uni
           "\"]}\n",
         )
       }
-    }
     None => ()
   }
 }
@@ -1018,7 +955,9 @@ fn emit_clone_bundle_trace_events(fs : OsFs, bundle_uris : Array[String]) -> Uni
 ///|
 fn append_clone_trace_line(fs : OsFs, path : String, line : String) -> Unit {
   let existing = decode_bytes(fs.read_file(path) catch { _ => b"" })
-  fs.write_string(path, existing + line) catch { _ => () }
+  fs.write_string(path, existing + line) catch {
+    _ => ()
+  }
 }
 
 ///|
@@ -1068,10 +1007,7 @@ fn cleanup_failed_clone(
 ) -> Unit {
   @gitlib.remove_tree(fs, fs, clone_root)
   match separate_git_dir {
-    Some(path) =>
-      if path != clone_root {
-        @gitlib.remove_tree(fs, fs, path)
-      }
+    Some(path) => if path != clone_root { @gitlib.remove_tree(fs, fs, path) }
     None => ()
   }
 }
@@ -1110,7 +1046,7 @@ fn trim_trailing_slashes(path : String) -> String {
   }
   let mut end = path.length()
   while end > 0 {
-    let c = String::unsafe_substring(path, start=end - 1, end=end)
+    let c = String::unsafe_substring(path, start=end - 1, end~)
     if c != "/" {
       break
     }
@@ -1119,7 +1055,7 @@ fn trim_trailing_slashes(path : String) -> String {
   if end == 0 {
     return path
   }
-  String::unsafe_substring(path, start=0, end=end)
+  String::unsafe_substring(path, start=0, end~)
 }
 
 ///|
@@ -1167,7 +1103,9 @@ fn read_head_checkout_spec_for_clone(fs : OsFs, git_dir : String) -> String {
   if not(fs.is_file(head_path)) {
     return "HEAD"
   }
-  let head = trim_string(decode_bytes(fs.read_file(head_path) catch { _ => b"" }))
+  let head = trim_string(
+    decode_bytes(fs.read_file(head_path) catch { _ => b"" }),
+  )
   if head.length() == 0 {
     return "HEAD"
   }
@@ -1191,10 +1129,7 @@ async fn checkout_with_promisor_retry_clone(
   let mut attempts = 0
   while attempts < 16 {
     let result : Result[@git.ObjectId, Error] = try? @gitlib.checkout(
-      fs,
-      fs,
-      root,
-      spec,
+      fs, fs, root, spec,
     )
     match result {
       Ok(id) => return id
@@ -1239,7 +1174,9 @@ fn parse_checkout_missing_object_id_for_clone(err : Error) -> @git.ObjectId? {
             start=prefix.length(),
             end=msg.length(),
           )
-          return Some(@git.ObjectId::from_hex(trim_string(hex))) catch { _ => None }
+          return Some(@git.ObjectId::from_hex(trim_string(hex))) catch {
+            _ => None
+          }
         }
       }
       None
@@ -1252,14 +1189,20 @@ fn parse_checkout_missing_object_id_for_clone(err : Error) -> @git.ObjectId? {
 fn worktree_is_case_insensitive_for_clone(fs : OsFs, git_dir : String) -> Bool {
   let lower_path = git_dir + "/bit-case-probe-9fcb2c2d"
   let upper_path = git_dir + "/BIT-CASE-PROBE-9FCB2C2D"
-  if fs.is_file(lower_path) || fs.is_dir(lower_path) ||
-    fs.is_file(upper_path) || fs.is_dir(upper_path) {
+  if fs.is_file(lower_path) ||
+    fs.is_dir(lower_path) ||
+    fs.is_file(upper_path) ||
+    fs.is_dir(upper_path) {
     return false
   }
-  fs.write_string(lower_path, "1") catch { _ => return false }
+  fs.write_string(lower_path, "1") catch {
+    _ => return false
+  }
   let insensitive = fs.is_file(upper_path)
   if fs.is_file(lower_path) {
-    fs.remove_file(lower_path) catch { _ => () }
+    fs.remove_file(lower_path) catch {
+      _ => ()
+    }
   }
   insensitive
 }

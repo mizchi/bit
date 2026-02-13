@@ -634,7 +634,9 @@ fn resolve_real_git_for_index_pack() -> String {
 }
 
 ///|
-async fn delegate_index_pack_to_real_git(args : Array[String]) -> Unit raise Error {
+async fn delegate_index_pack_to_real_git(
+  args : Array[String],
+) -> Unit raise Error {
   let real_git = resolve_real_git_for_index_pack()
   let delegated_args = ["index-pack"]
   delegated_args.append(args)

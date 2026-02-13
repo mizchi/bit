@@ -22,8 +22,7 @@ test "fetch-delegate: collects global path overrides in deterministic order" {
   restore_env_var_for_fetch_wbtest("GIT_SHIM_CWD", prev_cwd)
   restore_env_var_for_fetch_wbtest("GIT_DIR", prev_git_dir)
   restore_env_var_for_fetch_wbtest(
-    "GIT_SHIM_EXPLICIT_GIT_DIR",
-    prev_explicit_git_dir,
+    "GIT_SHIM_EXPLICIT_GIT_DIR", prev_explicit_git_dir,
   )
 }
 
@@ -40,8 +39,7 @@ test "fetch-delegate: skips unset global path overrides" {
   restore_env_var_for_fetch_wbtest("GIT_SHIM_CWD", prev_cwd)
   restore_env_var_for_fetch_wbtest("GIT_DIR", prev_git_dir)
   restore_env_var_for_fetch_wbtest(
-    "GIT_SHIM_EXPLICIT_GIT_DIR",
-    prev_explicit_git_dir,
+    "GIT_SHIM_EXPLICIT_GIT_DIR", prev_explicit_git_dir,
   )
 }
 
@@ -60,8 +58,7 @@ test "fetch-delegate: does not append --git-dir without explicit marker" {
   restore_env_var_for_fetch_wbtest("GIT_SHIM_CWD", prev_cwd)
   restore_env_var_for_fetch_wbtest("GIT_DIR", prev_git_dir)
   restore_env_var_for_fetch_wbtest(
-    "GIT_SHIM_EXPLICIT_GIT_DIR",
-    prev_explicit_git_dir,
+    "GIT_SHIM_EXPLICIT_GIT_DIR", prev_explicit_git_dir,
   )
 }
 
@@ -69,8 +66,7 @@ test "fetch-delegate: does not append --git-dir without explicit marker" {
 test "fetch-delegate: parses multiline -c overrides and ignores empty lines" {
   let prev_overrides = @sys.get_env_var("GIT_CONFIG_OVERRIDES")
   @sys.set_env_var(
-    "GIT_CONFIG_OVERRIDES",
-    "push.default=upstream\n\ncore.eol=lf\n",
+    "GIT_CONFIG_OVERRIDES", "push.default=upstream\n\ncore.eol=lf\n",
   )
   let args = collect_global_config_overrides_for_delegate()
   assert_eq(args.length(), 4)

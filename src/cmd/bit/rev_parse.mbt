@@ -63,9 +63,7 @@ async fn handle_rev_parse(args : Array[String]) -> Unit raise Error {
         }
         print_line(abs)
       }
-      "--show-ref-format" => {
-        print_line("files")
-      }
+      "--show-ref-format" => print_line("files")
       "--revs-only" => ()
       "--verify" => ()
       "--quiet" => ()
@@ -119,9 +117,7 @@ fn resolve_fetch_head_oid(
     if oid_hex.length() == 0 {
       continue
     }
-    let oid = @git.ObjectId::from_hex(oid_hex) catch {
-      _ => continue
-    }
+    let oid = @git.ObjectId::from_hex(oid_hex) catch { _ => continue }
     result = Some(oid)
     break
   }
@@ -236,11 +232,7 @@ fn rev_parse_lookup_loose_object_idx(
   if !fs.is_file(idx_path) {
     return None
   }
-  let text = decode_bytes(
-    fs.read_file(idx_path) catch {
-      _ => return None
-    },
-  )
+  let text = decode_bytes(fs.read_file(idx_path) catch { _ => return None })
   for line_view in text.split("\n") {
     let line = trim_string(line_view.to_string())
     if line.length() == 0 || line.has_prefix("#") {

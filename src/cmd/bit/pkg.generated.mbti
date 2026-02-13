@@ -50,9 +50,15 @@ type BlameLine
 
 type BlameOptions
 
+type CatFileFollowResolution
+
+type CatFilePathAttrs
+
 type CherryPickResult
 
 type DenyCurrentBranchDecision
+
+type FetchHeadEntry
 
 type GlobalOptions
 
@@ -102,6 +108,8 @@ type PushTargetPlan
 type RebaseAiArgs
 
 type RebaseTodoEntry
+
+type RemoteTrackingHeadState
 
 type RunGitCommandInvocation
 

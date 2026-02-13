@@ -28,8 +28,12 @@ async fn handle_hash_object(args : Array[String]) -> Unit raise Error {
     i += 1
   }
   if is_real_git_delegate_enabled() {
-    let compat_object_format = read_hash_object_compat_object_format(fs, git_dir)
-    if hash_object_should_delegate_to_real_git(write_object, compat_object_format) {
+    let compat_object_format = read_hash_object_compat_object_format(
+      fs, git_dir,
+    )
+    if hash_object_should_delegate_to_real_git(
+        write_object, compat_object_format,
+      ) {
       delegate_to_real_git("hash-object", args)
     }
   }
@@ -64,17 +68,17 @@ async fn handle_hash_object(args : Array[String]) -> Unit raise Error {
 }
 
 ///|
-fn read_hash_object_compat_object_format(fs : OsFs, git_dir : String) -> String? {
+fn read_hash_object_compat_object_format(
+  fs : OsFs,
+  git_dir : String,
+) -> String? {
   let overrides = @gitlib.parse_config_overrides()
   match overrides.get("extensions.compatobjectformat") {
     Some(value) => Some(value)
     None => {
       let config_path = git_dir + "/config"
       @gitlib.read_config_value(
-        fs,
-        config_path,
-        "extensions",
-        "compatobjectformat",
+        fs, config_path, "extensions", "compatobjectformat",
       )
     }
   }

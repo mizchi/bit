@@ -170,6 +170,8 @@ pub fn list_worktrees(&@types.RepoFileSystem, String) -> Array[WorktreeInfo] rai
 
 pub fn load_all_objects_from_fs(&@types.RepoFileSystem, String) -> Array[@object.PackObject] raise @object.GitError
 
+pub fn load_all_objects_from_object_dir(&@types.RepoFileSystem, String) -> Array[@object.PackObject] raise @object.GitError
+
 pub fn load_object_store_from_fs(&@types.RepoFileSystem, String) -> @repo.ObjectStore raise @object.GitError
 
 pub fn load_rebase_state(&@types.RepoFileSystem, String) -> RebaseState? raise @object.GitError
@@ -398,6 +400,8 @@ pub fn write_tree_from_index(&@types.FileSystem, String, Array[IndexEntry], pref
 
 pub fn write_tree_to_worktree(ObjectDb, &@types.RepoFileSystem, &@types.FileSystem, @object.ObjectId, String) -> Unit raise @object.GitError
 
+pub fn write_worktree_and_build_index(ObjectDb, &@types.FileSystem, &@types.RepoFileSystem, String, String, Map[String, TreeFileEntry], remove_missing? : Bool) -> Array[IndexEntry] raise @object.GitError
+
 pub fn write_worktree_from_files(ObjectDb, &@types.FileSystem, &@types.RepoFileSystem, String, String, Map[String, TreeFileEntry], remove_missing? : Bool) -> Unit raise @object.GitError
 
 // Errors
@@ -568,11 +572,15 @@ pub struct ObjectDb {
   pack_cache_limit : Int
   mut prefer_packed : Bool
   mut saw_corrupt_pack : Bool
+  mut skip_verify : Bool
 }
 pub fn ObjectDb::get(Self, &@types.RepoFileSystem, @object.ObjectId) -> @object.PackObject? raise @object.GitError
 pub fn ObjectDb::load(&@types.RepoFileSystem, String) -> Self raise @object.GitError
+pub fn ObjectDb::load_from_objects_dir(&@types.RepoFileSystem, String) -> Self raise @object.GitError
 pub fn ObjectDb::load_lazy(&@types.RepoFileSystem, String) -> Self raise @object.GitError
+pub fn ObjectDb::load_lazy_from_objects_dir(&@types.RepoFileSystem, String) -> Self raise @object.GitError
 pub fn ObjectDb::set_prefer_packed(Self, Bool) -> Unit
+pub fn ObjectDb::set_skip_verify(Self, Bool) -> Unit
 
 pub struct PackIndex {
   pack_path : String

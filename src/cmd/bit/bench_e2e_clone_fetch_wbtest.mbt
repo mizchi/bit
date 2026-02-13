@@ -20,7 +20,8 @@ let bench_e2e_fetch_source : String = bench_e2e_root + "/fetch_source"
 let bench_e2e_fetch_target : String = bench_e2e_root + "/fetch_target"
 
 ///|
-let bench_e2e_fetch_updates_dir : String = bench_e2e_fetch_source + "/bench_updates"
+let bench_e2e_fetch_updates_dir : String = bench_e2e_fetch_source +
+  "/bench_updates"
 
 ///|
 fn e2e_cleanup_tree(fs : OsFs, path : String) -> Unit {
@@ -84,7 +85,11 @@ fn e2e_commit_all(fs : OsFs, repo_root : String, message : String) -> Unit {
 }
 
 ///|
-fn e2e_seed_repo_files(repo_root : String, dir_count : Int, files_per_dir : Int) -> Unit {
+fn e2e_seed_repo_files(
+  repo_root : String,
+  dir_count : Int,
+  files_per_dir : Int,
+) -> Unit {
   for d in 0..<dir_count {
     let dir = repo_root + "/dir_\{d}"
     e2e_ensure_dir(dir)
@@ -123,10 +128,7 @@ fn ensure_fetch_repos_for_e2e_bench() -> Unit {
   e2e_reset_git_env()
   @async.run_async_main(async fn() {
     run_main_for_args([
-      "bit",
-      "clone",
-      bench_e2e_fetch_source,
-      bench_e2e_fetch_target,
+      "bit", "clone", bench_e2e_fetch_source, bench_e2e_fetch_target,
     ])
   })
 }
@@ -153,10 +155,7 @@ test "bench e2e clone local medium repo" (b : @bench.T) {
     e2e_cleanup_tree(fs, bench_e2e_clone_target)
     @async.run_async_main(async fn() {
       run_main_for_args([
-        "bit",
-        "clone",
-        bench_e2e_clone_source,
-        bench_e2e_clone_target,
+        "bit", "clone", bench_e2e_clone_source, bench_e2e_clone_target,
       ])
     })
     b.keep(fs.is_dir(bench_e2e_clone_target + "/.git"))
@@ -172,13 +171,7 @@ test "bench e2e fetch after one new commit" (b : @bench.T) {
     append_fetch_update_commit_for_e2e_bench(step)
     e2e_reset_git_env()
     @async.run_async_main(async fn() {
-      run_main_for_args([
-        "bit",
-        "-C",
-        bench_e2e_fetch_target,
-        "fetch",
-        "origin",
-      ])
+      run_main_for_args(["bit", "-C", bench_e2e_fetch_target, "fetch", "origin"])
     })
     b.keep(step)
   })

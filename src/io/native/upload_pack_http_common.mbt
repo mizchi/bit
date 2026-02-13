@@ -241,7 +241,9 @@ pub async fn clone_to_fs_with_http(
         // Write promisor file if partial clone
         if filter.is_partial() {
           write_promisor_file(fs, git_dir, remote)
-          write_pack_promisor_marker_http(fs, git_dir, pack_id, refs, default_ref)
+          write_pack_promisor_marker_http(
+            fs, git_dir, pack_id, refs, default_ref,
+          )
         }
       }
       None => ()
@@ -256,7 +258,9 @@ pub async fn clone_to_fs_with_http(
     match default_ref {
       Some((refname, commit_id)) => {
         let git_dir = @git.join_path(root, ".git")
-        write_partial_clone_refs(fs, git_dir, refname, commit_id, remote, filter)
+        write_partial_clone_refs(
+          fs, git_dir, refname, commit_id, remote, filter,
+        )
       }
       None => ()
     }
@@ -264,13 +268,14 @@ pub async fn clone_to_fs_with_http(
     let store = @git.ObjectStore::from_pack(objects)
     match default_ref {
       None => ()
-      Some((refname, commit_id)) => {
+      Some((refname, commit_id)) =>
         if no_checkout {
           @git.write_git_metadata(store, commit_id, refname, remote, fs, root)
         } else {
-          @git.materialize_clone_to_fs(store, commit_id, refname, remote, fs, root)
+          @git.materialize_clone_to_fs(
+            store, commit_id, refname, remote, fs, root,
+          )
         }
-      }
     }
   }
   refs

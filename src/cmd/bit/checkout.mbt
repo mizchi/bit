@@ -128,7 +128,9 @@ async fn checkout_with_promisor_retry(
     Some(target_id) => {
       let pdb = @gitlibnative.native_promisor_db(fs, git_dir)
       if pdb.has_promisor() {
-        let missing_ids = collect_missing_checkout_blob_ids(fs, git_dir, target_id)
+        let missing_ids = collect_missing_checkout_blob_ids(
+          fs, git_dir, target_id,
+        )
         if missing_ids.length() > 0 {
           ignore(pdb.fetch_missing(fs, missing_ids))
           if not(wrote_trace_round) {
@@ -222,9 +224,7 @@ fn append_checkout_fetch_trace(fs : OsFs) -> Unit {
   match @sys.get_env_var("GIT_TRACE2_EVENT") {
     Some(path) =>
       append_checkout_trace_line(
-        fs,
-        path,
-        "{\"event\":\"data\",\"category\":\"fetch\",\"key\":\"total_rounds\",\"value\":\"1\"}\n",
+        fs, path, "{\"event\":\"data\",\"category\":\"fetch\",\"key\":\"total_rounds\",\"value\":\"1\"}\n",
       )
     None => ()
   }
@@ -233,7 +233,9 @@ fn append_checkout_fetch_trace(fs : OsFs) -> Unit {
 ///|
 fn append_checkout_trace_line(fs : OsFs, path : String, line : String) -> Unit {
   let existing = decode_bytes(fs.read_file(path) catch { _ => b"" })
-  fs.write_string(path, existing + line) catch { _ => () }
+  fs.write_string(path, existing + line) catch {
+    _ => ()
+  }
 }
 
 ///|
@@ -325,7 +327,9 @@ fn parse_checkout_missing_object_id(err : Error) -> @git.ObjectId? {
             start=prefix.length(),
             end=msg.length(),
           )
-          return Some(@git.ObjectId::from_hex(trim_string(hex))) catch { _ => None }
+          return Some(@git.ObjectId::from_hex(trim_string(hex))) catch {
+            _ => None
+          }
         }
       }
       None

@@ -72,9 +72,7 @@ pub fn parse_remote(remote : String) -> RemoteSpec {
       start=idx + 1,
       end=remote.length(),
     )
-    if host.length() > 0 &&
-      path.length() > 0 &&
-      not(host.contains("/")) {
+    if host.length() > 0 && path.length() > 0 && not(host.contains("/")) {
       return {
         kind: RemoteKind::Ssh,
         raw: remote,
@@ -120,19 +118,12 @@ fn parse_ssh_url(remote : String) -> RemoteSpec {
     Some(idx) => {
       let authority = String::unsafe_substring(rest, start=0, end=idx)
       let host = if authority.has_suffix(":") {
-        String::unsafe_substring(
-          authority,
-          start=0,
-          end=authority.length() - 1,
-        )
+        String::unsafe_substring(authority, start=0, end=authority.length() - 1)
       } else {
         authority
       }
-      let path = "/" + String::unsafe_substring(
-        rest,
-        start=idx + 1,
-        end=rest.length(),
-      )
+      let path = "/" +
+        String::unsafe_substring(rest, start=idx + 1, end=rest.length())
       {
         kind: RemoteKind::Ssh,
         raw: remote,

@@ -10,17 +10,17 @@ import {
 // Values
 pub async fn clone_http(String, Bool, depth? : Int, filter? : @protocol.FilterSpec) -> (Array[(@object.ObjectId, String)], Array[@object.PackObject]) raise @object.GitError
 
-pub async fn clone_http_to_fs(String, Bool, &@types.FileSystem, String, depth? : Int, filter? : @protocol.FilterSpec) -> Array[(@object.ObjectId, String)] raise @object.GitError
+pub async fn clone_http_to_fs(String, Bool, &@types.FileSystem, String, depth? : Int, filter? : @protocol.FilterSpec, no_checkout? : Bool) -> Array[(@object.ObjectId, String)] raise @object.GitError
 
-pub async fn clone_process(String, Bool) -> (Array[(@object.ObjectId, String)], Array[@object.PackObject]) raise @object.GitError
+pub async fn clone_process(String, Bool, depth? : Int, filter? : @protocol.FilterSpec) -> (Array[(@object.ObjectId, String)], Array[@object.PackObject]) raise @object.GitError
 
-pub async fn clone_process_to_fs(String, Bool, &@types.FileSystem, String) -> Array[(@object.ObjectId, String)] raise @object.GitError
+pub async fn clone_process_to_fs(String, Bool, &@types.FileSystem, String, depth? : Int, filter? : @protocol.FilterSpec, no_checkout? : Bool) -> Array[(@object.ObjectId, String)] raise @object.GitError
 
 pub async fn clone_remote(String, Bool) -> (Array[(@object.ObjectId, String)], Array[@object.PackObject]) raise @object.GitError
 
 pub async fn clone_remote_to_fs(String, Bool, &@types.FileSystem, String) -> Array[(@object.ObjectId, String)] raise @object.GitError
 
-pub async fn clone_to_fs_with_http(String, Bool, Int, @protocol.FilterSpec, &@types.FileSystem, String, async (String, Map[String, String]) -> (@types.HttpResponse, Bytes) raise @object.GitError, async (String, Bytes, Map[String, String]) -> (@types.HttpResponse, Bytes) raise @object.GitError) -> Array[(@object.ObjectId, String)] raise @object.GitError
+pub async fn clone_to_fs_with_http(String, Bool, Int, @protocol.FilterSpec, &@types.FileSystem, String, async (String, Map[String, String]) -> (@types.HttpResponse, Bytes) raise @object.GitError, async (String, Bytes, Map[String, String]) -> (@types.HttpResponse, Bytes) raise @object.GitError, no_checkout? : Bool) -> Array[(@object.ObjectId, String)] raise @object.GitError
 
 pub async fn clone_with_http(String, Bool, Int, @protocol.FilterSpec, async (String, Map[String, String]) -> (@types.HttpResponse, Bytes) raise @object.GitError, async (String, Bytes, Map[String, String]) -> (@types.HttpResponse, Bytes) raise @object.GitError) -> (Array[(@object.ObjectId, String)], Array[@object.PackObject]) raise @object.GitError
 
@@ -40,7 +40,7 @@ pub async fn fetch_objects(String, Array[@object.ObjectId], Bool) -> Array[@obje
 
 pub async fn fetch_objects_http(String, Array[@object.ObjectId], Bool, depth? : Int, filter? : @protocol.FilterSpec) -> Array[@object.PackObject] raise @object.GitError
 
-pub async fn fetch_objects_process(String, Array[@object.ObjectId], Bool) -> Array[@object.PackObject] raise @object.GitError
+pub async fn fetch_objects_process(String, Array[@object.ObjectId], Bool, depth? : Int, filter? : @protocol.FilterSpec) -> Array[@object.PackObject] raise @object.GitError
 
 pub async fn fetch_objects_with_http(String, Array[@object.ObjectId], Bool, Int, @protocol.FilterSpec, async (String, Map[String, String]) -> (@types.HttpResponse, Bytes) raise @object.GitError, async (String, Bytes, Map[String, String]) -> (@types.HttpResponse, Bytes) raise @object.GitError) -> Array[@object.PackObject] raise @object.GitError
 
@@ -48,7 +48,7 @@ pub async fn fetch_pack(String, Array[@object.ObjectId], Bool) -> Bytes raise @o
 
 pub async fn fetch_pack_http(String, Array[@object.ObjectId], Bool, depth? : Int, filter? : @protocol.FilterSpec) -> Bytes raise @object.GitError
 
-pub async fn fetch_pack_process(String, Array[@object.ObjectId], Bool) -> Bytes raise @object.GitError
+pub async fn fetch_pack_process(String, Array[@object.ObjectId], Bool, depth? : Int, filter? : @protocol.FilterSpec) -> Bytes raise @object.GitError
 
 pub async fn fetch_pack_with_http(String, Array[@object.ObjectId], Bool, Int, @protocol.FilterSpec, async (String, Map[String, String]) -> (@types.HttpResponse, Bytes) raise @object.GitError, async (String, Bytes, Map[String, String]) -> (@types.HttpResponse, Bytes) raise @object.GitError) -> Bytes raise @object.GitError
 

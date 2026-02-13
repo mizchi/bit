@@ -14,8 +14,10 @@ fn worktree_is_case_insensitive(
 ) -> Bool raise @git.GitError {
   let lower_path = join_path(git_dir, "bit-case-probe-9fcb2c2d")
   let upper_path = join_path(git_dir, "BIT-CASE-PROBE-9FCB2C2D")
-  if rfs.is_file(lower_path) || rfs.is_dir(lower_path) ||
-    rfs.is_file(upper_path) || rfs.is_dir(upper_path) {
+  if rfs.is_file(lower_path) ||
+    rfs.is_dir(lower_path) ||
+    rfs.is_file(upper_path) ||
+    rfs.is_dir(upper_path) {
     return false
   }
   fs.write_string(lower_path, "1")
@@ -171,10 +173,7 @@ pub fn write_worktree_from_files(
     paths.push(path)
   }
   let skip_paths = detect_case_insensitive_collision_skips(
-    fs,
-    rfs,
-    git_dir,
-    paths,
+    fs, rfs, git_dir, paths,
   )
   for item in items {
     let (path, info) = item
@@ -249,10 +248,7 @@ pub fn write_worktree_and_build_index(
     paths.push(path)
   }
   let skip_paths = detect_case_insensitive_collision_skips(
-    fs,
-    rfs,
-    git_dir,
-    paths,
+    fs, rfs, git_dir, paths,
   )
   let index_entries : Array[IndexEntry] = []
   for item in items {

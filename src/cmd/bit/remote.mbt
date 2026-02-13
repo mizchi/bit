@@ -219,7 +219,11 @@ async fn handle_remote(args : Array[String]) -> Unit raise Error {
                 Some(_) => die_remote(129, "usage: git remote add <name> <url>")
               }
             _ if arg.has_prefix("--mirror=") => {
-              let mode = String::unsafe_substring(arg, start=9, end=arg.length())
+              let mode = String::unsafe_substring(
+                arg,
+                start=9,
+                end=arg.length(),
+              )
               match mode {
                 "fetch" | "push" =>
                   match mirror_mode {
@@ -1789,7 +1793,10 @@ fn write_clone_alternates(
     unique.push(alt)
   }
   fs.mkdir_p(dest_git_dir + "/objects/info")
-  fs.write_string(dest_git_dir + "/objects/info/alternates", unique.join("\n") + "\n")
+  fs.write_string(
+    dest_git_dir + "/objects/info/alternates",
+    unique.join("\n") + "\n",
+  )
 }
 
 ///|
@@ -1873,9 +1880,7 @@ fn clone_local_repo(
   // Copy object database
   @gitlib.copy_tree(fs, fs, src_git_dir + "/objects", dest_git_dir + "/objects")
   let alternates = collect_clone_alternates(
-    fs,
-    src_git_dir,
-    reference_alternates,
+    fs, src_git_dir, reference_alternates,
   )
   write_clone_alternates(fs, dest_git_dir, alternates)
   let src_shallow_path = src_git_dir + "/shallow"
@@ -1941,13 +1946,7 @@ fn clone_local_repo(
       Some(mode) =>
         if mode == "always" || mode == "true" || mode == "remote" {
           @gitlib.set_config_key(
-            fs,
-            fs,
-            dest_git_dir,
-            "branch",
-            default_branch,
-            "rebase",
-            "true",
+            fs, fs, dest_git_dir, "branch", default_branch, "rebase", "true",
           )
         }
       None => ()
@@ -1957,7 +1956,9 @@ fn clone_local_repo(
   let packed_tracking_refs : Array[(String, @git.ObjectId)] = []
   if not(mirror) {
     for b in branches {
-      packed_tracking_refs.push(("refs/remotes/" + remote_name + "/" + b.name, b.id))
+      packed_tracking_refs.push(
+        ("refs/remotes/" + remote_name + "/" + b.name, b.id),
+      )
     }
   }
   upsert_packed_refs(fs, dest_git_dir, packed_tracking_refs)
@@ -1990,7 +1991,11 @@ fn clone_local_repo(
   if not(bare) && not(no_checkout) {
     match head_id {
       Some(id) => {
-        let checkout_spec = if detached_head { id.to_hex() } else { default_branch }
+        let checkout_spec = if detached_head {
+          id.to_hex()
+        } else {
+          default_branch
+        }
         let _ = @gitlib.checkout(
           fs,
           fs,
@@ -2190,7 +2195,11 @@ fn read_remote_tracking_head_state(
   )
   let trimmed = trim_string(raw)
   if trimmed.has_prefix("ref: ") {
-    let target = String::unsafe_substring(trimmed, start=5, end=trimmed.length())
+    let target = String::unsafe_substring(
+      trimmed,
+      start=5,
+      end=trimmed.length(),
+    )
     return RemoteTrackingHeadState::Symref(trim_string(target))
   }
   if trimmed.length() == 0 {
@@ -2226,7 +2235,10 @@ fn update_remote_tracking_head_ref(
     return ()
   }
   let local_head_ref = "refs/remotes/" + remote_name + "/HEAD"
-  let remote_head_target = "refs/remotes/" + remote_name + "/" + remote_head_branch
+  let remote_head_target = "refs/remotes/" +
+    remote_name +
+    "/" +
+    remote_head_branch
   let local_state = read_remote_tracking_head_state(fs, git_dir, remote_name)
   let mut should_update = false
   let mut warning_message : String? = None
@@ -2248,19 +2260,27 @@ fn update_remote_tracking_head_ref(
       RemoteTrackingHeadState::Symref(local_target) =>
         if local_target != remote_head_target && should_warn {
           let local_branch = remote_tracking_branch_name_from_target(
-            local_target,
-            remote_name,
+            local_target, remote_name,
           )
           warning_message = Some(
-            "'HEAD' at '" + remote_name + "' is '" + remote_head_branch +
-            "', but we have '" + local_branch + "' locally.",
+            "'HEAD' at '" +
+            remote_name +
+            "' is '" +
+            remote_head_branch +
+            "', but we have '" +
+            local_branch +
+            "' locally.",
           )
         }
       RemoteTrackingHeadState::Detached(local_oid) =>
         if should_warn {
           warning_message = Some(
-            "'HEAD' at '" + remote_name + "' is '" + remote_head_branch +
-            "', but we have a detached HEAD pointing to '" + local_oid +
+            "'HEAD' at '" +
+            remote_name +
+            "' is '" +
+            remote_head_branch +
+            "', but we have a detached HEAD pointing to '" +
+            local_oid +
             "' locally.",
           )
         }
@@ -2451,13 +2471,11 @@ async fn fetch_local_repo(
         Some(source_ref) => fetch_head_merge_refs.contains(source_ref)
         None => false
       }
-      fetch_head_entries.push(
-        {
-          id: head_id,
-          source_refname: head_source_ref,
-          for_merge,
-        },
-      )
+      fetch_head_entries.push({
+        id: head_id,
+        source_refname: head_source_ref,
+        for_merge,
+      })
       continue
     }
     if spec.src.length() == 0 ||
@@ -2501,13 +2519,11 @@ async fn fetch_local_repo(
     }
     if spec.dst.length() == 0 {
       bare_oid_fetches.push(object_id)
-      fetch_head_entries.push(
-        {
-          id: object_id,
-          source_refname: None,
-          for_merge: false,
-        },
-      )
+      fetch_head_entries.push({
+        id: object_id,
+        source_refname: None,
+        for_merge: false,
+      })
       continue
     }
     let normalized_dst = normalize_fetch_destination_ref(spec.dst, None)
@@ -2565,13 +2581,11 @@ async fn fetch_local_repo(
           if refname.has_prefix("refs/heads/") {
             fetched_heads.push(id)
           }
-          fetch_head_entries.push(
-            {
-              id,
-              source_refname: Some(refname),
-              for_merge: fetch_head_merge_refs.contains(refname),
-            },
-          )
+          fetch_head_entries.push({
+            id,
+            source_refname: Some(refname),
+            for_merge: fetch_head_merge_refs.contains(refname),
+          })
         }
         None => ()
       }
@@ -2615,11 +2629,7 @@ async fn fetch_local_repo(
     match @gitlib.read_remote_head_branch(fs, src_git_dir) {
       Some(remote_head_branch) =>
         update_remote_tracking_head_ref(
-          fs,
-          git_dir,
-          remote_name,
-          remote_head_branch,
-          quiet,
+          fs, git_dir, remote_name, remote_head_branch, quiet,
         )
       None => ()
     }
@@ -2796,7 +2806,9 @@ async fn fetch_from_remote(
       if filter.is_partial() {
         ensure_promisor_remote_file(fs, git_dir, remote_url)
         let pack_id = read_pack_trailer_id(pack)
-        write_fetch_pack_promisor_marker(fs, git_dir, pack_id, refname, commit_id)
+        write_fetch_pack_promisor_marker(
+          fs, git_dir, pack_id, refname, commit_id,
+        )
       }
       let dir = match remote_path.rev_find("/") {
         None => ""
@@ -2853,9 +2865,7 @@ fn write_fetch_pack_promisor_marker(
 ) -> Unit raise Error {
   let pack_dir = git_dir + "/objects/pack"
   let marker_path = pack_dir + "/pack-\{pack_id.to_hex()}.promisor"
-  let lines = [
-    commit_id.to_hex() + " HEAD", commit_id.to_hex() + " " + refname,
-  ]
+  let lines = [commit_id.to_hex() + " HEAD", commit_id.to_hex() + " " + refname]
   fs.write_string(marker_path, lines.join("\n") + "\n")
 }
 

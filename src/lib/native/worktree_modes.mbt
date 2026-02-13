@@ -34,10 +34,7 @@ async fn apply_worktree_modes_from_files(
     paths.push(path)
   }
   let skip_paths = detect_case_insensitive_collision_skips(
-    fs,
-    rfs,
-    git_dir,
-    paths,
+    fs, rfs, git_dir, paths,
   )
   for item in items {
     let (path, info) = item
@@ -98,8 +95,10 @@ fn worktree_is_case_insensitive(
   } else {
     git_dir + "/BIT-CASE-PROBE-9FCB2C2D"
   }
-  if rfs.is_file(lower_path) || rfs.is_dir(lower_path) ||
-    rfs.is_file(upper_path) || rfs.is_dir(upper_path) {
+  if rfs.is_file(lower_path) ||
+    rfs.is_dir(lower_path) ||
+    rfs.is_file(upper_path) ||
+    rfs.is_dir(upper_path) {
     return false
   }
   fs.write_string(lower_path, "1")

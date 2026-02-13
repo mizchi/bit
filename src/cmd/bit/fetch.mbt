@@ -64,18 +64,17 @@ fn collect_global_path_overrides_for_delegate() -> Array[String] {
 }
 
 ///|
-async fn delegate_to_real_git(subcmd : String, args : Array[String]) -> Unit raise Error {
+async fn delegate_to_real_git(
+  subcmd : String,
+  args : Array[String],
+) -> Unit raise Error {
   let real_git = resolve_real_git_for_fetch()
   let delegated_args : Array[String] = []
   delegated_args.append(collect_global_path_overrides_for_delegate())
   delegated_args.append(collect_global_config_overrides_for_delegate())
   delegated_args.push(subcmd)
   delegated_args.append(args)
-  let code = @process.run(
-    real_git,
-    delegated_args,
-    inherit_env=true,
-  ) catch {
+  let code = @process.run(real_git, delegated_args, inherit_env=true) catch {
     err if @async.is_cancellation_error(err) => raise err
     _ => 1
   }
@@ -277,8 +276,12 @@ async fn handle_fetch(args : Array[String]) -> Unit raise Error {
       break
     }
   }
-  let force_transport = (filter.is_partial() || refetch || local_promisor_remote ||
-    is_partial_clone) &&
+  let force_transport = (
+      filter.is_partial() ||
+      refetch ||
+      local_promisor_remote ||
+      is_partial_clone
+    ) &&
     not(has_oid_refspec)
   fetch_from_remote(
     fs,
