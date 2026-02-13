@@ -8,11 +8,41 @@ async fn handle_fetch(args : Array[String]) -> Unit raise Error {
   // Read remote URL - prefer subdir-clone remote, then config
   let mut remote_name = "origin"
   let mut remote_url : String? = get_effective_remote_url(fs, git_dir)
-  let mut has_filter_flag = false
+  let mut explicit_filter_flag = false
+  let mut explicit_no_filter = false
+  let mut filter = @protocol.FilterSpec::NoFilter
+  let mut refetch = false
   let mut update_head_ok = false
   let positional_args : Array[String] = []
   // Override with command line argument
-  for arg in args {
+  let mut i = 0
+  while i < args.length() {
+    let arg = args[i]
+    if arg == "--filter" && i + 1 < args.length() {
+      explicit_filter_flag = true
+      filter = parse_filter_spec(args[i + 1])
+      i += 2
+      continue
+    }
+    if arg.has_prefix("--filter=") {
+      explicit_filter_flag = true
+      let filter_spec = String::unsafe_substring(arg, start=9, end=arg.length())
+      filter = parse_filter_spec(filter_spec)
+      i += 1
+      continue
+    }
+    if arg == "--no-filter" {
+      explicit_filter_flag = true
+      explicit_no_filter = true
+      filter = @protocol.FilterSpec::NoFilter
+      i += 1
+      continue
+    }
+    if arg == "--refetch" {
+      refetch = true
+      i += 1
+      continue
+    }
     if arg == "--no-ipv4" || arg == "--no-ipv6" {
       raise @git.GitError::InvalidObject(
         "unknown option '" + option_name_without_prefix(arg) + "'",
@@ -20,14 +50,12 @@ async fn handle_fetch(args : Array[String]) -> Unit raise Error {
     }
     if not(arg.has_prefix("-")) {
       positional_args.push(arg)
-      continue
-    }
-    if arg.has_prefix("--filter") || arg == "--refetch" || arg == "--no-filter" {
-      has_filter_flag = true
+      i += 1
       continue
     }
     if arg == "-u" || arg == "--update-head-ok" {
       update_head_ok = true
+      i += 1
       continue
     }
     if arg == "--prune" ||
@@ -35,9 +63,11 @@ async fn handle_fetch(args : Array[String]) -> Unit raise Error {
       arg == "--prune-tags" ||
       arg == "--tags" ||
       arg == "--no-tags" {
+      i += 1
       continue
     }
     warn_unimplemented_arg("fetch", arg)
+    i += 1
   }
   let explicit_refspecs : Array[String] = []
   let mut legacy_fetch_target : String? = None
@@ -95,12 +125,22 @@ async fn handle_fetch(args : Array[String]) -> Unit raise Error {
   let rewrite_rules = read_url_rewrite_rules(fs, git_dir)
   let resolved_url = rewrite_url_by_rules(url, rewrite_rules, false)
   let mut is_partial_clone = false
+  let mut inherited_filter = @protocol.FilterSpec::NoFilter
   match remotes.get(remote_name) {
-    Some(rc) =>
+    Some(rc) => {
       if rc.promisor || rc.partial_clone_filter is Some(_) {
         is_partial_clone = true
       }
+      if rc.partial_clone_filter is Some(raw_filter) {
+        inherited_filter = parse_filter_spec(raw_filter)
+      }
+    }
     None => ()
+  }
+  if explicit_no_filter {
+    filter = @protocol.FilterSpec::NoFilter
+  } else if not(explicit_filter_flag) && inherited_filter.is_partial() {
+    filter = inherited_filter
   }
   let local_root = match @sys.get_env_var("GIT_SHIM_CWD") {
     Some(dir) => dir
@@ -111,9 +151,21 @@ async fn handle_fetch(args : Array[String]) -> Unit raise Error {
     Some(src_path) => has_promisor_source_repo(fs, src_path)
     None => false
   }
-  if has_filter_flag || is_partial_clone || local_promisor_remote {
-    ()
+  let mut has_oid_refspec = false
+  for spec in explicit_refspecs {
+    let raw = if spec.has_prefix("+") {
+      String::unsafe_substring(spec, start=1, end=spec.length())
+    } else {
+      spec
+    }
+    if looks_like_object_id(raw) {
+      has_oid_refspec = true
+      break
+    }
   }
+  let force_transport = (filter.is_partial() || refetch || local_promisor_remote ||
+    is_partial_clone) &&
+    not(has_oid_refspec)
   fetch_from_remote(
     fs,
     git_dir,
@@ -121,6 +173,8 @@ async fn handle_fetch(args : Array[String]) -> Unit raise Error {
     remote_name,
     resolved_url,
     explicit_refspecs,
+    filter~,
+    force_transport~,
     update_head_ok~,
   )
 }

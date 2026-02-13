@@ -12,17 +12,9 @@ fn remote_uses_http_transport(remote : String) -> Bool {
 fn ensure_process_transport_options(
   depth : Int,
   filter : @protocol.FilterSpec,
-) -> Unit raise @git.GitError {
-  if depth > 0 {
-    raise @git.GitError::ProtocolError(
-      "shallow clone is not supported over process transport yet",
-    )
-  }
-  if filter.is_partial() {
-    raise @git.GitError::ProtocolError(
-      "partial clone filter is not supported over process transport yet",
-    )
-  }
+) -> Unit {
+  ignore(depth)
+  ignore(filter)
 }
 
 ///|
@@ -83,7 +75,7 @@ pub async fn fetch_pack_http(
     )
   } else {
     ensure_process_transport_options(depth, filter)
-    fetch_pack_process(remote, wants, prefer_v2)
+    fetch_pack_process(remote, wants, prefer_v2, depth~, filter~)
   }
 }
 
@@ -101,7 +93,7 @@ pub async fn fetch_objects_http(
     )
   } else {
     ensure_process_transport_options(depth, filter)
-    fetch_objects_process(remote, wants, prefer_v2)
+    fetch_objects_process(remote, wants, prefer_v2, depth~, filter~)
   }
 }
 
@@ -118,7 +110,7 @@ pub async fn clone_http(
     )
   } else {
     ensure_process_transport_options(depth, filter)
-    clone_process(remote, prefer_v2)
+    clone_process(remote, prefer_v2, depth~, filter~)
   }
 }
 
@@ -133,13 +125,30 @@ pub async fn clone_http_to_fs(
   root : String,
   depth? : Int = 0,
   filter? : @protocol.FilterSpec = @protocol.FilterSpec::NoFilter,
+  no_checkout? : Bool = false,
 ) -> Array[(@git.ObjectId, String)] raise @git.GitError {
   if remote_uses_http_transport(remote) {
     clone_to_fs_with_http(
-      remote, prefer_v2, depth, filter, fs, root, native_http_get, native_http_post,
+      remote,
+      prefer_v2,
+      depth,
+      filter,
+      fs,
+      root,
+      native_http_get,
+      native_http_post,
+      no_checkout~,
     )
   } else {
     ensure_process_transport_options(depth, filter)
-    clone_process_to_fs(remote, prefer_v2, fs, root)
+    clone_process_to_fs(
+      remote,
+      prefer_v2,
+      fs,
+      root,
+      depth~,
+      filter~,
+      no_checkout~,
+    )
   }
 }

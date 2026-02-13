@@ -3,12 +3,7 @@ async fn handle_rev_parse(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
   let fs = OsFs::new()
   let rfs : &@git.RepoFileSystem = fs
-  let default_git_dir = root + "/.git"
-  let git_dir = if rfs.is_file(default_git_dir) {
-    @gitlib.resolve_gitdir(rfs, default_git_dir)
-  } else {
-    default_git_dir
-  }
+  let git_dir = resolve_git_dir(rfs, root)
   let cwd_abs = @sys.get_env_var("PWD").unwrap_or(root)
   let abs_git_dir = if git_dir.has_prefix("/") {
     git_dir
@@ -18,12 +13,18 @@ async fn handle_rev_parse(args : Array[String]) -> Unit raise Error {
     cwd_abs + "/" + git_dir
   }
   let mut revs_only = false
+  let mut verify = false
+  let mut quiet = false
   for arg in args {
     match arg {
       "--revs-only" => revs_only = true
+      "--verify" => verify = true
+      "--quiet" => quiet = true
       _ => ()
     }
   }
+  ignore(verify)
+  ignore(quiet)
   for arg in args {
     match arg {
       "--git-dir" => print_line(git_dir)
@@ -37,6 +38,8 @@ async fn handle_rev_parse(args : Array[String]) -> Unit raise Error {
         print_line(abs)
       }
       "--revs-only" => ()
+      "--verify" => ()
+      "--quiet" => ()
       _ if arg.has_prefix("-") => warn_unimplemented_arg("rev-parse", arg)
       _ => {
         let id = @gitrepo.rev_parse(fs, git_dir, arg)

@@ -58,7 +58,10 @@ pub fn tree_files_to_index(
     }
     let obj = db.get(fs, info.id)
     match obj {
-      None => raise @git.GitError::InvalidObject("Missing blob object")
+      None =>
+        raise @git.GitError::InvalidObject(
+          "Missing blob object: " + info.id.to_hex(),
+        )
       Some(o) => {
         if o.obj_type != @git.ObjectType::Blob {
           raise @git.GitError::InvalidObject("Object is not a blob")
@@ -117,7 +120,10 @@ pub fn write_worktree_from_files(
     }
     let obj = db.get(rfs, info.id)
     match obj {
-      None => raise @git.GitError::InvalidObject("Missing blob object")
+      None =>
+        raise @git.GitError::InvalidObject(
+          "Missing blob object: " + info.id.to_hex(),
+        )
       Some(o) => {
         if o.obj_type != @git.ObjectType::Blob {
           raise @git.GitError::InvalidObject("Object is not a blob")
@@ -180,7 +186,10 @@ pub fn write_worktree_and_build_index(
     }
     let obj = db.get(rfs, info.id)
     match obj {
-      None => raise @git.GitError::InvalidObject("Missing blob object")
+      None =>
+        raise @git.GitError::InvalidObject(
+          "Missing blob object: " + info.id.to_hex(),
+        )
       Some(o) => {
         if o.obj_type != @git.ObjectType::Blob {
           raise @git.GitError::InvalidObject("Object is not a blob")
@@ -214,7 +223,10 @@ fn collect_tree_files_inner(
 ) -> Unit raise @git.GitError {
   let tree_obj = db.get(fs, tree_id)
   match tree_obj {
-    None => raise @git.GitError::InvalidObject("Missing tree object")
+    None =>
+      raise @git.GitError::InvalidObject(
+        "Missing tree object: " + tree_id.to_hex(),
+      )
     Some(obj) => {
       if obj.obj_type != @git.ObjectType::Tree {
         raise @git.GitError::InvalidObject("Object is not a tree")

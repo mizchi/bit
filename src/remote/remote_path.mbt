@@ -8,10 +8,51 @@ fn is_http_url(url : String) -> Bool {
 ///|
 fn strip_file_scheme(url : String) -> String? {
   if url.has_prefix("file://") {
-    Some(String::unsafe_substring(url, start=7, end=url.length()))
+    Some(
+      decode_file_url_path(
+        String::unsafe_substring(url, start=7, end=url.length()),
+      ),
+    )
   } else {
     None
   }
+}
+
+///|
+fn hex_char_to_int(c : Char) -> Int? {
+  if c >= '0' && c <= '9' {
+    Some(c.to_int() - '0'.to_int())
+  } else if c >= 'a' && c <= 'f' {
+    Some(10 + c.to_int() - 'a'.to_int())
+  } else if c >= 'A' && c <= 'F' {
+    Some(10 + c.to_int() - 'A'.to_int())
+  } else {
+    None
+  }
+}
+
+///|
+fn decode_file_url_path(path : String) -> String {
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i < path.length() {
+    let c = path.unsafe_get(i).to_int().unsafe_to_char()
+    if c == '%' && i + 2 < path.length() {
+      let c1 = path.unsafe_get(i + 1).to_int().unsafe_to_char()
+      let c2 = path.unsafe_get(i + 2).to_int().unsafe_to_char()
+      match (hex_char_to_int(c1), hex_char_to_int(c2)) {
+        (Some(hi), Some(lo)) => {
+          out.write_char((hi * 16 + lo).unsafe_to_char())
+          i += 3
+          continue
+        }
+        _ => ()
+      }
+    }
+    out.write_char(c)
+    i += 1
+  }
+  out.to_string()
 }
 
 ///|

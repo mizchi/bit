@@ -89,6 +89,20 @@ test_expect_success 'clone --bare creates bare repository' '
     test_path_is_missing dest.git/file1.txt
 '
 
+test_expect_success 'clone -n does not checkout files' '
+    make_source_repo &&
+    git_cmd clone -n source dest &&
+    test_dir_exists dest/.git &&
+    test_path_is_missing dest/file1.txt &&
+    test_path_is_missing dest/file2.txt &&
+    git_cmd -C dest rev-parse HEAD >/dev/null
+'
+
+test_expect_success 'clone fails with excess positional args' '
+    make_source_repo &&
+    test_must_fail git_cmd clone -n source dest extra
+'
+
 # =============================================================================
 # History and branches (3)
 # =============================================================================

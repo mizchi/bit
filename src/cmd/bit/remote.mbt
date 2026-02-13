@@ -1694,6 +1694,57 @@ fn legacy_default_branch_name() -> String {
 }
 
 ///|
+fn collect_clone_alternates(
+  fs : OsFs,
+  src_git_dir : String,
+  reference_alternates : Array[String],
+) -> Array[String] {
+  let alternates : Array[String] = []
+  let source_alternates = src_git_dir + "/objects/info/alternates"
+  if fs.is_file(source_alternates) {
+    let text = decode_bytes(fs.read_file(source_alternates)) catch { _ => "" }
+    for line_view in text.split("\n") {
+      let line = trim_string(line_view.to_string())
+      if line.length() == 0 {
+        continue
+      }
+      let resolved = if line.has_prefix("/") {
+        normalize_path(line)
+      } else {
+        normalize_path(src_git_dir + "/objects/" + line)
+      }
+      alternates.push(resolved)
+    }
+  }
+  for alt in reference_alternates {
+    alternates.push(normalize_path(alt))
+  }
+  alternates
+}
+
+///|
+fn write_clone_alternates(
+  fs : OsFs,
+  dest_git_dir : String,
+  alternates : Array[String],
+) -> Unit raise @git.GitError {
+  if alternates.length() == 0 {
+    return
+  }
+  let unique : Array[String] = []
+  let seen : Map[String, Bool] = {}
+  for alt in alternates {
+    if seen.contains(alt) {
+      continue
+    }
+    seen[alt] = true
+    unique.push(alt)
+  }
+  fs.mkdir_p(dest_git_dir + "/objects/info")
+  fs.write_string(dest_git_dir + "/objects/info/alternates", unique.join("\n") + "\n")
+}
+
+///|
 fn clone_local_repo(
   fs : OsFs,
   src_path : String,
@@ -1701,6 +1752,11 @@ fn clone_local_repo(
   remote_url : String,
   bare : Bool,
   filter : @protocol.FilterSpec,
+  mirror? : Bool = false,
+  no_checkout? : Bool = false,
+  separate_git_dir? : String? = None,
+  remote_name? : String = "origin",
+  reference_alternates? : Array[String] = [],
 ) -> Unit raise Error {
   guard @gitlib.detect_git_dir(fs, src_path) is Some((src_git_dir, _)) else {
     raise @git.GitError::InvalidObject("Not a git repository: \{src_path}")
@@ -1709,39 +1765,69 @@ fn clone_local_repo(
   let (default_branch, head_id, detached_head) = match head_ref {
     @gitlib.HeadRef::Branch(name) => {
       let refname = "refs/heads/" + name
-      let id = match @gitlib.resolve_ref(fs, src_git_dir, refname) {
-        Some(v) => v
-        None =>
-          raise @git.GitError::InvalidObject("Invalid HEAD ref: \{refname}")
-      }
+      let id = @gitlib.resolve_ref(fs, src_git_dir, refname)
       (name, id, false)
     }
-    @gitlib.HeadRef::Detached(id) => ("main", id, true)
+    @gitlib.HeadRef::Detached(id) => ("main", Some(id), true)
   }
-  @gitrepo.init_repo(fs, dest_path, default_branch~, bare~)
-  let dest_git_dir = if bare { dest_path } else { dest_path + "/.git" }
+  let dest_git_dir = if bare {
+    @gitrepo.init_repo(fs, dest_path, default_branch~, bare~)
+    dest_path
+  } else {
+    match separate_git_dir {
+      Some(path) => {
+        fs.mkdir_p(dest_path)
+        @gitlib.init_repo_with_options(fs, dest_path, {
+          default_branch,
+          bare: false,
+          separate_git_dir: Some(path),
+          template_dir: None,
+        })
+        path
+      }
+      None => {
+        @gitrepo.init_repo(fs, dest_path, default_branch~, bare~)
+        dest_path + "/.git"
+      }
+    }
+  }
   // Copy object database
   @gitlib.copy_tree(fs, fs, src_git_dir + "/objects", dest_git_dir + "/objects")
-  if detached_head {
-    // Preserve detached HEAD from source repository.
-    fs.write_string(dest_git_dir + "/HEAD", head_id.to_hex() + "\n")
-  } else {
-    write_ref_file(fs, dest_git_dir, "refs/heads/" + default_branch, head_id)
+  let alternates = collect_clone_alternates(
+    fs,
+    src_git_dir,
+    reference_alternates,
+  )
+  write_clone_alternates(fs, dest_git_dir, alternates)
+  match head_id {
+    Some(id) =>
+      if detached_head {
+        // Preserve detached HEAD from source repository.
+        fs.write_string(dest_git_dir + "/HEAD", id.to_hex() + "\n")
+      } else {
+        write_ref_file(fs, dest_git_dir, "refs/heads/" + default_branch, id)
+      }
+    None => ()
   }
   // Configure origin
+  let fetch_specs = if mirror {
+    ["+refs/*:refs/*"]
+  } else {
+    ["+refs/heads/*:refs/remotes/" + remote_name + "/*"]
+  }
   remote_add(
     fs,
     fs,
     dest_git_dir,
-    "origin",
+    remote_name,
     remote_url,
-    ["+refs/heads/*:refs/remotes/origin/*"],
-    false,
+    fetch_specs,
+    mirror,
     None,
   )
   if not(bare) && not(detached_head) {
     @gitlib.set_config_key(
-      fs, fs, dest_git_dir, "branch", default_branch, "remote", "origin",
+      fs, fs, dest_git_dir, "branch", default_branch, "remote", remote_name,
     )
     @gitlib.set_config_key(
       fs,
@@ -1755,29 +1841,31 @@ fn clone_local_repo(
   }
   // Set remote tracking refs in packed-refs so up-to-date pushes keep them packed.
   let packed_tracking_refs : Array[(String, @git.ObjectId)] = []
-  for b in branches {
-    packed_tracking_refs.push(("refs/remotes/origin/" + b.name, b.id))
+  if not(mirror) {
+    for b in branches {
+      packed_tracking_refs.push(("refs/remotes/" + remote_name + "/" + b.name, b.id))
+    }
   }
   upsert_packed_refs(fs, dest_git_dir, packed_tracking_refs)
-  if not(detached_head) {
+  if not(detached_head) && not(mirror) && branches.length() > 0 {
     write_symref_file(
       fs,
       dest_git_dir,
-      "refs/remotes/origin/HEAD",
-      "refs/remotes/origin/" + default_branch,
+      "refs/remotes/" + remote_name + "/HEAD",
+      "refs/remotes/" + remote_name + "/" + default_branch,
     )
   }
   // Partial clone markers
   if filter.is_partial() {
     @gitlib.set_config_key(
-      fs, fs, dest_git_dir, "remote", "origin", "promisor", "true",
+      fs, fs, dest_git_dir, "remote", remote_name, "promisor", "true",
     )
     @gitlib.set_config_key(
       fs,
       fs,
       dest_git_dir,
       "remote",
-      "origin",
+      remote_name,
       "partialCloneFilter",
       filter.to_string(),
     )
@@ -1785,19 +1873,20 @@ fn clone_local_repo(
     fs.write_string(promisor_path, remote_url + "\n")
   }
   // Populate working tree/index from the cloned commit snapshot.
-  if not(bare) {
-    let checkout_spec = if detached_head {
-      head_id.to_hex()
-    } else {
-      default_branch
+  if not(bare) && not(no_checkout) {
+    match head_id {
+      Some(id) => {
+        let checkout_spec = if detached_head { id.to_hex() } else { default_branch }
+        let _ = @gitlib.checkout(
+          fs,
+          fs,
+          dest_path,
+          checkout_spec,
+          detach=detached_head,
+        )
+      }
+      None => ()
     }
-    let _ = @gitlib.checkout(
-      fs,
-      fs,
-      dest_path,
-      checkout_spec,
-      detach=detached_head,
-    )
   }
 }
 
@@ -2234,26 +2323,30 @@ async fn fetch_from_remote(
   remote_url : String,
   explicit_refspecs : Array[String],
   update_head_ok? : Bool = false,
+  filter? : @protocol.FilterSpec = @protocol.FilterSpec::NoFilter,
+  force_transport? : Bool = false,
 ) -> Unit raise Error {
   let local_root = match @sys.get_env_var("GIT_SHIM_CWD") {
     Some(dir) => dir
     None => root
   }
-  match @gitlib.resolve_local_repo_path(fs, local_root, remote_url) {
-    Some(src_path) => {
-      fetch_local_repo(
-        fs,
-        src_path,
-        root,
-        git_dir,
-        remote_name,
-        remote_url,
-        explicit_refspecs,
-        update_head_ok~,
-      )
-      return ()
+  if not(force_transport) {
+    match @gitlib.resolve_local_repo_path(fs, local_root, remote_url) {
+      Some(src_path) => {
+        fetch_local_repo(
+          fs,
+          src_path,
+          root,
+          git_dir,
+          remote_name,
+          remote_url,
+          explicit_refspecs,
+          update_head_ok~,
+        )
+        return ()
+      }
+      None => ()
     }
-    None => ()
   }
   // Fallback to HTTP fetch
   let (refs, _caps, _version, symrefs) = @gitionative.discover_upload_refs_http(
@@ -2307,9 +2400,19 @@ async fn fetch_from_remote(
         return ()
       }
       print_line("Fetching from \{remote_url}...")
-      let pack = @gitionative.fetch_pack_http(remote_url, [commit_id], true)
+      let pack = @gitionative.fetch_pack_http(
+        remote_url,
+        [commit_id],
+        true,
+        filter~,
+      )
       let objects = @pack.parse_packfile(pack)
       @pack.write_packfile_with_index(fs, git_dir, pack, objects)
+      if filter.is_partial() {
+        ensure_promisor_remote_file(fs, git_dir, remote_url)
+        let pack_id = read_pack_trailer_id(pack)
+        write_fetch_pack_promisor_marker(fs, git_dir, pack_id, refname, commit_id)
+      }
       let dir = match remote_path.rev_find("/") {
         None => ""
         Some(i) => String::unsafe_substring(remote_path, start=0, end=i)
@@ -2328,6 +2431,47 @@ async fn fetch_from_remote(
       }
     }
   }
+}
+
+///|
+fn read_pack_trailer_id(pack : Bytes) -> @git.ObjectId raise Error {
+  if pack.length() < 20 {
+    raise @git.GitError::PackfileError("Packfile too short")
+  }
+  let trailer_start = pack.length() - 20
+  let bytes = FixedArray::makei(20, i => pack[trailer_start + i])
+  @git.ObjectId::new(bytes)
+}
+
+///|
+fn ensure_promisor_remote_file(
+  fs : OsFs,
+  git_dir : String,
+  remote_url : String,
+) -> Unit raise Error {
+  let info_dir = git_dir + "/objects/info"
+  fs.mkdir_p(info_dir)
+  let promisor_path = info_dir + "/promisor"
+  if fs.is_file(promisor_path) {
+    return ()
+  }
+  fs.write_string(promisor_path, remote_url + "\n")
+}
+
+///|
+fn write_fetch_pack_promisor_marker(
+  fs : OsFs,
+  git_dir : String,
+  pack_id : @git.ObjectId,
+  refname : String,
+  commit_id : @git.ObjectId,
+) -> Unit raise Error {
+  let pack_dir = git_dir + "/objects/pack"
+  let marker_path = pack_dir + "/pack-\{pack_id.to_hex()}.promisor"
+  let lines = [
+    commit_id.to_hex() + " HEAD", commit_id.to_hex() + " " + refname,
+  ]
+  fs.write_string(marker_path, lines.join("\n") + "\n")
 }
 
 ///|

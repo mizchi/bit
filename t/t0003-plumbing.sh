@@ -56,6 +56,18 @@ test_expect_success 'git ls-files -s shows staged files with hash' '
     git_cmd ls-files -s | grep -q "100644"
 '
 
+test_expect_success 'git ls-files -s respects pathspec filter' '
+    git_cmd init &&
+    mkdir -p dir1 dir2 &&
+    echo "one" > dir1/one.txt &&
+    echo "two" > dir2/two.txt &&
+    git_cmd add dir1/one.txt dir2/two.txt &&
+    git_cmd ls-files -s dir1/one.txt > out &&
+    test "$(wc -l < out)" -eq 1 &&
+    grep -q "dir1/one.txt" out &&
+    ! grep -q "dir2/two.txt" out
+'
+
 test_expect_success 'git write-tree creates tree from index' '
     git_cmd init &&
     echo "hello" > test.txt &&

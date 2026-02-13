@@ -16,6 +16,7 @@ async fn handle_commit(args : Array[String]) -> Unit raise Error {
   let mut all_modified = false
   let mut amend = false
   let mut allow_empty = false
+  let mut no_verify = false
   let mut quiet = false
   let mut author_override : String? = None
   let mut date_override : String? = None
@@ -73,6 +74,7 @@ async fn handle_commit(args : Array[String]) -> Unit raise Error {
       "-a" | "--all" => all_modified = true
       "--amend" => amend = true
       "--allow-empty" => allow_empty = true
+      "--no-verify" => no_verify = true
       "-q" | "--quiet" => quiet = true
       _ if arg.has_prefix("-") => warn_unimplemented_arg("commit", arg)
       _ => ()
@@ -120,6 +122,13 @@ async fn handle_commit(args : Array[String]) -> Unit raise Error {
   // Committer is always the current user
   let committer = default_author
   let committer_timestamp = default_timestamp
+  let git_dir = resolve_git_dir(fs, root)
+  if not(no_verify) {
+    let hook_status = run_pre_commit_hook(fs, root, git_dir)
+    if hook_status != 0 {
+      raise @git.GitError::InvalidObject("pre-commit hook failed")
+    }
+  }
   let commit_id = if amend {
     @gitlib.commit_amend(
       fs,
@@ -149,7 +158,6 @@ async fn handle_commit(args : Array[String]) -> Unit raise Error {
     Some(idx) => (try! msg[:idx]).to_string()
     None => msg
   }
-  let git_dir = resolve_git_dir(fs, root)
   // Show subdir-clone context if applicable
   if not(quiet) {
     match get_subdir_info(fs, git_dir) {
@@ -157,6 +165,36 @@ async fn handle_commit(args : Array[String]) -> Unit raise Error {
         print_line("[" + short_id + " (subdir: " + path + ")] " + first_line)
       None => print_line("[" + short_id + "] " + first_line)
     }
+  }
+}
+
+///|
+fn abs_path(path : String) -> String {
+  if path.has_prefix("/") {
+    return path
+  }
+  let cwd = match @env.current_dir() {
+    Some(dir) => dir
+    None => "."
+  }
+  normalize_path(cwd + "/" + path)
+}
+
+///|
+async fn run_pre_commit_hook(fs : OsFs, root : String, git_dir : String) -> Int {
+  let hook_git_dir = abs_path(git_dir)
+  let hook_path = hook_git_dir + "/hooks/pre-commit"
+  if not(fs.is_file(hook_path)) {
+    return 0
+  }
+  let work_root = abs_path(root)
+  @process.run(
+    hook_path,
+    [],
+    inherit_env=true,
+    cwd=work_root,
+  ) catch {
+    _ => 1
   }
 }
 

@@ -9,20 +9,32 @@ async fn handle_ls_files(args : Array[String]) -> Unit raise Error {
   let mut show_directory = false
   let mut recurse_submodules = false
   let mut use_nul = false
+  let raw_filters : Array[String] = []
+  let mut parse_options = true
   for arg in args {
-    match arg {
-      "-s" | "--stage" => show_stage = true
-      "-c" | "--cached" => () // default mode, no-op
-      "-o" | "--others" => show_others = true
-      "-d" | "--deleted" => show_deleted = true
-      "--directory" => show_directory = true
-      "--recurse-submodules" => recurse_submodules = true
-      "-z" => use_nul = true
-      _ if arg.has_prefix("-") => warn_unimplemented_arg("ls-files", arg)
-      _ => ()
+    if parse_options && arg == "--" {
+      parse_options = false
+      continue
+    }
+    if parse_options {
+      match arg {
+        "-s" | "--stage" => show_stage = true
+        "-c" | "--cached" => () // default mode, no-op
+        "-o" | "--others" => show_others = true
+        "-d" | "--deleted" => show_deleted = true
+        "--directory" => show_directory = true
+        "--recurse-submodules" => recurse_submodules = true
+        "-z" => use_nul = true
+        _ if arg.has_prefix("-") => warn_unimplemented_arg("ls-files", arg)
+        _ => raw_filters.push(arg)
+      }
+    } else {
+      raw_filters.push(arg)
     }
   }
   let terminator = if use_nul { "\u0000" } else { "\n" }
+  let cwd_prefix = compute_cwd_prefix(root)
+  let filters = normalize_ls_tree_filters(raw_filters, cwd_prefix)
   let entries = @gitlib.read_index_entries(fs, git_dir)
   if show_others {
     // Build set of tracked paths and their parent directories
@@ -47,13 +59,16 @@ async fn handle_ls_files(args : Array[String]) -> Unit raise Error {
       // Show untracked directories (not individual files)
       let untracked_dirs = collect_untracked_dirs(fs, root, tracked_dirs)
       for dir in untracked_dirs {
-        print_str(dir + "/" + terminator)
+        let out_path = dir + "/"
+        if ls_files_matches_filters(out_path, filters) {
+          print_str(out_path + terminator)
+        }
       }
     } else {
       // Show untracked files
       let all_files = @ignore.list_working_files_async(fs, root)
       for path in all_files {
-        if not(tracked.contains(path)) {
+        if not(tracked.contains(path)) && ls_files_matches_filters(path, filters) {
           print_str(path + terminator)
         }
       }
@@ -64,7 +79,7 @@ async fn handle_ls_files(args : Array[String]) -> Unit raise Error {
     // Show deleted files (in index but not in worktree)
     for e in entries {
       let abs = root + "/" + e.path
-      if not(fs.is_file(abs)) {
+      if not(fs.is_file(abs)) && ls_files_matches_filters(e.path, filters) {
         print_str(e.path + terminator)
       }
     }
@@ -87,6 +102,9 @@ async fn handle_ls_files(args : Array[String]) -> Unit raise Error {
       if recurse_submodules && e.mode == 0o160000 {
         continue
       }
+      if not(ls_files_matches_filters(e.path, filters)) {
+        continue
+      }
       let mode = format_mode(e.mode)
       // Stage is always 0 for normal entries (no merge conflict)
       print_str("\{mode} \{e.id.to_hex()} 0\t\{e.path}" + terminator)
@@ -100,6 +118,9 @@ async fn handle_ls_files(args : Array[String]) -> Unit raise Error {
         for se in sub_entries {
           let mode = format_mode(se.mode)
           let full_path = submod.path + "/" + se.path
+          if not(ls_files_matches_filters(full_path, filters)) {
+            continue
+          }
           print_str("\{mode} \{se.id.to_hex()} 0\t\{full_path}" + terminator)
         }
       }
@@ -108,6 +129,9 @@ async fn handle_ls_files(args : Array[String]) -> Unit raise Error {
     for e in entries {
       // Skip submodule entries (mode 160000) when recursing
       if recurse_submodules && e.mode == 0o160000 {
+        continue
+      }
+      if not(ls_files_matches_filters(e.path, filters)) {
         continue
       }
       print_str(e.path + terminator)
@@ -120,6 +144,9 @@ async fn handle_ls_files(args : Array[String]) -> Unit raise Error {
         let sub_entries = @gitlib.read_index_entries(fs, actual_git_dir)
         for se in sub_entries {
           let full_path = submod.path + "/" + se.path
+          if not(ls_files_matches_filters(full_path, filters)) {
+            continue
+          }
           print_str(full_path + terminator)
         }
       }
@@ -311,6 +338,27 @@ fn make_display_path(path : String, cwd_prefix : String) -> String {
     rel = rel + "../"
   }
   rel + path
+}
+
+///|
+fn ls_files_matches_filters(path : String, filters : Array[String]) -> Bool {
+  if filters.length() == 0 {
+    return true
+  }
+  let normalized = if path.has_suffix("/") && path.length() > 1 {
+    String::unsafe_substring(path, start=0, end=path.length() - 1)
+  } else {
+    path
+  }
+  for filter in filters {
+    if normalized == filter {
+      return true
+    }
+    if normalized.has_prefix(filter + "/") {
+      return true
+    }
+  }
+  false
 }
 
 ///|

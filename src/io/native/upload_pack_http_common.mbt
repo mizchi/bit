@@ -210,6 +210,7 @@ pub async fn clone_to_fs_with_http(
     @git.HttpResponse,
     Bytes,
   ) raise @git.GitError,
+  no_checkout? : Bool = false,
 ) -> Array[(@git.ObjectId, String)] raise @git.GitError {
   let (refs, _caps, _version, symrefs) = discover_upload_refs_with_http(
     remote, prefer_v2, http_get, http_post,
@@ -262,10 +263,15 @@ pub async fn clone_to_fs_with_http(
       let store = @git.ObjectStore::from_pack(objects)
       match default_ref {
         None => ()
-        Some((refname, commit_id)) =>
-          @git.materialize_clone_to_fs(
-            store, commit_id, refname, remote, fs, root,
-          )
+        Some((refname, commit_id)) => {
+          if no_checkout {
+            @git.write_git_metadata(store, commit_id, refname, remote, fs, root)
+          } else {
+            @git.materialize_clone_to_fs(
+              store, commit_id, refname, remote, fs, root,
+            )
+          }
+        }
       }
     }
   }
@@ -318,6 +324,6 @@ fn write_partial_clone_refs(
   fs.write_string(ref_path, commit_id.to_hex() + "\n")
   // Write config with remote
   let config_path = @git.join_path(git_dir, "config")
-  let config = "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n\tlogallaliases = false\n[remote \"origin\"]\n\turl = \{remote}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n\tpromisor = true\n\tpartialclonefilter = blob:none\n"
+  let config = "[core]\n\trepositoryformatversion = 1\n\tfilemode = true\n\tbare = false\n\tlogallaliases = false\n[extensions]\n\tpartialclone = origin\n[remote \"origin\"]\n\turl = \{remote}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n\tpromisor = true\n\tpartialclonefilter = blob:none\n"
   fs.write_string(config_path, config)
 }

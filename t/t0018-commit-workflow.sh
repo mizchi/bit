@@ -88,6 +88,31 @@ test_expect_success 'commit --amend preserves tree when no staged changes' '
     test "$tree_before" = "$tree_after"
 '
 
+test_expect_success 'commit runs pre-commit hook and aborts on non-zero exit' '
+    git_cmd init src &&
+    echo "base" > src/base.txt &&
+    (
+        cd src &&
+        git_cmd add base.txt &&
+        git_cmd commit -m "base"
+    ) &&
+    git_cmd init dst &&
+    cat > dst/.git/hooks/pre-commit <<-\EOF &&
+#!/bin/sh
+git clone ../src ../cloned-from-hook
+exit 1
+EOF
+    chmod +x dst/.git/hooks/pre-commit &&
+    echo "work" > dst/work.txt &&
+    (
+        cd dst &&
+        git_cmd add work.txt &&
+        test_must_fail git_cmd commit -m "blocked by hook"
+    ) &&
+    test_dir_exists cloned-from-hook &&
+    test_file_exists cloned-from-hook/base.txt
+'
+
 # =============================================================================
 # Group 2: status formats (5)
 # =============================================================================

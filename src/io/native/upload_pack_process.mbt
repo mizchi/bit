@@ -269,6 +269,8 @@ pub async fn fetch_pack_process(
   remote : String,
   wants : Array[@git.ObjectId],
   prefer_v2 : Bool,
+  depth? : Int = 0,
+  filter? : @protocol.FilterSpec = @protocol.FilterSpec::NoFilter,
 ) -> Bytes raise @git.GitError {
   let (refs, caps, version, _symrefs) = discover_upload_refs_process(
     remote, prefer_v2,
@@ -284,8 +286,12 @@ pub async fn fetch_pack_process(
     wants
   }
   if version == @protocol.ProtocolVersion::V2 {
-    // Note: depth=0 means full clone (process transport doesn't support shallow yet)
-    let req = @protocol.build_fetch_request_v2("git/moonbit", wants, 0)
+    let req = @protocol.build_fetch_request_v2(
+      "git/moonbit",
+      wants,
+      depth,
+      filter~,
+    )
     let resp = upload_pack_request_process(remote, req, true)
     return @protocol.extract_pack_from_v2_response(resp)
   }
@@ -299,8 +305,10 @@ pub async fn fetch_objects_process(
   remote : String,
   wants : Array[@git.ObjectId],
   prefer_v2 : Bool,
+  depth? : Int = 0,
+  filter? : @protocol.FilterSpec = @protocol.FilterSpec::NoFilter,
 ) -> Array[@git.PackObject] raise @git.GitError {
-  let pack = fetch_pack_process(remote, wants, prefer_v2)
+  let pack = fetch_pack_process(remote, wants, prefer_v2, depth~, filter~)
   @pack.parse_packfile(pack)
 }
 
@@ -308,12 +316,14 @@ pub async fn fetch_objects_process(
 pub async fn clone_process(
   remote : String,
   prefer_v2 : Bool,
+  depth? : Int = 0,
+  filter? : @protocol.FilterSpec = @protocol.FilterSpec::NoFilter,
 ) -> (Array[(@git.ObjectId, String)], Array[@git.PackObject]) raise @git.GitError {
   let (refs, _caps, _version, symrefs) = discover_upload_refs_process(
     remote, prefer_v2,
   )
   let wants = @protocol.select_default_wants(refs, symrefs)
-  let pack = fetch_pack_process(remote, wants, prefer_v2)
+  let pack = fetch_pack_process(remote, wants, prefer_v2, depth~, filter~)
   let objects = @pack.parse_packfile(pack)
   (refs, objects)
 }
@@ -325,6 +335,9 @@ pub async fn clone_process_to_fs(
   prefer_v2 : Bool,
   fs : &@git.FileSystem,
   root : String,
+  depth? : Int = 0,
+  filter? : @protocol.FilterSpec = @protocol.FilterSpec::NoFilter,
+  no_checkout? : Bool = false,
 ) -> Array[(@git.ObjectId, String)] raise @git.GitError {
   let (refs, _caps, _version, symrefs) = discover_upload_refs_process(
     remote, prefer_v2,
@@ -338,16 +351,146 @@ pub async fn clone_process_to_fs(
   if wants.length() == 0 {
     return refs
   }
-  let pack = fetch_pack_process(remote, wants, prefer_v2)
+  let pack = fetch_pack_process(remote, wants, prefer_v2, depth~, filter~)
   let objects = @pack.parse_packfile(pack)
+  let git_dir = @git.join_path(root, ".git")
+  let pack_id = read_pack_trailer_id(pack)
+  fs.mkdir_p(@git.join_path(git_dir, "objects/pack"))
+  @pack.write_packfile_with_index(fs, git_dir, pack, objects)
+  let effective_no_checkout = no_checkout || filter.is_partial()
+  if filter.is_partial() {
+    write_promisor_remote_file(fs, git_dir, remote)
+    write_pack_promisor_marker(fs, git_dir, pack_id, refs, default_ref)
+  }
   let store = @git.ObjectStore::from_pack(objects)
   match default_ref {
     None => ()
     Some((refname, commit_id)) => {
-      @git.materialize_clone_to_fs(store, commit_id, refname, remote, fs, root)
-      let git_dir = @git.join_path(root, ".git")
-      @pack.write_packfile_with_index(fs, git_dir, pack, objects)
+      if filter.is_partial() {
+        write_partial_clone_metadata(
+          fs,
+          root,
+          refname,
+          commit_id,
+          remote,
+          filter,
+        )
+      } else if effective_no_checkout {
+        @git.write_git_metadata(store, commit_id, refname, remote, fs, root)
+      } else {
+        @git.materialize_clone_to_fs(
+          store,
+          commit_id,
+          refname,
+          remote,
+          fs,
+          root,
+        )
+      }
     }
   }
   refs
+}
+
+///|
+fn read_pack_trailer_id(pack : Bytes) -> @git.ObjectId raise @git.GitError {
+  if pack.length() < 20 {
+    raise @git.GitError::PackfileError("Packfile too short")
+  }
+  let trailer_start = pack.length() - 20
+  let bytes = FixedArray::makei(20, i => pack[trailer_start + i])
+  @git.ObjectId::new(bytes)
+}
+
+///|
+fn write_promisor_remote_file(
+  fs : &@git.FileSystem,
+  git_dir : String,
+  remote : String,
+) -> Unit raise @git.GitError {
+  let info_dir = @git.join_path(git_dir, "objects/info")
+  fs.mkdir_p(info_dir)
+  fs.write_string(@git.join_path(info_dir, "promisor"), remote + "\n")
+}
+
+///|
+fn write_pack_promisor_marker(
+  fs : &@git.FileSystem,
+  git_dir : String,
+  pack_id : @git.ObjectId,
+  refs : Array[(@git.ObjectId, String)],
+  default_ref : (String, @git.ObjectId)?,
+) -> Unit raise @git.GitError {
+  let pack_dir = @git.join_path(git_dir, "objects/pack")
+  let marker_lines : Array[String] = []
+  let seen : Map[String, Bool] = {}
+  for item in refs {
+    let (id, name) = item
+    let line = id.to_hex() + " " + name
+    if seen.contains(line) {
+      continue
+    }
+    seen[line] = true
+    marker_lines.push(line)
+  }
+  match default_ref {
+    Some((_, head_id)) => {
+      let head_line = head_id.to_hex() + " HEAD"
+      if not(seen.contains(head_line)) {
+        seen[head_line] = true
+        marker_lines.push(head_line)
+      }
+    }
+    None => ()
+  }
+  if marker_lines.length() == 0 {
+    return ()
+  }
+  let marker_content = marker_lines.join("\n") + "\n"
+  let base = "pack-\{pack_id.to_hex()}"
+  let marker_path = @git.join_path(pack_dir, base + ".promisor")
+  fs.write_string(marker_path, marker_content)
+}
+
+///|
+fn write_partial_clone_metadata(
+  fs : &@git.FileSystem,
+  root : String,
+  refname : String,
+  commit_id : @git.ObjectId,
+  remote : String,
+  filter : @protocol.FilterSpec,
+) -> Unit raise @git.GitError {
+  let git_dir = @git.join_path(root, ".git")
+  fs.mkdir_p(@git.join_path(git_dir, "objects/info"))
+  fs.mkdir_p(@git.join_path(git_dir, "objects/pack"))
+  fs.mkdir_p(@git.join_path(git_dir, "refs/heads"))
+  fs.mkdir_p(@git.join_path(git_dir, "refs/tags"))
+  fs.write_string(@git.join_path(git_dir, "HEAD"), "ref: \{refname}\n")
+  let ref_path = @git.join_path(git_dir, refname)
+  let ref_dir = match ref_path.rev_find("/") {
+    Some(idx) => String::unsafe_substring(ref_path, start=0, end=idx)
+    None => git_dir
+  }
+  fs.mkdir_p(ref_dir)
+  fs.write_string(ref_path, commit_id.to_hex() + "\n")
+  let filter_value = filter.to_string()
+  let config_path = @git.join_path(git_dir, "config")
+  let config =
+    #|[core]
+    #|	repositoryformatversion = 1
+    #|	filemode = true
+    #|	bare = false
+    #|	logallrefupdates = true
+    #|[extensions]
+    #|	partialclone = origin
+    $|[remote "origin"]
+    $|	url = \{remote}
+    #|	fetch = +refs/heads/*:refs/remotes/origin/*
+    #|	promisor = true
+    $|	partialclonefilter = \{filter_value}
+    #|
+  fs.write_string(config_path, config)
+  let packed_refs_path = @git.join_path(git_dir, "packed-refs")
+  fs.write_string(packed_refs_path, "# pack-refs with: peeled fully-peeled\n")
 }
