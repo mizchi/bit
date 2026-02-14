@@ -472,7 +472,7 @@ fn resolve_ref_inner(
       let target = String::unsafe_substring(line, start=5, end=line.length())
       return resolve_ref_inner(fs, git_dir, target, depth + 1)
     }
-    return line |> @git.ObjectId::from_hex |> Some
+    return parse_ref_object_id(line)
   }
   match resolve_ref_commondir(fs, git_dir) {
     Some(common_git_dir) =>
@@ -506,8 +506,10 @@ fn collect_loose_heads(
       collect_loose_heads(fs, path, rel, out)
     } else if fs.is_file(path) {
       let line = read_ref_line(fs, path)
-      let id = @git.ObjectId::from_hex(line)
-      out[rel] = id
+      match parse_ref_object_id(line) {
+        Some(id) => out[rel] = id
+        None => ()
+      }
     }
   }
 }
@@ -549,7 +551,10 @@ fn collect_packed_heads(
           end=refname.length(),
         )
         if not(out.contains(name)) {
-          out[name] = @git.ObjectId::from_hex(id_hex)
+          match parse_ref_object_id(id_hex) {
+            Some(id) => out[name] = id
+            None => ()
+          }
         }
       }
     }
@@ -594,12 +599,22 @@ fn resolve_packed_ref(
           end=line.length(),
         )
         if name == refname {
-          return id_hex |> @git.ObjectId::from_hex |> Some
+          return parse_ref_object_id(id_hex)
         }
       }
     }
   }
   None
+}
+
+///|
+fn parse_ref_object_id(hex : String) -> @git.ObjectId? raise @git.GitError {
+  // lib/object currently represents only SHA-1 ObjectId values.
+  // Treat SHA-256 refs as unresolved so callers can degrade gracefully.
+  if hex.length() == 64 {
+    return None
+  }
+  Some(@git.ObjectId::from_hex(hex))
 }
 
 ///|
