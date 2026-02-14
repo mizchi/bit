@@ -10,11 +10,15 @@ async fn show_commit_command_help() -> Unit {
 
 ///|
 async fn handle_commit(args : Array[String]) -> Unit raise Error {
-  if commit_should_delegate_to_real_git(args) {
-    delegate_to_real_git("commit", args)
-  }
   let root = get_work_root()
   let fs = OsFs::new()
+  let rfs : &@git.RepoFileSystem = fs
+  let git_dir = resolve_git_dir(rfs, root)
+  if commit_should_delegate_to_real_git(args) ||
+    (real_git_delegate_is_available(rfs) && is_reftable_repo(rfs, git_dir)) {
+    delegate_to_real_git("commit", args)
+    return ()
+  }
   let commit_message_encoding = resolve_commit_message_encoding()
   let mut message : String? = None
   let mut all_modified = false
@@ -30,6 +34,11 @@ async fn handle_commit(args : Array[String]) -> Unit raise Error {
     let arg = args[i]
     match arg {
       "-m" if i + 1 < args.length() => {
+        message = Some(args[i + 1])
+        i += 2
+        continue
+      }
+      "--message" if i + 1 < args.length() => {
         message = Some(args[i + 1])
         i += 2
         continue

@@ -1994,16 +1994,17 @@ fn clone_local_repo(
       None => ()
     }
   }
-  // Set remote tracking refs in packed-refs so up-to-date pushes keep them packed.
-  let packed_tracking_refs : Array[(String, @git.ObjectId)] = []
+  // Initialize remote-tracking refs as loose refs so fetch --prune can remove them.
   if not(mirror) {
     for b in branches {
-      packed_tracking_refs.push(
-        ("refs/remotes/" + remote_name + "/" + b.name, b.id),
+      write_ref_file(
+        fs,
+        dest_git_dir,
+        "refs/remotes/" + remote_name + "/" + b.name,
+        b.id,
       )
     }
   }
-  upsert_packed_refs(fs, dest_git_dir, packed_tracking_refs)
   if not(detached_head) && not(mirror) && branches.length() > 0 {
     write_symref_file(
       fs,

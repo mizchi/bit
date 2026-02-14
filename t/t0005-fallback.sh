@@ -124,4 +124,79 @@ test_expect_success 'bundle works even if SHIM_REAL_GIT is invalid' '
     )
 '
 
+test_expect_success 'fetch works even if SHIM_REAL_GIT is invalid' '
+    git_cmd init upstream &&
+    (
+        cd upstream &&
+        echo base >a.txt &&
+        git_cmd add a.txt &&
+        git_cmd commit -m "base commit"
+    ) &&
+    git_cmd clone upstream work &&
+    (
+        cd upstream &&
+        echo next >>a.txt &&
+        git_cmd add a.txt &&
+        git_cmd commit -m "next commit" &&
+        git_cmd rev-parse HEAD >../expected
+    ) &&
+    (
+        cd work &&
+        branch="$(git_cmd rev-parse --abbrev-ref HEAD)" &&
+        SHIM_REAL_GIT=/no/such git_cmd fetch origin &&
+        test_file_exists .git/FETCH_HEAD &&
+        test "$(git_cmd rev-parse "refs/remotes/origin/$branch")" = "$(cat ../expected)"
+    )
+'
+
+test_expect_success 'pull works even if SHIM_REAL_GIT is invalid' '
+    git_cmd init upstream &&
+    (
+        cd upstream &&
+        echo base >a.txt &&
+        git_cmd add a.txt &&
+        git_cmd commit -m "base commit"
+    ) &&
+    git_cmd clone upstream work &&
+    (
+        cd upstream &&
+        echo next >>a.txt &&
+        git_cmd add a.txt &&
+        git_cmd commit -m "next commit" &&
+        git_cmd rev-parse HEAD >../expected
+    ) &&
+    (
+        cd work &&
+        SHIM_REAL_GIT=/no/such git_cmd pull &&
+        test "$(git_cmd rev-parse HEAD)" = "$(cat ../expected)"
+    )
+'
+
+test_expect_success 'push works even if SHIM_REAL_GIT is invalid' '
+    git_cmd init --bare origin.git &&
+    git_cmd clone origin.git work &&
+    (
+        cd work &&
+        echo hello >a.txt &&
+        git_cmd add a.txt &&
+        git_cmd commit -m "first commit" &&
+        branch="$(git_cmd rev-parse --abbrev-ref HEAD)" &&
+        SHIM_REAL_GIT=/no/such git_cmd push origin "HEAD:refs/heads/$branch" &&
+        echo "$branch" >../branch_name &&
+        git_cmd rev-parse HEAD >../expected
+    ) &&
+    test "$(git_cmd --git-dir=origin.git rev-parse "refs/heads/$(cat branch_name)")" = "$(cat expected)"
+'
+
+test_expect_success 'hash-object -w works with compatObjectFormat even if SHIM_REAL_GIT is invalid' '
+    git_cmd init repo &&
+    (
+        cd repo &&
+        git_cmd config extensions.compatObjectFormat sha256 &&
+        echo hello >a.txt &&
+        SHIM_REAL_GIT=/no/such git_cmd hash-object -w a.txt >actual &&
+        grep -Eq "^[0-9a-f]{40}$" actual
+    )
+'
+
 test_done

@@ -23,6 +23,19 @@ fn is_real_git_delegate_enabled() -> Bool {
 }
 
 ///|
+fn real_git_delegate_is_available(fs : &@git.RepoFileSystem) -> Bool {
+  guard is_real_git_delegate_enabled() else { return false }
+  let real_git = resolve_real_git_for_fetch()
+  if real_git.length() == 0 {
+    return false
+  }
+  if real_git.has_prefix("/") {
+    return fs.is_file(real_git)
+  }
+  true
+}
+
+///|
 fn collect_global_config_overrides_for_delegate() -> Array[String] {
   let overrides : Array[String] = []
   match @sys.get_env_var("GIT_CONFIG_OVERRIDES") {
@@ -91,12 +104,13 @@ async fn delegate_to_real_git(
 
 ///|
 async fn handle_fetch(args : Array[String]) -> Unit raise Error {
-  if is_real_git_delegate_enabled() {
-    delegate_to_real_git("fetch", args)
-  }
-  let root = get_work_root()
   let fs = OsFs::new()
   let rfs : &@git.RepoFileSystem = fs
+  if real_git_delegate_is_available(rfs) {
+    delegate_to_real_git("fetch", args)
+    return ()
+  }
+  let root = get_work_root()
   let git_dir = resolve_git_dir(rfs, root)
   let (remotes, branches) = @gitlib.read_repo_config(fs, git_dir)
   // Read remote URL - prefer subdir-clone remote, then config

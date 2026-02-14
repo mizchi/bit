@@ -2,6 +2,7 @@
 async fn handle_hash_object(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
   let fs = OsFs::new()
+  let rfs : &@git.RepoFileSystem = fs
   let mut write_object = false
   let mut stdin_mode = false
   let mut obj_type = "blob"
@@ -37,7 +38,9 @@ async fn handle_hash_object(args : Array[String]) -> Unit raise Error {
       fs, git_dir,
     )
     if hash_object_should_delegate_to_real_git(
-        write_object, compat_object_format,
+        write_object,
+        compat_object_format,
+        real_git_delegate_is_available(rfs),
       ) {
       delegate_to_real_git("hash-object", args)
     }
@@ -93,7 +96,11 @@ fn read_hash_object_compat_object_format(
 fn hash_object_should_delegate_to_real_git(
   write_object : Bool,
   compat_object_format : String?,
+  real_git_delegate_available : Bool,
 ) -> Bool {
+  if not(real_git_delegate_available) {
+    return false
+  }
   if not(write_object) {
     return false
   }

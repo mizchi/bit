@@ -26,8 +26,7 @@ async fn handle_branch(args : Array[String]) -> Unit raise Error {
   let mut track_upstream = false
   let mut start_point : String? = None
   let mut i = 0
-  if branch_can_delegate_to_real_git(fs) &&
-    branch_should_delegate_to_real_git(args) {
+  if branch_should_delegate_to_real_git_with_repo(fs, git_dir, args) {
     delegate_to_real_git("branch", args)
   }
   while i < args.length() {
@@ -296,6 +295,16 @@ fn branch_should_delegate_to_real_git(args : Array[String]) -> Bool {
     return true
   }
   false
+}
+
+///|
+fn branch_should_delegate_to_real_git_with_repo(
+  fs : &@git.RepoFileSystem,
+  git_dir : String,
+  args : Array[String],
+) -> Bool {
+  guard branch_can_delegate_to_real_git(fs) else { return false }
+  branch_should_delegate_to_real_git(args) || is_reftable_repo(fs, git_dir)
 }
 
 ///|

@@ -130,3 +130,29 @@ test "fetch-delegate: secondary real-git env enables delegation when primary emp
   restore_env_var_for_fetch_wbtest("SHIM_REAL_GIT", prev_primary)
   restore_env_var_for_fetch_wbtest("GIT_SHIM_REAL_GIT", prev_secondary)
 }
+
+///|
+test "fetch-delegate: absolute real-git path requires existing file" {
+  let prev_primary = @sys.get_env_var("SHIM_REAL_GIT")
+  let prev_secondary = @sys.get_env_var("GIT_SHIM_REAL_GIT")
+  let fs = @git.TestFs::new()
+  @sys.set_env_var("SHIM_REAL_GIT", "/tmp/mock-git")
+  @sys.unset_env_var("GIT_SHIM_REAL_GIT")
+  assert_false(real_git_delegate_is_available(fs))
+  fs.write_string("/tmp/mock-git", "#!/bin/sh\n")
+  assert_true(real_git_delegate_is_available(fs))
+  restore_env_var_for_fetch_wbtest("SHIM_REAL_GIT", prev_primary)
+  restore_env_var_for_fetch_wbtest("GIT_SHIM_REAL_GIT", prev_secondary)
+}
+
+///|
+test "fetch-delegate: command name is treated as available" {
+  let prev_primary = @sys.get_env_var("SHIM_REAL_GIT")
+  let prev_secondary = @sys.get_env_var("GIT_SHIM_REAL_GIT")
+  let fs = @git.TestFs::new()
+  @sys.set_env_var("SHIM_REAL_GIT", "git")
+  @sys.unset_env_var("GIT_SHIM_REAL_GIT")
+  assert_true(real_git_delegate_is_available(fs))
+  restore_env_var_for_fetch_wbtest("SHIM_REAL_GIT", prev_primary)
+  restore_env_var_for_fetch_wbtest("GIT_SHIM_REAL_GIT", prev_secondary)
+}

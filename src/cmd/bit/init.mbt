@@ -19,6 +19,12 @@ async fn handle_init(args : Array[String]) -> Unit raise Error {
       }
   }
   let fs = OsFs::new()
+  let rfs : &@git.RepoFileSystem = fs
+  let wants_bit_layout = args.iter().any(arg => arg == "--bit")
+  if not(wants_bit_layout) && real_git_delegate_is_available(rfs) {
+    delegate_to_real_git("init", args)
+    return ()
+  }
   // Parse options
   let mut bare = false
   let mut quiet = false

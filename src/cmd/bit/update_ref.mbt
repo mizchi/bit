@@ -2,7 +2,12 @@
 async fn handle_update_ref(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
   let fs = OsFs::new()
-  let git_dir = resolve_git_dir(fs, root)
+  let rfs : &@git.RepoFileSystem = fs
+  let git_dir = resolve_git_dir(rfs, root)
+  if real_git_delegate_is_available(rfs) && is_reftable_repo(rfs, git_dir) {
+    delegate_to_real_git("update-ref", args)
+    return ()
+  }
   let mut delete_mode = false
   let mut create_reflog = false
   let mut no_deref = false
@@ -141,7 +146,7 @@ async fn handle_update_ref(args : Array[String]) -> Unit raise Error {
     )
     @sys.exit(1)
   }
-  let new_value = positional[1]
+  let new_value = if positional[1] == "@" { "HEAD" } else { positional[1] }
   let old_value : String? = if positional.length() >= 3 {
     Some(positional[2])
   } else {

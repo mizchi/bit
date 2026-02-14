@@ -103,6 +103,60 @@ test "clone bundle delegate gate: available real git path is delegated" {
 }
 
 ///|
+test "clone reftable delegate gate: unavailable real git path stays in pure path" {
+  let prev_primary = @sys.get_env_var("SHIM_REAL_GIT")
+  let prev_secondary = @sys.get_env_var("GIT_SHIM_REAL_GIT")
+  let fs = @git.TestFs::new()
+  @sys.set_env_var("SHIM_REAL_GIT", "/tmp/mock-git")
+  @sys.unset_env_var("GIT_SHIM_REAL_GIT")
+  assert_false(clone_should_delegate_to_real_git_for_ref_format(fs, "reftable"))
+  assert_false(clone_should_delegate_to_real_git_for_ref_format(fs, "files"))
+  restore_env_var_for_clone_wbtest("SHIM_REAL_GIT", prev_primary)
+  restore_env_var_for_clone_wbtest("GIT_SHIM_REAL_GIT", prev_secondary)
+}
+
+///|
+test "clone reftable delegate gate: available real git path is delegated" {
+  let prev_primary = @sys.get_env_var("SHIM_REAL_GIT")
+  let prev_secondary = @sys.get_env_var("GIT_SHIM_REAL_GIT")
+  let fs = @git.TestFs::new()
+  @sys.set_env_var("SHIM_REAL_GIT", "git")
+  @sys.unset_env_var("GIT_SHIM_REAL_GIT")
+  assert_true(clone_should_delegate_to_real_git_for_ref_format(fs, "reftable"))
+  assert_false(clone_should_delegate_to_real_git_for_ref_format(fs, "files"))
+  restore_env_var_for_clone_wbtest("SHIM_REAL_GIT", prev_primary)
+  restore_env_var_for_clone_wbtest("GIT_SHIM_REAL_GIT", prev_secondary)
+}
+
+///|
+test "clone standard delegate gate: available real git uses delegate" {
+  let prev_primary = @sys.get_env_var("SHIM_REAL_GIT")
+  let prev_secondary = @sys.get_env_var("GIT_SHIM_REAL_GIT")
+  let fs = @git.TestFs::new()
+  @sys.set_env_var("SHIM_REAL_GIT", "git")
+  @sys.unset_env_var("GIT_SHIM_REAL_GIT")
+  assert_true(
+    clone_should_delegate_to_real_git_for_standard_clone(
+      fs, "https://example.com/repo.git",
+    ),
+  )
+  restore_env_var_for_clone_wbtest("SHIM_REAL_GIT", prev_primary)
+  restore_env_var_for_clone_wbtest("GIT_SHIM_REAL_GIT", prev_secondary)
+}
+
+///|
+test "clone standard delegate gate: shorthand keeps pure path" {
+  let prev_primary = @sys.get_env_var("SHIM_REAL_GIT")
+  let prev_secondary = @sys.get_env_var("GIT_SHIM_REAL_GIT")
+  let fs = @git.TestFs::new()
+  @sys.set_env_var("SHIM_REAL_GIT", "git")
+  @sys.unset_env_var("GIT_SHIM_REAL_GIT")
+  assert_false(clone_should_delegate_to_real_git_for_standard_clone(fs, "octo/repo"))
+  restore_env_var_for_clone_wbtest("SHIM_REAL_GIT", prev_primary)
+  restore_env_var_for_clone_wbtest("GIT_SHIM_REAL_GIT", prev_secondary)
+}
+
+///|
 fn cleanup_clone_wbtest_tree(fs : OsFs, path : String) -> Unit {
   if fs.is_file(path) {
     fs.remove_file(path) catch {

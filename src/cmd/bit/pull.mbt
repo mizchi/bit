@@ -1,12 +1,12 @@
 ///|
 async fn handle_pull(args : Array[String]) -> Unit raise Error {
-  if is_real_git_delegate_enabled() {
+  let fs = OsFs::new()
+  let rfs : &@git.RepoFileSystem = fs
+  if real_git_delegate_is_available(rfs) {
     delegate_to_real_git("pull", args)
   }
   let root = get_work_root()
   let git_dir = root + "/.git"
-  let fs = OsFs::new()
-  let rfs : &@git.RepoFileSystem = fs
   if rfs.is_file(git_dir) {
     let gitfile = decode_bytes(
       rfs.read_file(git_dir) catch {

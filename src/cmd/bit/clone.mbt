@@ -216,6 +216,14 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
     @sys.exit(1)
   }
   let fs = OsFs::new()
+  if clone_should_delegate_to_real_git_for_standard_clone(fs, remote_url) {
+    delegate_to_real_git("clone", args)
+    return ()
+  }
+  if clone_should_delegate_to_real_git_for_ref_format(fs, ref_format) {
+    delegate_to_real_git("clone", args)
+    return ()
+  }
   let local_src_path = @gitlib.resolve_local_repo_path(
     fs, command_root, remote_url,
   )
@@ -226,6 +234,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
       fs, local_src_file_path,
     ) {
     delegate_to_real_git("clone", args)
+    return ()
   }
   // Check for ambiguity with local directories only when path is not local.
   if local_src_path is None && local_src_file_path is None {
@@ -445,7 +454,6 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
               None => ()
             }
           }
-          pack_remote_tracking_refs(fs, clone_git_dir, remote_name)
         }
         if ref_spec is Some(refname) &&
           not(bare) &&
@@ -542,7 +550,6 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
             None => ()
           }
         }
-        pack_remote_tracking_refs(fs, clone_git_dir, remote_name)
       }
       if refs.length() > 0 {
         if ref_spec is Some(refname) &&
@@ -696,6 +703,29 @@ fn clone_should_delegate_to_real_git_for_bundle(
   match local_src_file_path {
     Some(path) => path.has_suffix(".bundle")
     None => false
+  }
+}
+
+///|
+fn clone_should_delegate_to_real_git_for_ref_format(
+  fs : &@git.RepoFileSystem,
+  ref_format : String,
+) -> Bool {
+  if ref_format != "reftable" {
+    return false
+  }
+  clone_can_delegate_to_real_git(fs)
+}
+
+///|
+fn clone_should_delegate_to_real_git_for_standard_clone(
+  fs : &@git.RepoFileSystem,
+  remote_url : String,
+) -> Bool {
+  guard clone_can_delegate_to_real_git(fs) else { return false }
+  match parse_github_shorthand(remote_url) {
+    Some(_) => false
+    None => true
   }
 }
 

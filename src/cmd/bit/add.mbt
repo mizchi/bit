@@ -95,6 +95,11 @@ async fn handle_add(args : Array[String]) -> Unit raise Error {
     @sys.exit(1)
   }
   if stage_paths.length() == 0 {
+    let rfs : &@git.RepoFileSystem = fs
+    if real_git_delegate_is_available(rfs) {
+      delegate_to_real_git("add", args)
+      return
+    }
     let first = add_first_non_empty_pathspec(paths)
     if first is Some(spec) {
       eprint_line("fatal: pathspec '\{spec}' did not match any files")

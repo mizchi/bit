@@ -3,11 +3,16 @@ async fn handle_tag(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
   let fs = OsFs::new()
   let rfs : &@git.RepoFileSystem = fs
+  if real_git_delegate_is_available(rfs) {
+    delegate_to_real_git("tag", args)
+    return ()
+  }
   let git_dir = resolve_git_dir(rfs, root)
   let mut list_mode = true
   let mut delete_mode = false
   let mut annotated = false
   let mut force = false
+  let delete_tags : Array[String] = []
   let mut message : String? = None
   let mut tag_name : String? = None
   let mut target : String? = None
@@ -50,7 +55,10 @@ async fn handle_tag(args : Array[String]) -> Unit raise Error {
         continue
       }
       _ if not(arg.has_prefix("-")) =>
-        if tag_name is None {
+        if delete_mode {
+          delete_tags.push(arg)
+          list_mode = false
+        } else if tag_name is None {
           tag_name = Some(arg)
           list_mode = false
         } else if target is None {
@@ -62,15 +70,18 @@ async fn handle_tag(args : Array[String]) -> Unit raise Error {
     i += 1
   }
   if delete_mode {
-    guard tag_name is Some(name) else {
+    guard delete_tags.length() > 0 else {
       raise @git.GitError::InvalidObject("tag name required for delete")
     }
-    @gitlib.delete_tag(fs, git_dir, name)
-    print_line("Deleted tag '\{name}'")
+    for name in delete_tags {
+      @gitlib.delete_tag(fs, git_dir, name)
+      print_line("Deleted tag '\{name}'")
+    }
     return ()
   }
   if list_mode {
     let tags = @gitlib.list_tags(fs, git_dir)
+    tags.sort()
     for tag in tags {
       print_line(tag)
     }
