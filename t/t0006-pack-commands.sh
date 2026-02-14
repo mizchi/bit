@@ -20,14 +20,13 @@ test_expect_success 'pack-objects -h shows usage' '
     git_cmd pack-objects --help 2>&1 | grep -q -i "usage\|pack" || true
 '
 
-test_expect_success 'index-pack works on valid pack' '
+test_expect_success 'pack-objects file-output stdin-object mode is explicitly unsupported in standalone mode' '
     git_cmd init &&
     echo "hello" > test.txt &&
     git_cmd add test.txt &&
     git_cmd commit -m "test" &&
-    # Create a pack file
-    git_cmd rev-parse HEAD | git_cmd pack-objects .git/objects/pack/test &&
-    test -f .git/objects/pack/test-*.pack
+    git_cmd rev-parse HEAD | test_must_fail git_cmd pack-objects .git/objects/pack/test >out 2>err &&
+    grep -Eiq "standalone|not supported|pack-objects" err
 '
 
 test_done
