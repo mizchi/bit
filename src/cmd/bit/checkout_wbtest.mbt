@@ -14,7 +14,7 @@ test "checkout delegate gate: single positional stays in pure path" {
   @sys.unset_env_var("GIT_SHIM_REAL_GIT")
   assert_false(checkout_should_delegate_to_real_git(["main"]))
   assert_false(checkout_should_delegate_to_real_git(["HEAD"]))
-  assert_true(checkout_should_delegate_to_real_git(["-"]))
+  assert_false(checkout_should_delegate_to_real_git(["-"]))
   restore_env_var_for_checkout_wbtest("SHIM_REAL_GIT", prev_primary)
   restore_env_var_for_checkout_wbtest("GIT_SHIM_REAL_GIT", prev_secondary)
 }

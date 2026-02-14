@@ -4,7 +4,7 @@ fn checkout_should_delegate_to_real_git(args : Array[String]) -> Bool {
   let mut positional_count = 0
   for arg in args {
     match arg {
-      "-" => ()
+      "-" => positional_count += 1
       "--" => return true
       "-b" | "-B" | "-f" | "--force" => return true
       _ if arg.has_prefix("-") => return true
@@ -18,6 +18,7 @@ fn checkout_should_delegate_to_real_git(args : Array[String]) -> Bool {
 async fn handle_checkout(args : Array[String]) -> Unit raise Error {
   if checkout_should_delegate_to_real_git(args) {
     delegate_to_real_git("checkout", args)
+    return ()
   }
   let root = get_work_root()
   let fs = OsFs::new()
