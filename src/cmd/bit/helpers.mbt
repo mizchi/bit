@@ -612,6 +612,7 @@ fn repo_object_format(fs : &@git.RepoFileSystem, git_dir : String) -> String {
   }
 }
 
+///|
 fn get_author_string() -> String {
   match @sys.get_env_var("GIT_AUTHOR_NAME") {
     Some(name) => {

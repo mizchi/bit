@@ -89,8 +89,7 @@ async test "worktree: status text" {
 async test "worktree: status text tolerates sha256 ref" {
   let fs = setup_repo()
   fs.write_string(
-    "/repo/.git/refs/heads/main",
-    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n",
+    "/repo/.git/refs/heads/main", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n",
   )
   let text = status_text(fs, "/repo")
   assert_true(text.contains("On branch main"))

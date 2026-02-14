@@ -230,7 +230,9 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
         bytes_from_array([]),
       )
       for id in objects {
-        if batch_check_mode && !batch_check_needs_object && !object_filter_enabled {
+        if batch_check_mode &&
+          !batch_check_needs_object &&
+          !object_filter_enabled {
           @stdio.stdout.write(
             cat_file_string_to_bytes(
               cat_file_format_batch_check_line(
@@ -250,9 +252,7 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
           continue
         }
         let (obj, has_invalid_object_type) = cat_file_find_object_in_dbs_lenient(
-          dbs,
-          fs,
-          id,
+          dbs, fs, id,
         )
         if has_invalid_object_type {
           eprint_line("fatal: invalid object type")
@@ -612,9 +612,7 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
         }
         let lookup_id = cat_file_resolve_replace_object_id(fs, git_dir, id)
         let (obj, has_invalid_object_type) = cat_file_find_object_in_dbs_lenient(
-          dbs,
-          fs,
-          lookup_id,
+          dbs, fs, lookup_id,
         )
         if has_invalid_object_type {
           eprint_line("fatal: invalid object type")
@@ -623,12 +621,7 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
         guard obj is Some(o) else {
           if output_info_mode && object_mode is Some(mode) && mode == "160000" {
             let submodule = cat_file_string_to_bytes(
-              cat_file_batch_display_object_name(
-                fs,
-                git_dir,
-                spec,
-                id.to_hex(),
-              ) +
+              cat_file_batch_display_object_name(fs, git_dir, spec, id.to_hex()) +
               " submodule" +
               batch_output_separator,
             )
@@ -672,11 +665,7 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
         let target_oid_len = display_object_name.length()
         let delta_base_hex = if format_uses_deltabase {
           cat_file_resolve_delta_base_hex(
-            dbs,
-            fs,
-            git_dir,
-            lookup_id,
-            target_oid_len,
+            dbs, fs, git_dir, lookup_id, target_oid_len,
           )
         } else {
           None
@@ -782,8 +771,8 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
         obj_spec = Some(positionals[1])
       }
       None => {
-      eprint_line("fatal: invalid object type \"\{positionals[0]}\"")
-      @sys.exit(128)
+        eprint_line("fatal: invalid object type \"\{positionals[0]}\"")
+        @sys.exit(128)
       }
     }
   }
@@ -1249,7 +1238,10 @@ fn cat_file_format_batch_check_line(
   out = out.replace_all(old="%(objectsize)", new=object_size.to_string())
   out = out.replace_all(old="%(objectname)", new=id_hex)
   out = out.replace_all(old="%(objecttype)", new=obj.obj_type.to_string())
-  out = out.replace_all(old="%(deltabase)", new=delta_base_hex.unwrap_or(zero_oid))
+  out = out.replace_all(
+    old="%(deltabase)",
+    new=delta_base_hex.unwrap_or(zero_oid),
+  )
   out = out.replace_all(old="%(rest)", new=rest)
   out = out.replace_all(old="%(objectmode)", new=object_mode.unwrap_or(""))
   out
@@ -1425,11 +1417,7 @@ fn cat_file_resolve_replace_object_id(
       break
     }
     seen[hex] = true
-    let replace_ref = @gitlib.resolve_ref(
-      fs,
-      git_dir,
-      "refs/replace/" + hex,
-    ) catch {
+    let replace_ref = @gitlib.resolve_ref(fs, git_dir, "refs/replace/" + hex) catch {
       _ => None
     }
     match replace_ref {
@@ -1584,9 +1572,7 @@ fn cat_file_rev_parse_with_compat(
     return direct
   }
   let reflog_zero = cat_file_rev_parse_reflog_zero_with_compat(
-    fs,
-    git_dir,
-    spec,
+    fs, git_dir, spec,
   )
   if reflog_zero is Some(_) {
     return reflog_zero
@@ -1651,7 +1637,8 @@ fn cat_file_split_commit_message_search_spec(
 ) -> (String, String)? {
   let marker = "^{/"
   match spec.find(marker) {
-    Some(idx) if idx > 0 && spec.has_suffix("}") &&
+    Some(idx) if idx > 0 &&
+      spec.has_suffix("}") &&
       idx + marker.length() < spec.length() - 1 =>
       Some(
         (

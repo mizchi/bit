@@ -1,3 +1,4 @@
+///|
 async fn handle_clone(args : Array[String]) -> Unit raise Error {
   let fallback_root = get_work_root()
   let command_root = match @sys.get_env_var("GIT_SHIM_CWD") {
@@ -417,7 +418,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
           separate_git_dir~,
           remote_name~,
           reference_alternates=reference_object_dirs,
-          ref_format=ref_format,
+          ref_format~,
         )
         if not(bare) && not(filter.is_partial()) {
           if not(no_checkout) {
@@ -635,7 +636,11 @@ fn clone_default_ref_format() -> String {
   match @sys.get_env_var("GIT_TEST_DEFAULT_REF_FORMAT") {
     Some(value) => {
       let normalized = value.to_lower()
-      if normalized == "reftable" { "reftable" } else { "files" }
+      if normalized == "reftable" {
+        "reftable"
+      } else {
+        "files"
+      }
     }
     None => "files"
   }

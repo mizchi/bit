@@ -64,7 +64,13 @@ async fn handle_rev_parse(args : Array[String]) -> Unit raise Error {
         print_line(abs)
       }
       "--show-ref-format" =>
-        print_line(if is_reftable_repo(fs, git_dir) { "reftable" } else { "files" })
+        print_line(
+          if is_reftable_repo(fs, git_dir) {
+            "reftable"
+          } else {
+            "files"
+          },
+        )
       "--show-object-format" => print_line(repo_object_format(fs, git_dir))
       _ if arg.has_prefix("--show-object-format=") => {
         let mode = String::unsafe_substring(arg, start=21, end=arg.length())

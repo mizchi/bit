@@ -2060,7 +2060,11 @@ fn read_clone_source_head_fallback(
 ) -> @git.ObjectId? {
   let head_path = git_dir + "/HEAD"
   if fs.is_file(head_path) {
-    let head_content = decode_bytes(fs.read_file(head_path) catch { _ => str_to_bytes("") })
+    let head_content = decode_bytes(
+      fs.read_file(head_path) catch {
+        _ => str_to_bytes("")
+      },
+    )
     let head_line = trim_string(head_content)
     if head_line.length() > 0 && not(head_line.has_prefix("ref: ")) {
       let head_id : @git.ObjectId? = Some(@git.ObjectId::from_hex(head_line)) catch {
@@ -2073,7 +2077,11 @@ fn read_clone_source_head_fallback(
   }
   let reflog_path = git_dir + "/logs/HEAD"
   guard fs.is_file(reflog_path) else { return None }
-  let reflog_content = decode_bytes(fs.read_file(reflog_path) catch { _ => str_to_bytes("") })
+  let reflog_content = decode_bytes(
+    fs.read_file(reflog_path) catch {
+      _ => str_to_bytes("")
+    },
+  )
   let mut latest_id : @git.ObjectId? = None
   for line_view in reflog_content.split("\n") {
     let line = trim_string(line_view.to_string())
@@ -2082,11 +2090,21 @@ fn read_clone_source_head_fallback(
     }
     match line.find(" ") {
       Some(first_sep) => {
-        let rest = String::unsafe_substring(line, start=first_sep + 1, end=line.length())
+        let rest = String::unsafe_substring(
+          line,
+          start=first_sep + 1,
+          end=line.length(),
+        )
         match rest.find(" ") {
           Some(second_sep) => {
-            let new_id_hex = String::unsafe_substring(rest, start=0, end=second_sep)
-            let parsed : @git.ObjectId? = Some(@git.ObjectId::from_hex(new_id_hex)) catch {
+            let new_id_hex = String::unsafe_substring(
+              rest,
+              start=0,
+              end=second_sep,
+            )
+            let parsed : @git.ObjectId? = Some(
+              @git.ObjectId::from_hex(new_id_hex),
+            ) catch {
               _ => None
             }
             if parsed is Some(id) {
