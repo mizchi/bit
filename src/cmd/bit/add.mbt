@@ -18,8 +18,7 @@ async fn handle_add(args : Array[String]) -> Unit raise Error {
   let fs = OsFs::new()
   let rfs : &@git.RepoFileSystem = fs
   let git_dir = resolve_git_dir(rfs, root)
-  if real_git_delegate_is_available(rfs) &&
-    add_repo_requires_standalone_error(rfs, git_dir) {
+  if add_repo_requires_standalone_error(rfs, git_dir) {
     eprint_line(
       "fatal: add with this repository object format is not supported in standalone mode",
     )

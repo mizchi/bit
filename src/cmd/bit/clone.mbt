@@ -216,7 +216,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
     @sys.exit(1)
   }
   let fs = OsFs::new()
-  if clone_ref_format_requires_advanced_compat(fs, ref_format) {
+  if clone_ref_format_requires_advanced_compat(ref_format) {
     eprint_line(
       "fatal: clone with --ref-format=reftable is not supported in standalone mode",
     )
@@ -228,7 +228,7 @@ async fn handle_clone(args : Array[String]) -> Unit raise Error {
   let local_src_file_path = resolve_local_clone_source_file(
     fs, command_root, remote_url,
   )
-  if clone_bundle_requires_advanced_compat(fs, local_src_file_path) {
+  if clone_bundle_requires_advanced_compat(local_src_file_path) {
     eprint_line(
       "fatal: clone from local bundle is not supported in standalone mode",
     )
@@ -680,24 +680,7 @@ fn resolve_local_clone_source_file(
 }
 
 ///|
-fn clone_compat_path_available(fs : &@git.RepoFileSystem) -> Bool {
-  guard is_real_git_delegate_enabled() else { return false }
-  let real_git = resolve_real_git_for_fetch()
-  if real_git.length() == 0 {
-    return false
-  }
-  if real_git.has_prefix("/") {
-    return fs.is_file(real_git)
-  }
-  true
-}
-
-///|
-fn clone_bundle_requires_advanced_compat(
-  fs : &@git.RepoFileSystem,
-  local_src_file_path : String?,
-) -> Bool {
-  guard clone_compat_path_available(fs) else { return false }
+fn clone_bundle_requires_advanced_compat(local_src_file_path : String?) -> Bool {
   match local_src_file_path {
     Some(path) => path.has_suffix(".bundle")
     None => false
@@ -705,14 +688,8 @@ fn clone_bundle_requires_advanced_compat(
 }
 
 ///|
-fn clone_ref_format_requires_advanced_compat(
-  fs : &@git.RepoFileSystem,
-  ref_format : String,
-) -> Bool {
-  if ref_format != "reftable" {
-    return false
-  }
-  clone_compat_path_available(fs)
+fn clone_ref_format_requires_advanced_compat(ref_format : String) -> Bool {
+  ref_format == "reftable"
 }
 
 ///|

@@ -1,41 +1,4 @@
 ///|
-fn resolve_real_git_for_fetch() -> String {
-  match @sys.get_env_var("SHIM_REAL_GIT") {
-    Some(path) if path.length() > 0 => path
-    _ =>
-      match @sys.get_env_var("GIT_SHIM_REAL_GIT") {
-        Some(path) if path.length() > 0 => path
-        _ => "git"
-      }
-  }
-}
-
-///|
-fn is_real_git_delegate_enabled() -> Bool {
-  match @sys.get_env_var("SHIM_REAL_GIT") {
-    Some(path) if path.length() > 0 => true
-    _ =>
-      match @sys.get_env_var("GIT_SHIM_REAL_GIT") {
-        Some(path) => path.length() > 0
-        None => false
-      }
-  }
-}
-
-///|
-fn real_git_delegate_is_available(fs : &@git.RepoFileSystem) -> Bool {
-  guard is_real_git_delegate_enabled() else { return false }
-  let real_git = resolve_real_git_for_fetch()
-  if real_git.length() == 0 {
-    return false
-  }
-  if real_git.has_prefix("/") {
-    return fs.is_file(real_git)
-  }
-  true
-}
-
-///|
 fn collect_global_config_overrides_for_delegate() -> Array[String] {
   let overrides : Array[String] = []
   match @sys.get_env_var("GIT_CONFIG_OVERRIDES") {

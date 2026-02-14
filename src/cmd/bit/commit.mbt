@@ -21,9 +21,7 @@ async fn handle_commit(args : Array[String]) -> Unit raise Error {
     @sys.exit(1)
   }
   if commit_args_require_standalone_error(args) {
-    eprint_line(
-      "fatal: this commit mode is not supported in standalone mode",
-    )
+    eprint_line("fatal: this commit mode is not supported in standalone mode")
     @sys.exit(1)
   }
   let commit_message_encoding = resolve_commit_message_encoding()
@@ -243,7 +241,6 @@ fn commit_repo_requires_standalone_error(
   fs : &@git.RepoFileSystem,
   git_dir : String,
 ) -> Bool {
-  guard real_git_delegate_is_available(fs) else { return false }
   is_reftable_repo(fs, git_dir) ||
   repo_object_format(fs, git_dir) != "sha1" ||
   (match repo_compat_object_format(fs, git_dir) {
@@ -422,7 +419,6 @@ fn cleanup_merge_state_files(
 
 ///|
 fn commit_args_require_standalone_error(args : Array[String]) -> Bool {
-  guard is_real_git_delegate_enabled() else { return false }
   let mut expect_value = false
   for arg in args {
     if expect_value {
@@ -438,7 +434,7 @@ fn commit_args_require_standalone_error(args : Array[String]) -> Bool {
       arg == "--no-gpg-sign" ||
       arg.has_prefix("-S") ||
       arg.has_prefix("--gpg-sign=") {
-      // Keep signature compatibility by delegating signed commits.
+      // Signed commit modes are not supported in standalone mode.
       return true
     }
     if arg == "-m" ||

@@ -23,8 +23,7 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
   let fs = OsFs::new()
   let git_dir = resolve_git_dir(fs, root)
-  if real_git_delegate_is_available(fs) &&
-    cat_file_has_incremental_midx_chain(fs, git_dir) {
+  if cat_file_has_incremental_midx_chain(fs, git_dir) {
     eprint_line(
       "fatal: cat-file with incremental multi-pack-index chain is not supported in standalone mode",
     )
@@ -125,9 +124,7 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
   let batch_format_uses_objectsize_disk = cat_file_batch_format_uses_objectsize_disk(
     batch_format,
   )
-  if batch_all_objects_mode &&
-    batch_format_uses_objectsize_disk &&
-    real_git_delegate_is_available(fs) {
+  if batch_all_objects_mode && batch_format_uses_objectsize_disk {
     eprint_line(
       "fatal: cat-file --batch-all-objects with %(objectsize:disk) is not supported in standalone mode",
     )

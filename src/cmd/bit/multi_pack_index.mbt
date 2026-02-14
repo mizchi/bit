@@ -1,7 +1,6 @@
 ///|
 async fn handle_multi_pack_index(args : Array[String]) -> Unit raise Error {
   let fs = OsFs::new()
-  let rfs : &@git.RepoFileSystem = fs
   let git_dir = find_git_dir(fs)
   let pack_dir = git_dir + "/objects/pack"
   let mut subcommand : String? = None
@@ -93,35 +92,22 @@ async fn handle_multi_pack_index(args : Array[String]) -> Unit raise Error {
   let incremental_chain_path = pack_dir +
     "/multi-pack-index.d/multi-pack-index-chain"
   let has_incremental_chain = fs.is_file(incremental_chain_path)
-  if real_git_delegate_is_available(rfs) {
-    if subcommand == Some("write") &&
-      (
-        incremental ||
-        refs_snapshot is Some(_) ||
-        bitmap ||
-        no_bitmap ||
-        has_incremental_chain
-      ) {
-      eprint_line(
-        "error: multi-pack-index write with bitmap/incremental chain is not supported in standalone mode",
-      )
-      @sys.exit(1)
-    }
-    if subcommand == Some("verify") && has_incremental_chain {
-      eprint_line(
-        "error: multi-pack-index verify with incremental chain is not supported in standalone mode",
-      )
-      @sys.exit(1)
-    }
-  } else if subcommand == Some("write") &&
-    (incremental || refs_snapshot is Some(_)) {
-    let delegated_opt = if incremental {
-      "--incremental"
-    } else {
-      "--refs-snapshot"
-    }
+  if subcommand == Some("write") &&
+    (
+      incremental ||
+      refs_snapshot is Some(_) ||
+      bitmap ||
+      no_bitmap ||
+      has_incremental_chain
+    ) {
     eprint_line(
-      "error: unsupported option for multi-pack-index: " + delegated_opt,
+      "error: multi-pack-index write with bitmap/incremental chain is not supported in standalone mode",
+    )
+    @sys.exit(1)
+  }
+  if subcommand == Some("verify") && has_incremental_chain {
+    eprint_line(
+      "error: multi-pack-index verify with incremental chain is not supported in standalone mode",
     )
     @sys.exit(1)
   }

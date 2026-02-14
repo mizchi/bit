@@ -1,6 +1,6 @@
 ///|
 async fn handle_rebase(args : Array[String]) -> Unit raise Error {
-  if is_real_git_delegate_enabled() && rebase_args_require_standalone_error(args) {
+  if rebase_args_require_standalone_error(args) {
     eprint_line(
       "fatal: interactive/step rebase mode is not supported in standalone mode",
     )

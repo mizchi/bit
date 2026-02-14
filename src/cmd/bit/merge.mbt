@@ -1,3 +1,4 @@
+///|
 async fn handle_merge(args : Array[String]) -> Unit raise Error {
   let fs = OsFs::new()
   let rfs : &@git.RepoFileSystem = fs

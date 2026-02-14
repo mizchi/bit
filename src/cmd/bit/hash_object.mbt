@@ -2,7 +2,6 @@
 async fn handle_hash_object(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
   let fs = OsFs::new()
-  let rfs : &@git.RepoFileSystem = fs
   let mut write_object = false
   let mut stdin_mode = false
   let mut obj_type = "blob"
@@ -33,20 +32,12 @@ async fn handle_hash_object(args : Array[String]) -> Unit raise Error {
   } else {
     root + "/.git"
   }
-  if is_real_git_delegate_enabled() {
-    let compat_object_format = read_hash_object_compat_object_format(
-      fs, git_dir,
+  let compat_object_format = read_hash_object_compat_object_format(fs, git_dir)
+  if hash_object_requires_standalone_error(write_object, compat_object_format) {
+    eprint_line(
+      "fatal: hash-object -w with compatObjectFormat=sha256 is not supported in standalone mode",
     )
-    if hash_object_requires_standalone_error(
-        write_object,
-        compat_object_format,
-        real_git_delegate_is_available(rfs),
-      ) {
-      eprint_line(
-        "fatal: hash-object -w with compatObjectFormat=sha256 is not supported in standalone mode",
-      )
-      @sys.exit(1)
-    }
+    @sys.exit(1)
   }
   if stdin_mode {
     let content = read_all_stdin()
@@ -99,11 +90,7 @@ fn read_hash_object_compat_object_format(
 fn hash_object_requires_standalone_error(
   write_object : Bool,
   compat_object_format : String?,
-  real_git_delegate_available : Bool,
 ) -> Bool {
-  if not(real_git_delegate_available) {
-    return false
-  }
   if not(write_object) {
     return false
   }

@@ -1,17 +1,5 @@
 ///|
-fn restore_env_var_for_commit_wbtest(name : String, prev : String?) -> Unit {
-  match prev {
-    Some(value) => @sys.set_env_var(name, value)
-    None => @sys.unset_env_var(name)
-  }
-}
-
-///|
-test "commit: signing options trigger real-git delegation when enabled" {
-  let prev_shim_real_git = @sys.get_env_var("SHIM_REAL_GIT")
-  let prev_legacy_real_git = @sys.get_env_var("GIT_SHIM_REAL_GIT")
-  @sys.set_env_var("SHIM_REAL_GIT", "/usr/bin/git")
-  @sys.unset_env_var("GIT_SHIM_REAL_GIT")
+test "commit: signing options require standalone error" {
   assert_true(commit_args_require_standalone_error(["-S", "-m", "msg"]))
   assert_true(
     commit_args_require_standalone_error(["-S/path/to/key", "-m", "msg"]),
@@ -20,17 +8,10 @@ test "commit: signing options trigger real-git delegation when enabled" {
   assert_true(
     commit_args_require_standalone_error(["--gpg-sign=KEY", "-m", "msg"]),
   )
-  restore_env_var_for_commit_wbtest("SHIM_REAL_GIT", prev_shim_real_git)
-  restore_env_var_for_commit_wbtest("GIT_SHIM_REAL_GIT", prev_legacy_real_git)
 }
 
 ///|
-test "commit: sha256 repository requires real-git delegation when available" {
-  let prev_shim_real_git = @sys.get_env_var("SHIM_REAL_GIT")
-  let prev_legacy_real_git = @sys.get_env_var("GIT_SHIM_REAL_GIT")
-  @sys.set_env_var("SHIM_REAL_GIT", "git")
-  @sys.unset_env_var("GIT_SHIM_REAL_GIT")
-
+test "commit: sha256 repository requires standalone error" {
   let fs = @git.TestFs::new()
   fs.mkdir_p("/repo/.git")
   fs.write_string(
@@ -42,18 +23,10 @@ test "commit: sha256 repository requires real-git delegation when available" {
     "/repo/.git/config", "[core]\n\trepositoryformatversion = 0\n",
   )
   assert_false(commit_repo_requires_standalone_error(fs, "/repo/.git"))
-
-  restore_env_var_for_commit_wbtest("SHIM_REAL_GIT", prev_shim_real_git)
-  restore_env_var_for_commit_wbtest("GIT_SHIM_REAL_GIT", prev_legacy_real_git)
 }
 
 ///|
-test "commit: compatobjectformat=sha256 requires real-git delegation when available" {
-  let prev_shim_real_git = @sys.get_env_var("SHIM_REAL_GIT")
-  let prev_legacy_real_git = @sys.get_env_var("GIT_SHIM_REAL_GIT")
-  @sys.set_env_var("SHIM_REAL_GIT", "git")
-  @sys.unset_env_var("GIT_SHIM_REAL_GIT")
-
+test "commit: compatobjectformat=sha256 requires standalone error" {
   let fs = @git.TestFs::new()
   fs.mkdir_p("/repo/.git")
   fs.write_string(
@@ -65,9 +38,6 @@ test "commit: compatobjectformat=sha256 requires real-git delegation when availa
     "/repo/.git/config", "[extensions]\n\tcompatobjectformat = sha1\n",
   )
   assert_false(commit_repo_requires_standalone_error(fs, "/repo/.git"))
-
-  restore_env_var_for_commit_wbtest("SHIM_REAL_GIT", prev_shim_real_git)
-  restore_env_var_for_commit_wbtest("GIT_SHIM_REAL_GIT", prev_legacy_real_git)
 }
 
 ///|

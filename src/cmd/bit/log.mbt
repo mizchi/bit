@@ -125,6 +125,7 @@ fn get_head_commit_message(fs : &@git.RepoFileSystem, root : String) -> String? 
   }
 }
 
+///|
 async fn handle_log(args : Array[String]) -> Unit raise Error {
   let root = get_work_root()
   let fs = OsFs::new()

@@ -1,12 +1,4 @@
 ///|
-fn restore_env_var_for_clone_wbtest(name : String, prev : String?) -> Unit {
-  match prev {
-    Some(value) => @sys.set_env_var(name, value)
-    None => @sys.unset_env_var(name)
-  }
-}
-
-///|
 test "clone caps contain token: direct token word" {
   let caps = ["multi_ack thin-pack filter side-band-64k"]
   assert_true(clone_caps_contain_token(caps, "filter"))
@@ -66,73 +58,23 @@ test "clone local source file resolver: remote URL is ignored" {
 }
 
 ///|
-test "clone bundle delegate gate: unavailable real git path stays in pure path" {
-  let prev_primary = @sys.get_env_var("SHIM_REAL_GIT")
-  let prev_secondary = @sys.get_env_var("GIT_SHIM_REAL_GIT")
-  let fs = @git.TestFs::new()
-  @sys.set_env_var("SHIM_REAL_GIT", "/tmp/mock-git")
-  @sys.unset_env_var("GIT_SHIM_REAL_GIT")
-  assert_false(clone_compat_path_available(fs))
-  assert_false(
-    clone_bundle_requires_advanced_compat(
-      fs,
-      Some("/work/repo/repo.bundle"),
-    ),
-  )
-  restore_env_var_for_clone_wbtest("SHIM_REAL_GIT", prev_primary)
-  restore_env_var_for_clone_wbtest("GIT_SHIM_REAL_GIT", prev_secondary)
-}
-
-///|
-test "clone bundle delegate gate: available real git path is delegated" {
-  let prev_primary = @sys.get_env_var("SHIM_REAL_GIT")
-  let prev_secondary = @sys.get_env_var("GIT_SHIM_REAL_GIT")
-  let fs = @git.TestFs::new()
-  @sys.set_env_var("SHIM_REAL_GIT", "git")
-  @sys.unset_env_var("GIT_SHIM_REAL_GIT")
-  assert_true(clone_compat_path_available(fs))
+test "clone bundle advanced compat requires local bundle path" {
   assert_true(
-    clone_bundle_requires_advanced_compat(
-      fs,
-      Some("/work/repo/repo.bundle"),
-    ),
+    clone_bundle_requires_advanced_compat(Some("/work/repo/repo.bundle")),
   )
   assert_false(
-    clone_bundle_requires_advanced_compat(
-      fs,
-      Some("/work/repo/not-bundle.git"),
-    ),
+    clone_bundle_requires_advanced_compat(Some("/work/repo/not-bundle.git")),
   )
-  restore_env_var_for_clone_wbtest("SHIM_REAL_GIT", prev_primary)
-  restore_env_var_for_clone_wbtest("GIT_SHIM_REAL_GIT", prev_secondary)
+  assert_false(clone_bundle_requires_advanced_compat(None))
 }
 
 ///|
-test "clone reftable delegate gate: unavailable real git path stays in pure path" {
-  let prev_primary = @sys.get_env_var("SHIM_REAL_GIT")
-  let prev_secondary = @sys.get_env_var("GIT_SHIM_REAL_GIT")
-  let fs = @git.TestFs::new()
-  @sys.set_env_var("SHIM_REAL_GIT", "/tmp/mock-git")
-  @sys.unset_env_var("GIT_SHIM_REAL_GIT")
-  assert_false(clone_ref_format_requires_advanced_compat(fs, "reftable"))
-  assert_false(clone_ref_format_requires_advanced_compat(fs, "files"))
-  restore_env_var_for_clone_wbtest("SHIM_REAL_GIT", prev_primary)
-  restore_env_var_for_clone_wbtest("GIT_SHIM_REAL_GIT", prev_secondary)
+test "clone reftable advanced compat depends on ref-format only" {
+  assert_true(clone_ref_format_requires_advanced_compat("reftable"))
+  assert_false(clone_ref_format_requires_advanced_compat("files"))
 }
 
 ///|
-test "clone reftable delegate gate: available real git path is delegated" {
-  let prev_primary = @sys.get_env_var("SHIM_REAL_GIT")
-  let prev_secondary = @sys.get_env_var("GIT_SHIM_REAL_GIT")
-  let fs = @git.TestFs::new()
-  @sys.set_env_var("SHIM_REAL_GIT", "git")
-  @sys.unset_env_var("GIT_SHIM_REAL_GIT")
-  assert_true(clone_ref_format_requires_advanced_compat(fs, "reftable"))
-  assert_false(clone_ref_format_requires_advanced_compat(fs, "files"))
-  restore_env_var_for_clone_wbtest("SHIM_REAL_GIT", prev_primary)
-  restore_env_var_for_clone_wbtest("GIT_SHIM_REAL_GIT", prev_secondary)
-}
-
 fn cleanup_clone_wbtest_tree(fs : OsFs, path : String) -> Unit {
   if fs.is_file(path) {
     fs.remove_file(path) catch {

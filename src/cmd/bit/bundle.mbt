@@ -1,3 +1,4 @@
+///|
 async fn handle_bundle(args : Array[String]) -> Unit raise Error {
   if args.length() == 0 {
     print_line("usage: git bundle <command> [<args>]")
