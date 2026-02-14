@@ -285,6 +285,106 @@ pub fn ObjectDb::find_delta_base(
 }
 
 ///|
+/// Return object size on disk.
+/// - loose object: compressed loose file size
+/// - packed object: packed entry byte length
+pub fn ObjectDb::find_object_disk_size(
+  self : ObjectDb,
+  fs : &@git.RepoFileSystem,
+  id : @git.ObjectId,
+) -> Int? raise @git.GitError {
+  let hex = id.to_hex()
+  match find_loose_path_by_hex(self, fs, hex) {
+    Some(path) => Some(fs.read_file(path).length())
+    None => find_pack_object_disk_size_by_hex(self, fs, hex)
+  }
+}
+
+///|
+fn find_loose_path_by_hex(
+  db : ObjectDb,
+  fs : &@git.RepoFileSystem,
+  hex : String,
+) -> String? {
+  match db.loose_paths.get(hex) {
+    Some(path) => Some(path)
+    None =>
+      if hex.length() == 40 {
+        let prefix = String::unsafe_substring(hex, start=0, end=2)
+        let suffix = String::unsafe_substring(hex, start=2, end=40)
+        let path = db.objects_dir + "/" + prefix + "/" + suffix
+        if fs.is_file(path) {
+          db.loose_paths[hex] = path
+          Some(path)
+        } else {
+          None
+        }
+      } else {
+        None
+      }
+  }
+}
+
+///|
+fn find_pack_object_disk_size_by_hex(
+  db : ObjectDb,
+  fs : &@git.RepoFileSystem,
+  hex : String,
+) -> Int? raise @git.GitError {
+  for pack in db.packs {
+    let offset = PackIndex::find_offset_hex(pack, hex)
+    if offset is Some(found) {
+      return pack_object_disk_size_at(db, fs, pack, found)
+    }
+  }
+  for lazy_pack in db.lazy_packs {
+    let pack = lazy_pack.get(fs)
+    let offset = PackIndex::find_offset_hex(pack, hex)
+    if offset is Some(found) {
+      return pack_object_disk_size_at(db, fs, pack, found)
+    }
+  }
+  None
+}
+
+///|
+fn pack_object_disk_size_at(
+  db : ObjectDb,
+  fs : &@git.RepoFileSystem,
+  pack : PackIndex,
+  offset : Int64,
+) -> Int? raise @git.GitError {
+  let data = get_pack_bytes(db, fs, pack.pack_path)
+  if data.length() <= 20 {
+    return None
+  }
+  let mut next_offset : Int64? = None
+  for candidate in pack.offsets {
+    if candidate > offset {
+      match next_offset {
+        Some(current) =>
+          if candidate < current {
+            next_offset = Some(candidate)
+          }
+        None => next_offset = Some(candidate)
+      }
+    }
+  }
+  let end_offset = match next_offset {
+    Some(found) => found
+    None => (data.length() - 20).to_int64()
+  }
+  if end_offset < offset {
+    return None
+  }
+  let size64 = end_offset - offset
+  if size64 < 0L || size64 > 2147483647L {
+    return None
+  }
+  Some(size64.to_int())
+}
+
+///|
 /// Fast loose-object lookup without seen set allocation.
 fn get_loose_by_hex(
   db : ObjectDb,

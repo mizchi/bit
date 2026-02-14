@@ -208,6 +208,9 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
     let format_uses_deltabase = cat_file_batch_format_uses_deltabase(
       batch_format,
     )
+    let format_uses_objectsize_disk = cat_file_batch_format_uses_objectsize_disk(
+      batch_format,
+    )
     if batch_all_objects_mode {
       let object_dirs = cat_file_collect_object_dirs(fs, git_dir)
       for object_dir in object_dirs {
@@ -235,6 +238,7 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
                 id,
                 batch_check_placeholder_obj,
                 "",
+                None,
                 None,
                 None,
                 None,
@@ -281,6 +285,11 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
                 None,
                 None,
                 None,
+                if format_uses_objectsize_disk {
+                  cat_file_resolve_object_disk_size(dbs, fs, id)
+                } else {
+                  None
+                },
                 delta_base_hex,
               ) +
               batch_output_separator,
@@ -316,6 +325,11 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
               None,
               None,
               None,
+              if format_uses_objectsize_disk {
+                cat_file_resolve_object_disk_size(dbs, fs, id)
+              } else {
+                None
+              },
               if format_uses_deltabase {
                 cat_file_resolve_delta_base_hex(
                   dbs,
@@ -588,8 +602,28 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
           line_index += 1
           continue
         }
-        let obj = cat_file_find_object_in_dbs_lenient(dbs, fs, id)
+        let lookup_id = cat_file_resolve_replace_object_id(fs, git_dir, id)
+        let obj = cat_file_find_object_in_dbs_lenient(dbs, fs, lookup_id)
         guard obj is Some(o) else {
+          if output_info_mode && object_mode is Some(mode) && mode == "160000" {
+            let submodule = cat_file_string_to_bytes(
+              cat_file_batch_display_object_name(
+                fs,
+                git_dir,
+                spec,
+                id.to_hex(),
+              ) +
+              " submodule" +
+              batch_output_separator,
+            )
+            if buffer_enabled {
+              pending_chunks.push(submodule)
+            } else {
+              @stdio.stdout.write(submodule)
+            }
+            line_index += 1
+            continue
+          }
           let missing = cat_file_string_to_bytes(
             spec + " missing" + batch_output_separator,
           )
@@ -625,7 +659,7 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
             dbs,
             fs,
             git_dir,
-            id,
+            lookup_id,
             target_oid_len,
           )
         } else {
@@ -634,6 +668,11 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
         let display_data = cat_file_convert_object_data_for_display(
           fs, git_dir, o, target_oid_len,
         )
+        let object_size_disk = if format_uses_objectsize_disk {
+          cat_file_resolve_object_disk_size(dbs, fs, lookup_id)
+        } else {
+          None
+        }
         if output_info_mode {
           let info = cat_file_string_to_bytes(
             cat_file_format_batch_check_line(
@@ -644,6 +683,7 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
               object_mode,
               Some(display_object_name),
               Some(display_data.length()),
+              object_size_disk,
               delta_base_hex,
             ) +
             batch_output_separator,
@@ -672,6 +712,7 @@ async fn handle_cat_file(args : Array[String]) -> Unit raise Error {
             object_mode,
             Some(display_object_name),
             Some(display_data.length()),
+            object_size_disk,
             delta_base_hex,
           ) +
           batch_output_separator,
@@ -1108,6 +1149,7 @@ fn cat_file_format_batch_check_line(
   object_mode : String?,
   object_name_override : String?,
   object_size_override : Int?,
+  object_size_disk_override : Int?,
   delta_base_hex : String?,
 ) -> String {
   let mut out = match format {
@@ -1116,13 +1158,13 @@ fn cat_file_format_batch_check_line(
   }
   let id_hex = object_name_override.unwrap_or(id.to_hex())
   let zero_oid = cat_file_zero_oid(id_hex.length())
-  if out.contains("%(objectsize)") || out.contains("%(objectsize:disk)") {
-    let object_size = object_size_override
-      .unwrap_or(obj.data.length())
-      .to_string()
-    out = out.replace_all(old="%(objectsize:disk)", new=object_size)
-    out = out.replace_all(old="%(objectsize)", new=object_size)
-  }
+  let object_size = object_size_override.unwrap_or(obj.data.length())
+  let object_size_disk = object_size_disk_override.unwrap_or(object_size)
+  out = out.replace_all(
+    old="%(objectsize:disk)",
+    new=object_size_disk.to_string(),
+  )
+  out = out.replace_all(old="%(objectsize)", new=object_size.to_string())
   out = out.replace_all(old="%(objectname)", new=id_hex)
   out = out.replace_all(old="%(objecttype)", new=obj.obj_type.to_string())
   out = out.replace_all(old="%(deltabase)", new=delta_base_hex.unwrap_or(zero_oid))
@@ -1143,6 +1185,14 @@ fn cat_file_batch_format_uses_rest(format : String?) -> Bool {
 fn cat_file_batch_format_uses_deltabase(format : String?) -> Bool {
   match format {
     Some(fmt) => fmt.contains("%(deltabase)")
+    None => false
+  }
+}
+
+///|
+fn cat_file_batch_format_uses_objectsize_disk(format : String?) -> Bool {
+  match format {
+    Some(fmt) => fmt.contains("%(objectsize:disk)")
     None => false
   }
 }
@@ -1269,6 +1319,35 @@ fn cat_file_object_is_excluded_by_filter(
 }
 
 ///|
+fn cat_file_resolve_replace_object_id(
+  fs : OsFs,
+  git_dir : String,
+  id : @git.ObjectId,
+) -> @git.ObjectId {
+  let mut current = id
+  let seen : Map[String, Bool] = {}
+  while true {
+    let hex = current.to_hex()
+    if seen.contains(hex) {
+      break
+    }
+    seen[hex] = true
+    let replace_ref = @gitlib.resolve_ref(
+      fs,
+      git_dir,
+      "refs/replace/" + hex,
+    ) catch {
+      _ => None
+    }
+    match replace_ref {
+      Some(replaced) => current = replaced
+      None => break
+    }
+  }
+  current
+}
+
+///|
 fn cat_file_resolve_delta_base_hex(
   dbs : Array[@gitlib.ObjectDb],
   fs : OsFs,
@@ -1287,6 +1366,21 @@ fn cat_file_resolve_delta_base_hex(
           target_oid_len,
         ),
       )
+    }
+  }
+  None
+}
+
+///|
+fn cat_file_resolve_object_disk_size(
+  dbs : Array[@gitlib.ObjectDb],
+  fs : OsFs,
+  id : @git.ObjectId,
+) -> Int? {
+  for db in dbs {
+    let disk_size = db.find_object_disk_size(fs, id) catch { _ => None }
+    if disk_size is Some(size) {
+      return Some(size)
     }
   }
   None
