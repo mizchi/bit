@@ -68,6 +68,9 @@
     （`git@github.com:mizchi/o'hara.git`）
   - 対応実装: `src/io/native/upload_pack_process.mbt` で `'` を含む path の
     shell single-quote escape を追加
+- [x] `config` の先頭 real-git 委譲を撤去（`src/cmd/bit/config.mbt`）
+- [x] `SHIM_REAL_GIT=/no/such` でも `config` が動く fallback smoke を追加（`t/t0005-fallback.sh`）
+- [x] `GIT_TEST_OPTS='--run=1-20' just git-t-full t1300-config.sh` が green（`success 20 / failed 0 / broken 0`）
 
 ## 次に git 依存をなくす候補（2026-02-14）
 
@@ -77,7 +80,7 @@
 優先度（低リスク順）:
 
 - [x] P0（短期）着手: `rm`, `reset`, `switch`, `add` の先頭委譲を撤去
-- [ ] P1（中期）: `config`, `branch`, `checkout`, `update-ref`, `log`
+- [ ] P1（中期）: `branch`, `checkout`, `update-ref`, `log`（`config` は完了）
 - [ ] P2（中〜高）: `bundle`, `merge`
 - [ ] P3（高）: `fetch`, `pull`, `push`, `hash-object`（compat object format の条件付き委譲）
 
@@ -87,8 +90,8 @@ P0 から順に「先頭の `if is_real_git_delegate_enabled() { delegate_to_rea
 - [x] P0 blocker: `t2060-switch.sh`（16/16 pass, 2026-02-14）
   - `switch` の主要オプション互換を実装し、`--ignore-other-worktrees` の回帰まで解消
   - 付随修正: `worktree add -f` 受理、worktree 上の `bisect` gitdir 解決、checkout の commondir object 参照
-- [ ] P0 blocker: `t3600-rm.sh`（`--run=1-20` で 5 fail）
-  - `--cached` 整合性チェック、`ls-files` との整合、`rm` 出力メッセージ互換
+- [x] P0 blocker: `t3600-rm.sh`（`GIT_TEST_OPTS='--run=1-20'`: success 20/20, 2026-02-14）
+  - `--cached` 整合性チェック、`ls-files --error-unmatch`、`rm --/--quiet/--ignore-unmatch` と出力互換を修正
 - [x] P0 blocker: `t7102-reset.sh`（`GIT_TEST_OPTS='--run=1-20'`: success 20/20, 2026-02-14）
   - オプション検証、`--soft/--hard` の状態遷移、エラーメッセージと出力文言互換
 - [x] P0 blocker: `t3700-add.sh`（`GIT_TEST_OPTS='--run=1-20'`: success 20/20, 2026-02-14）
@@ -121,8 +124,9 @@ P0 から順に「先頭の `if is_real_git_delegate_enabled() { delegate_to_rea
 - fetch/clone 回帰（full command set）
   - [x] `t5510-fetch.sh`: `success 215 / failed 0`
   - [x] `t5516-fetch-push.sh`: `success 123 / failed 0`
-  - [ ] `t5601-clone.sh`: `success 113 / failed 1 / skip 1`
-    - [ ] fail: test 104 `clone with GIT_DEFAULT_HASH`
+  - [ ] `t5601-clone.sh`: `success 65 / failed 50 / skip 0`（pass-through 撤去後）
+    - [x] test 104 `clone with GIT_DEFAULT_HASH` は pass（`--run=104`: success 1 / failed 0）
+    - [ ] 残: SSH clone クラスタ（`40-97`）
 
 ## 性能改善（2026-02-12）
 
@@ -209,13 +213,18 @@ git/t ではカバーしきれない standalone 動作を補完的に検証す�
   - [x] followRemoteHEAD / tracking / FETCH_HEAD 互換
   - [x] `--prune` / `--prune-tags` / `--refmap` / `--atomic` 互換
   - [x] bundle / negotiation-tip / D/F conflict / auto-gc 互換
-- [x] **t5601-clone.sh**（`git-t-full`: success 114/115, skip 1）
+- [x] **t5601-clone.sh（2026-02-13 基準値）**（`git-t-full`: success 114/115, skip 1）
 - [ ] **t5601-clone.sh（pass-through 撤去後の再計測）**
-  - [ ] `clone with GIT_DEFAULT_HASH`（test 104）で fail（`success 113 / failed 1 / skip 1`）
+  - [ ] 現在値: `success 65 / failed 50 / skip 0`（2026-02-14）
+  - [x] `clone with GIT_DEFAULT_HASH`（test 104）は pass（`GIT_TEST_OPTS='--run=104'`: success 1/1）
+  - [ ] SSH clone クラスタ（`40-97`）は未解消（`just git-t-full t5601-clone.sh`）
+- [ ] **bit ghq get 回帰の切り分け**
+  - [ ] `bit ghq get` の落ち方を再現し、最小 E2E を `t/` に追加（Red）
+  - [ ] `t5601` 修正と同時に `ghq get` ガードを維持して Green 化
 - [x] **t2060-switch.sh**（`git-t-full`: success 16/16）
   - [x] `--detach` / `--orphan` / `--guess` / `--track=inherit` / `--ignore-other-worktrees` 互換を実装
-- [ ] **t3600-rm.sh**（`GIT_TEST_OPTS='--run=1-20'`: failed 5）
-  - [ ] `--cached` 整合性チェック、`ls-files` との整合、出力メッセージ互換
+- [x] **t3600-rm.sh**（`GIT_TEST_OPTS='--run=1-20'`: success 20/20, 2026-02-14）
+  - [x] `--cached` 整合性チェック、`ls-files` との整合、出力メッセージ互換
 - [x] **t7102-reset.sh**（`GIT_TEST_OPTS='--run=1-20'`: success 20/20）
   - [x] `--soft/--hard` 状態遷移、オプション検証、出力/エラーメッセージ互換
 - [x] **t3700-add.sh**（`GIT_TEST_OPTS='--run=1-20'`: success 20/20）

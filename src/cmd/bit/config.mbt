@@ -1,8 +1,5 @@
 ///|
 async fn handle_config(args : Array[String]) -> Unit raise Error {
-  if is_real_git_delegate_enabled() {
-    delegate_to_real_git("config", args)
-  }
   let fs = OsFs::new()
   let normalized_args = normalize_config_args(args)
   // Parse arguments
@@ -256,9 +253,8 @@ async fn list_config(
           String::unsafe_substring(line, start=0, end=i),
           " \t",
         )
-        let val_part = trim_chars(
+        let val_part = parse_config_value(
           String::unsafe_substring(line, start=i + 1, end=line.length()),
-          " \t",
         )
         print_line("\{current_section}.\{key_part}=\{val_part}")
       }
@@ -334,9 +330,8 @@ fn get_config_value(
           )
           if key_part.to_lower() == name_l {
             return Some(
-              trim_chars(
+              parse_config_value(
                 String::unsafe_substring(line, start=i + 1, end=line.length()),
-                " \t",
               ),
             )
           }
@@ -346,6 +341,105 @@ fn get_config_value(
     }
   }
   None
+}
+
+///|
+fn is_horizontal_space(c : Char) -> Bool {
+  c == ' ' || c == '\t'
+}
+
+///|
+fn decode_config_escape(c : Char) -> Char {
+  match c {
+    'n' => '\n'
+    't' => '\t'
+    'r' => '\r'
+    _ => c
+  }
+}
+
+///|
+fn parse_config_value(raw : String) -> String {
+  let sb = StringBuilder::new()
+  let mut in_single = false
+  let mut in_double = false
+  let mut escape = false
+  let mut started = false
+  let mut trailing_ws = 0
+  for c in raw {
+    if escape {
+      sb.write_char(decode_config_escape(c))
+      started = true
+      trailing_ws = 0
+      escape = false
+      continue
+    }
+    if in_double {
+      if c == '\\' {
+        escape = true
+        continue
+      }
+      if c == '"' {
+        in_double = false
+        started = true
+        trailing_ws = 0
+        continue
+      }
+      sb.write_char(c)
+      started = true
+      trailing_ws = 0
+      continue
+    }
+    if in_single {
+      if c == '\'' {
+        in_single = false
+        started = true
+        trailing_ws = 0
+        continue
+      }
+      sb.write_char(c)
+      started = true
+      trailing_ws = 0
+      continue
+    }
+    if not(started) && is_horizontal_space(c) {
+      continue
+    }
+    if c == '"' {
+      in_double = true
+      started = true
+      continue
+    }
+    if c == '\'' {
+      in_single = true
+      started = true
+      continue
+    }
+    if c == '\\' {
+      escape = true
+      started = true
+      trailing_ws = 0
+      continue
+    }
+    if c == '#' || c == ';' {
+      if not(started) || trailing_ws > 0 {
+        break
+      }
+    }
+    sb.write_char(c)
+    started = true
+    if is_horizontal_space(c) {
+      trailing_ws += 1
+    } else {
+      trailing_ws = 0
+    }
+  }
+  let parsed = sb.to_string()
+  if trailing_ws > 0 && parsed.length() >= trailing_ws {
+    String::unsafe_substring(parsed, start=0, end=parsed.length() - trailing_ws)
+  } else {
+    parsed
+  }
 }
 
 ///|
@@ -374,6 +468,9 @@ fn set_config(
     }
     (parts[0], Some(sub.join(".")), parts[parts.length() - 1])
   }
+  let section_l = section.to_lower()
+  let subsection_l = subsection.map(sub => sub.to_lower())
+  let name_l = name.to_lower()
   let section_header = match subsection {
     Some(sub) => "[\{section} \"\{sub}\"]"
     None => "[\{section}]"
@@ -392,7 +489,9 @@ fn set_config(
     // Create new config file
     wfs.write_string(
       config_path,
-      section_header + "\n\t" + name + " = " + encoded_value + "\n",
+      ensure_trailing_newline(
+        section_header + "\n\t" + name + " = " + encoded_value + "\n",
+      ),
     )
     return
   }
@@ -400,6 +499,9 @@ fn set_config(
   let lines : Array[String] = []
   for line_view in content.split("\n") {
     lines.push(line_view.to_string())
+  }
+  if lines.length() > 0 && lines[lines.length() - 1] == "" {
+    ignore(lines.pop())
   }
   let mut in_section = false
   let mut found = false
@@ -418,13 +520,15 @@ fn set_config(
         start=1,
         end=trimmed.length() - 1,
       )
+      let sec_content_l = sec_content.to_lower()
       match subsection {
-        Some(sub) => {
-          let expected = section + " \"" + sub + "\""
-          in_section = sec_content == expected ||
-            sec_content == section + " " + sub
+        Some(_) => {
+          let sub_l = subsection_l.unwrap_or("")
+          let expected = section_l + " \"" + sub_l + "\""
+          in_section = sec_content_l == expected ||
+            sec_content_l == section_l + " " + sub_l
         }
-        None => in_section = sec_content == section
+        None => in_section = sec_content_l == section_l
       }
       if in_section {
         section_end = i
@@ -440,7 +544,7 @@ fn set_config(
             String::unsafe_substring(trimmed, start=0, end=idx),
             " \t",
           )
-          if key_part == name {
+          if key_part.to_lower() == name_l {
             result.push("\t" + name + " = " + encoded_value)
             found = true
             continue
@@ -448,7 +552,9 @@ fn set_config(
         }
         None => ()
       }
-      section_end = i
+      if trimmed.length() > 0 {
+        section_end = i
+      }
     }
     result.push(line)
   }
@@ -463,14 +569,17 @@ fn set_config(
           found = true
         }
       }
-      wfs.write_string(config_path, new_result.join("\n"))
+      wfs.write_string(
+        config_path,
+        ensure_trailing_newline(new_result.join("\n")),
+      )
       return
     }
     // Add new section at end
     result.push(section_header)
     result.push("\t" + name + " = " + encoded_value)
   }
-  wfs.write_string(config_path, result.join("\n"))
+  wfs.write_string(config_path, ensure_trailing_newline(result.join("\n")))
 }
 
 ///|
@@ -502,10 +611,16 @@ fn unset_config(
     }
     (parts[0], Some(sub.join(".")), parts[parts.length() - 1])
   }
+  let section_l = section.to_lower()
+  let subsection_l = subsection.map(sub => sub.to_lower())
+  let name_l = name.to_lower()
   let content = decode_bytes(rfs.read_file(config_path))
   let lines : Array[String] = []
   for line_view in content.split("\n") {
     lines.push(line_view.to_string())
+  }
+  if lines.length() > 0 && lines[lines.length() - 1] == "" {
+    ignore(lines.pop())
   }
   let mut in_section = false
   let mut removed = false
@@ -518,13 +633,15 @@ fn unset_config(
         start=1,
         end=trimmed.length() - 1,
       )
+      let sec_content_l = sec_content.to_lower()
       match subsection {
-        Some(sub) => {
-          let expected = section + " \"" + sub + "\""
-          in_section = sec_content == expected ||
-            sec_content == section + " " + sub
+        Some(_) => {
+          let sub_l = subsection_l.unwrap_or("")
+          let expected = section_l + " \"" + sub_l + "\""
+          in_section = sec_content_l == expected ||
+            sec_content_l == section_l + " " + sub_l
         }
-        None => in_section = sec_content == section
+        None => in_section = sec_content_l == section_l
       }
       result.push(line)
       continue
@@ -537,7 +654,7 @@ fn unset_config(
             String::unsafe_substring(trimmed, start=0, end=idx),
             " \t",
           )
-          if key_part == name {
+          if key_part.to_lower() == name_l {
             let value_part = trim_chars(
               String::unsafe_substring(
                 trimmed,
@@ -561,7 +678,7 @@ fn unset_config(
     }
     result.push(line)
   }
-  wfs.write_string(config_path, result.join("\n"))
+  wfs.write_string(config_path, ensure_trailing_newline(result.join("\n")))
 }
 
 ///|
@@ -591,10 +708,15 @@ fn remove_config_section_file(
     }
     (parts[0], Some(sub.join(".")))
   }
+  let section_l = section.to_lower()
+  let subsection_l = subsection.map(sub => sub.to_lower())
   let content = decode_bytes(rfs.read_file(config_path))
   let lines : Array[String] = []
   for line_view in content.split("\n") {
     lines.push(line_view.to_string())
+  }
+  if lines.length() > 0 && lines[lines.length() - 1] == "" {
+    ignore(lines.pop())
   }
   let mut in_section = false
   let result : Array[String] = []
@@ -606,12 +728,14 @@ fn remove_config_section_file(
         start=1,
         end=trimmed.length() - 1,
       )
+      let sec_content_l = sec_content.to_lower()
       let matched = match subsection {
-        Some(sub) => {
-          let expected = section + " \"" + sub + "\""
-          sec_content == expected || sec_content == section + " " + sub
+        Some(_) => {
+          let sub_l = subsection_l.unwrap_or("")
+          let expected = section_l + " \"" + sub_l + "\""
+          sec_content_l == expected || sec_content_l == section_l + " " + sub_l
         }
-        None => sec_content == section
+        None => sec_content_l == section_l
       }
       in_section = matched
       if matched {
@@ -625,7 +749,16 @@ fn remove_config_section_file(
     }
     result.push(line)
   }
-  wfs.write_string(config_path, result.join("\n"))
+  wfs.write_string(config_path, ensure_trailing_newline(result.join("\n")))
+}
+
+///|
+fn ensure_trailing_newline(content : String) -> String {
+  if content.length() == 0 || content.has_suffix("\n") {
+    content
+  } else {
+    content + "\n"
+  }
 }
 
 ///|

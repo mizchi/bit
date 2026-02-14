@@ -581,6 +581,14 @@ fn cleanup_temp_files(paths : Array[String]) -> Unit {
 }
 
 ///|
+fn resolve_process_cwd() -> String? {
+  match @sys.get_env_var("GIT_SHIM_CWD") {
+    Some(dir) => Some(dir)
+    None => @sys.get_env_var("GIT_SHIM_PWD")
+  }
+}
+
+///|
 fn maybe_trace_packfile(pack : Bytes) -> Unit {
   match @sys.get_env_var("GIT_TRACE_PACKFILE") {
     Some(path) => ignore(@fs.write_bytes_to_file(path, pack) catch { _ => () })
@@ -615,8 +623,9 @@ async fn run_process_with_files(
   let stdin = @process.redirect_from_file(stdin_path) catch {
     e => raise @git.GitError::IoError("process stdin failed: \{e}")
   }
-  let code = match spec.extra_env {
-    None =>
+  let run_cwd = resolve_process_cwd()
+  let code = match (spec.extra_env, run_cwd) {
+    (None, None) =>
       @process.run(
         spec.cmd,
         spec.args,
@@ -630,7 +639,7 @@ async fn run_process_with_files(
           raise @git.GitError::IoError("process failed: \{e}")
         }
       }
-    Some(env) =>
+    (Some(env), None) =>
       @process.run(
         spec.cmd,
         spec.args,
@@ -639,6 +648,37 @@ async fn run_process_with_files(
         stdin~,
         stdout~,
         stderr~,
+      ) catch {
+        e => {
+          cleanup_temp_files(cleanup_paths)
+          raise @git.GitError::IoError("process failed: \{e}")
+        }
+      }
+    (None, Some(cwd)) =>
+      @process.run(
+        spec.cmd,
+        spec.args,
+        inherit_env=true,
+        stdin~,
+        stdout~,
+        stderr~,
+        cwd~,
+      ) catch {
+        e => {
+          cleanup_temp_files(cleanup_paths)
+          raise @git.GitError::IoError("process failed: \{e}")
+        }
+      }
+    (Some(env), Some(cwd)) =>
+      @process.run(
+        spec.cmd,
+        spec.args,
+        extra_env=env,
+        inherit_env=true,
+        stdin~,
+        stdout~,
+        stderr~,
+        cwd~,
       ) catch {
         e => {
           cleanup_temp_files(cleanup_paths)

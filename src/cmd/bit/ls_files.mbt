@@ -9,6 +9,7 @@ async fn handle_ls_files(args : Array[String]) -> Unit raise Error {
   let mut show_directory = false
   let mut recurse_submodules = false
   let mut use_nul = false
+  let mut error_unmatch = false
   let raw_filters : Array[String] = []
   let mut parse_options = true
   for arg in args {
@@ -24,6 +25,7 @@ async fn handle_ls_files(args : Array[String]) -> Unit raise Error {
         "-d" | "--deleted" => show_deleted = true
         "--directory" => show_directory = true
         "--recurse-submodules" => recurse_submodules = true
+        "--error-unmatch" => error_unmatch = true
         "-z" => use_nul = true
         _ if arg.has_prefix("-") => warn_unimplemented_arg("ls-files", arg)
         _ => raw_filters.push(arg)
@@ -36,6 +38,15 @@ async fn handle_ls_files(args : Array[String]) -> Unit raise Error {
   let cwd_prefix = compute_cwd_prefix(root)
   let filters = normalize_ls_tree_filters(raw_filters, cwd_prefix)
   let entries = @gitlib.read_index_entries(fs, git_dir)
+  if error_unmatch {
+    for filter in filters {
+      if not(ls_files_filter_has_match(filter, entries)) {
+        raise @git.GitError::InvalidObject(
+          "pathspec '\{filter}' did not match any files",
+        )
+      }
+    }
+  }
   if show_others {
     // Build set of tracked paths and their parent directories
     let tracked : Map[String, Bool] = {}
@@ -356,6 +367,19 @@ fn ls_files_matches_filters(path : String, filters : Array[String]) -> Bool {
       return true
     }
     if normalized.has_prefix(filter + "/") {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn ls_files_filter_has_match(
+  filter : String,
+  entries : Array[@gitlib.IndexEntry],
+) -> Bool {
+  for entry in entries {
+    if entry.path == filter || entry.path.has_prefix(filter + "/") {
       return true
     }
   }

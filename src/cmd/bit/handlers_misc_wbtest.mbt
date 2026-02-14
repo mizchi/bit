@@ -87,6 +87,85 @@ async test "config: --global writes to HOME/.gitconfig without delegation" {
 }
 
 ///|
+test "config: get_config_value parses quoted values and inline comments" {
+  let fs = OsFs::new()
+  let root = "/tmp/bit-test-config-parse-" + get_current_timestamp().to_string()
+  fs.mkdir_p(root)
+  let config_path = root + "/config"
+  let content =
+    #|
+    #|[section]
+    #|  sparseAndTailQuoted = "big 	 blue "
+    #|  sparseAndBiggerTailQuoted = "big 	 blue 	 "
+    #|  sparseAndBiggerTailQuotedPlus = "big 	 blue 	 " 	
+    #|  headAndTailQuoted = "	big blue "
+    #|  headAndTailQuotedPlus = "	big blue " 
+    #|  annotated = big blue	# to be discarded
+    #|  annotatedQuoted = "big blue"	# to be discarded
+  fs.write_string(config_path, content)
+  assert_true(
+    get_config_value(fs, config_path, "section.sparseAndTailQuoted") ==
+    Some("big \t blue "),
+  )
+  assert_true(
+    get_config_value(fs, config_path, "section.sparseAndBiggerTailQuoted") ==
+    Some("big \t blue \t "),
+  )
+  assert_true(
+    get_config_value(fs, config_path, "section.sparseAndBiggerTailQuotedPlus") ==
+    Some("big \t blue \t "),
+  )
+  assert_true(
+    get_config_value(fs, config_path, "section.headAndTailQuoted") ==
+    Some("\tbig blue "),
+  )
+  assert_true(
+    get_config_value(fs, config_path, "section.headAndTailQuotedPlus") ==
+    Some("\tbig blue "),
+  )
+  assert_true(
+    get_config_value(fs, config_path, "section.annotated") == Some("big blue"),
+  )
+  assert_true(
+    get_config_value(fs, config_path, "section.annotatedQuoted") ==
+    Some("big blue"),
+  )
+  fs.remove_file(config_path) catch {
+    _ => ()
+  }
+  fs.remove_dir(root) catch {
+    _ => ()
+  }
+}
+
+///|
+test "config: set_config updates section case-insensitively" {
+  let fs = OsFs::new()
+  let root = "/tmp/bit-test-config-case-" + get_current_timestamp().to_string()
+  fs.mkdir_p(root)
+  let config_path = root + "/config"
+  let content =
+    #|
+    #|[section]
+    #|  penguin = little blue
+  fs.write_string(config_path, content)
+  set_config(fs, config_path, "Section.Movie", "BadPhysics", false)
+  set_config(fs, config_path, "SECTION.UPPERCASE", "true", false)
+  let actual = decode_bytes(fs.read_file(config_path))
+  assert_true(actual.contains("[section]"))
+  assert_true(actual.contains("\tMovie = BadPhysics"))
+  assert_true(actual.contains("\tUPPERCASE = true"))
+  assert_false(actual.contains("[Section]"))
+  assert_false(actual.contains("[SECTION]"))
+  fs.remove_file(config_path) catch {
+    _ => ()
+  }
+  fs.remove_dir(root) catch {
+    _ => ()
+  }
+}
+
+///|
 test "diff: cached revision token classifier handles HEAD forms" {
   assert_true(looks_like_cached_diff_revision("HEAD"))
   assert_true(looks_like_cached_diff_revision("@"))
