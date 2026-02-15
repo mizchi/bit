@@ -496,12 +496,52 @@ test_expect_success 'cat-file --batch-all-objects objectsize:disk is explicitly 
     )
 '
 
-test_expect_success 'multi-pack-index write --bitmap is explicitly unsupported if SHIM_REAL_GIT points to false' '
+test_expect_success 'multi-pack-index write --bitmap works for single-pack repo if SHIM_REAL_GIT points to false' '
     git_cmd init repo &&
     (
         cd repo &&
+        echo hello >a.txt &&
+        git_cmd add a.txt &&
+        git_cmd commit -m "first commit" &&
+        git_cmd repack -ad &&
+        SHIM_REAL_GIT=false git_cmd multi-pack-index write --bitmap &&
+        test_file_exists .git/objects/pack/multi-pack-index &&
+        ls .git/objects/pack/multi-pack-index-*.bitmap >/dev/null 2>&1
+    )
+'
+
+test_expect_success 'multi-pack-index write --bitmap is unsupported for multi-pack repo if SHIM_REAL_GIT points to false' '
+    git_cmd init repo &&
+    (
+        cd repo &&
+        echo one >a.txt &&
+        git_cmd add a.txt &&
+        git_cmd commit -m "first commit" &&
+        git_cmd repack -ad &&
+        echo two >b.txt &&
+        git_cmd add b.txt &&
+        git_cmd commit -m "second commit" &&
+        git_cmd repack -d &&
+        test "$(ls .git/objects/pack/pack-*.pack | wc -l)" -ge 2 &&
         SHIM_REAL_GIT=false test_must_fail git_cmd multi-pack-index write --bitmap >out 2>err &&
-        grep -Eiq "standalone|not supported|multi-pack-index|bitmap" err
+        grep -Eiq "single-pack|standalone|bitmap" err
+    )
+'
+
+test_expect_success 'multi-pack-index write --no-bitmap works and cleans stale files if SHIM_REAL_GIT points to false' '
+    git_cmd init repo &&
+    (
+        cd repo &&
+        echo hello >a.txt &&
+        git_cmd add a.txt &&
+        git_cmd commit -m "first commit" &&
+        git_cmd repack -ad &&
+        touch .git/objects/pack/multi-pack-index-deadbeef.bitmap &&
+        touch .git/objects/pack/multi-pack-index-deadbeef.rev &&
+        SHIM_REAL_GIT=false git_cmd multi-pack-index write --no-bitmap &&
+        test_file_exists .git/objects/pack/multi-pack-index &&
+        test_path_is_missing .git/objects/pack/multi-pack-index-deadbeef.bitmap &&
+        test_path_is_missing .git/objects/pack/multi-pack-index-deadbeef.rev
     )
 '
 

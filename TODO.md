@@ -82,6 +82,14 @@
 - [x] `reflog show` の互換修正（`src/cmd/bit/reflog.mbt`）
   - `--no-abbrev-commit` の引数解釈と表示を実装（`t3200` #11 回帰を解消）
 
+## 直近更新（2026-02-15）
+
+- [x] `multi-pack-index write --no-bitmap` を standalone で実行可能に修正
+  - `--no-bitmap` は unsupported 扱いせず、`multi-pack-index-*.bitmap` / `.rev` の stale ファイルを掃除
+  - fallback smoke を追加:
+    `SHIM_REAL_GIT=false` でも `multi-pack-index write --no-bitmap` が成功し、stale bitmap/rev を削除
+    （`t/t0005-fallback.sh`）
+
 ## 次に git 依存をなくす候補（2026-02-14 再優先度）
 
 `moon ide find-references delegate_to_real_git` は 0 件（本体削除済み）。
