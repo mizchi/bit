@@ -747,89 +747,147 @@ fn generate_zsh_completion() -> String {
 }
 
 ///|
+fn completion_help_spec_lookup_key(cmd : String) -> String {
+  match cmd {
+    "show-branch" => "show-branches"
+    _ => cmd
+  }
+}
+
+///|
+fn completion_summary_from_help_specs(cmd : String) -> String? {
+  let key = completion_help_spec_lookup_key(cmd)
+  for spec in show_command_help_specs() {
+    if spec.0 == key {
+      return Some(spec.2)
+    }
+  }
+  None
+}
+
+///|
+fn completion_custom_summary(cmd : String) -> String? {
+  match cmd {
+    "add" => Some("Add file contents to the index")
+    "commit" => Some("Record changes to the repository")
+    "hub" => Some("Manage pull requests and issues")
+    "hq" => Some("ghq-compatible repository management")
+    "init" => Some("Create an empty Git repository")
+    "log" => Some("Show commit logs")
+    "mcp" => Some("Run bit MCP server (stdio)")
+    "repo" => Some("Run regular bit command without workspace translation")
+    "show" => Some("Show various types of objects")
+    "status" => Some("Show the working tree status")
+    "subdir-clone" => Some("Clone subdirectory as independent repository")
+    "worktree" => Some("Manage multiple working trees")
+    "workspace" => Some("Manage hierarchical bit workspace projects")
+    "ws" => Some("Shortcut for workspace")
+    _ => None
+  }
+}
+
+///|
+fn completion_summary(cmd : String) -> String {
+  match completion_summary_from_help_specs(cmd) {
+    Some(summary) => summary
+    None =>
+      match completion_custom_summary(cmd) {
+        Some(summary) => summary
+        None => "No summary available"
+      }
+  }
+}
+
+///|
 fn all_subcommands() -> Array[(String, String)] {
-  [
-    ("add", "Add file contents to the index"),
-    ("am", "Apply patches from a mailbox"),
-    ("apply", "Apply a patch to files and/or to the index"),
-    ("bisect", "Find by binary search the change that introduced a bug"),
-    ("blame", "Show what revision and author last modified each line"),
-    ("branch", "List, create, or delete branches"),
-    ("bundle", "Create, verify, list-heads, and unbundle Git bundles"),
-    ("cat", "Show file contents from a remote repository"),
-    ("cat-file", "Provide content or type info for repository objects"),
-    ("checkout", "Switch branches or restore working tree files"),
-    ("cherry", "Find commits yet to be applied to upstream"),
-    ("cherry-pick", "Apply the changes from existing commits"),
-    ("clean", "Remove untracked files from the working tree"),
-    ("clone", "Clone a repository into a new directory"),
-    ("hub", "Manage pull requests and issues"),
-    ("commit", "Record changes to the repository"),
-    ("completion", "Generate shell completion scripts"),
-    ("config", "Get and set repository options"),
-    ("describe", "Give an object a human readable name based on a ref"),
-    ("diff", "Show changes between commits, commit and working tree, etc"),
-    ("fetch", "Download objects and refs from another repository"),
-    ("format-patch", "Prepare patches for e-mail submission"),
-    ("fsck", "Verify the connectivity and validity of objects"),
-    ("gc", "Cleanup unnecessary files and optimize the local repository"),
-    ("grep", "Print lines matching a pattern"),
-    ("hash-object", "Compute object ID and optionally creates a blob"),
-    ("help", "Show help information"),
-    ("hq", "ghq-compatible repository management"),
-    ("index-pack", "Build pack index file for an existing packed archive"),
-    ("init", "Create an empty Git repository"),
-    ("log", "Show commit logs"),
-    ("ls-files", "Show information about files in the index"),
-    ("ls-tree", "List the contents of a tree object"),
-    ("maintenance", "Run tasks to optimize Git repository data"),
-    ("mcp", "Run bit MCP server (stdio)"),
-    ("merge", "Join two or more development histories together"),
-    ("mktree", "Build a tree-object from ls-tree formatted text"),
-    ("multi-pack-index", "Write and verify multi-pack-indexes"),
-    ("mv", "Move or rename a file, a directory, or a symlink"),
-    ("notes", "Add or inspect object notes"),
-    ("pack-objects", "Create a packed archive of objects"),
-    ("pack-refs", "Pack heads and tags for efficient repository access"),
-    ("prune", "Prune all unreachable objects from the object database"),
-    ("pull", "Fetch from and integrate with another repository"),
-    ("push", "Update remote refs along with associated objects"),
-    ("range-diff", "Compare two commit ranges"),
-    ("read-tree", "Read tree information into the index"),
-    ("repo", "Run regular bit command without workspace translation"),
-    ("rebase", "Reapply commits on top of another base tip"),
-    ("receive-pack", "Receive what is pushed into the repository"),
-    ("reflog", "Manage reflog information"),
-    ("remote", "Manage set of tracked repositories"),
-    ("repack", "Pack unpacked objects in a repository"),
-    ("request-pull", "Generate a summary of pending changes"),
-    ("reset", "Reset current HEAD to the specified state"),
-    ("rev-list", "List commit objects in reverse chronological order"),
-    ("rev-parse", "Parse revision specifications"),
-    ("revert", "Revert some existing commits"),
-    ("rm", "Remove files from the working tree and from the index"),
-    ("send-pack", "Push objects over git protocol to another repository"),
-    ("shortlog", "Summarize git log output"),
-    ("show", "Show various types of objects"),
-    ("show-branch", "Show branches and their commits"),
-    ("show-ref", "List references in a local repository"),
-    ("sparse-checkout", "Initialize and modify the sparse-checkout config"),
-    ("stash", "Stash the changes in a dirty working directory"),
-    ("status", "Show the working tree status"),
-    ("subdir-clone", "Clone subdirectory as independent repository"),
-    ("submodule", "Initialize, update or inspect submodules"),
-    ("switch", "Switch branches"),
-    ("symbolic-ref", "Read, modify and delete symbolic refs"),
-    ("tag", "Create, list, delete tag objects"),
-    ("tree", "List tree entries from a remote repository"),
-    ("unpack-objects", "Unpack objects from a packed archive"),
-    ("update-index", "Register file contents in the index"),
-    ("update-ref", "Update the object name stored in a ref safely"),
-    ("upload-pack", "Send objects packed back to git-fetch-pack"),
-    ("verify-pack", "Validate packed Git archive files"),
-    ("worktree", "Manage multiple working trees"),
-    ("workspace", "Manage hierarchical bit workspace projects"),
-    ("ws", "Shortcut for workspace"),
-    ("write-tree", "Create a tree object from the current index"),
+  let names = [
+    "add",
+    "am",
+    "apply",
+    "bisect",
+    "blame",
+    "branch",
+    "bundle",
+    "cat",
+    "cat-file",
+    "checkout",
+    "cherry",
+    "cherry-pick",
+    "clean",
+    "clone",
+    "hub",
+    "commit",
+    "completion",
+    "config",
+    "describe",
+    "diff",
+    "diff-files",
+    "fetch",
+    "format-patch",
+    "fsck",
+    "gc",
+    "grep",
+    "hash-object",
+    "help",
+    "hq",
+    "index-pack",
+    "init",
+    "log",
+    "ls-files",
+    "ls-tree",
+    "maintenance",
+    "mcp",
+    "merge",
+    "mktree",
+    "multi-pack-index",
+    "mv",
+    "notes",
+    "pack-objects",
+    "pack-refs",
+    "prune",
+    "pull",
+    "push",
+    "range-diff",
+    "read-tree",
+    "repo",
+    "rebase",
+    "receive-pack",
+    "reflog",
+    "remote",
+    "repack",
+    "request-pull",
+    "reset",
+    "rev-list",
+    "rev-parse",
+    "revert",
+    "rm",
+    "send-pack",
+    "shortlog",
+    "show",
+    "show-branch",
+    "show-ref",
+    "sparse-checkout",
+    "stash",
+    "status",
+    "subdir-clone",
+    "submodule",
+    "switch",
+    "symbolic-ref",
+    "tag",
+    "tree",
+    "unpack-objects",
+    "update-index",
+    "update-ref",
+    "upload-pack",
+    "verify-pack",
+    "worktree",
+    "workspace",
+    "ws",
+    "write-tree",
   ]
+  let out = []
+  for cmd in names {
+    out.push((cmd, completion_summary(cmd)))
+  }
+  out
 }

@@ -372,6 +372,25 @@ async test "main: dispatch-only commands have help route" {
 }
 
 ///|
+test "completion: all_subcommands includes diff-files" {
+  let mut found = false
+  for entry in all_subcommands() {
+    if entry.0 == "diff-files" {
+      found = true
+      break
+    }
+  }
+  assert_true(found)
+}
+
+///|
+test "completion: all_subcommands has no missing summary" {
+  for entry in all_subcommands() {
+    assert_true(entry.1 != "No summary available")
+  }
+}
+
+///|
 test "main: normalize_dispatch_command maps ws to workspace" {
   assert_eq(normalize_dispatch_command("ws"), "workspace")
 }
