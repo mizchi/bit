@@ -164,22 +164,43 @@ bit push origin feature
 
 ## Compatibility
 
-- Standalone default path: `bit --no-git-fallback` runs core workflows without real-git delegation.
 - Hash algorithm: SHA-1 only.
 - SHA-256 repositories and `--object-format=sha256` are not supported.
 - Git config: reads global aliases from `~/.gitconfig` (or `GIT_CONFIG_GLOBAL`) only.
 - Shell aliases (prefixed with `!`) are not supported.
 - Intentionally unsupported (for now): `http-push-webdav` and `send-email` paths.
 
-### Standalone Scope (Current)
+### Standalone Test Coverage (Current)
 
-The following workflows are covered in standalone mode (`--no-git-fallback`) and CI smoke tests:
+Standalone coverage is validated with `git_cmd` in `t/test-lib-e2e.sh`, which runs `bit --no-git-fallback ...` (no real-git dependency in these tests).
 
-- `init`, `clone`, `fetch`, `pull`, `push`
-- `add`, `commit`, `checkout`, `branch`, `log`, `tag`
-- plumbing subset used by core flows (`hash-object`, `write-tree`, `update-ref`)
+Current standalone integration coverage (`t/t0001-*.sh` to `t/t0021-*.sh`) includes:
 
-Advanced paths are intentionally rejected with explicit "standalone mode" errors (for example: sha256 compat object format, reftable-only update-ref path, advanced pack/midx flags).
+- repository lifecycle and core porcelain: `init`, `status`, `add`, `commit`, `branch`, `checkout`/`switch`, `reset`, `log`, `tag`
+- transport-style workflows in standalone mode: `clone`, `fetch`, `pull`, `push`, `bundle`
+- plumbing used by normal flows: `hash-object`, `cat-file`, `ls-files`, `ls-tree`, `write-tree`, `update-ref`, `fsck`
+- feature flows: `hub`, `rebase-ai`, `mcp`, `hq`
+
+Representative files: `t/t0001-init.sh`, `t/t0003-plumbing.sh`, `t/t0005-fallback.sh`, `t/t0018-commit-workflow.sh`, `t/t0019-clone-local.sh`, `t/t0020-push-fetch-pull.sh`, `t/t0021-hq-get.sh`.
+
+### Explicitly Unsupported In Standalone Mode
+
+The following are intentionally rejected with explicit standalone-mode errors (covered by `t/t0005-fallback.sh` and command-level checks):
+
+- signed commit modes (`commit -S`, `commit --gpg-sign`)
+- interactive rebase (`rebase -i`)
+- reftable-specific paths (`clone --ref-format=reftable`, `update-ref` on reftable repo)
+- cloning from local bundle file (`clone <bundle-file>`)
+- SHA-256 object-format compatibility paths (`hash-object -w` with `compatObjectFormat=sha256`, `write-tree` on non-sha1 repo)
+- `cat-file --batch-all-objects` with `%(objectsize:disk)`
+- unsupported option sets for `index-pack` and `pack-objects`
+
+### Where Git Fallback Exists
+
+- Main `bit` command dispatch in `src/cmd/bit/main.mbt` does not auto-delegate unknown commands to system git.
+- Git fallback/delegation is implemented in the shim layer `tools/git-shim/bin/git`.
+  - The shim delegates to `SHIM_REAL_GIT` by default.
+  - CI `git-compat` (`.github/workflows/ci.yml`) runs upstream `git/t` via this shim (`SHIM_REAL_GIT`, `SHIM_MOON`, `SHIM_CMDS`).
 
 ### Storage Abstraction For Agents
 
