@@ -339,3 +339,59 @@ test "storage runtime: status porcelain branch line" {
     "BIT_STORAGE_RUNTIME_QUIET", prev_quiet,
   )
 }
+
+///|
+test "storage runtime: status porcelain lines report staged add modify delete" {
+  let fs = @git.TestFs::new()
+  let root = "/repo-storage-runtime-status-staged"
+  let prev_quiet = setup_storage_runtime_quiet_for_wbtest()
+  let (
+    prev_author_name,
+    prev_author_email,
+    prev_committer_name,
+    prev_committer_email,
+  ) = setup_identity_for_storage_runtime_wbtest()
+  run_storage_command(fs, fs, root, "init", ["-q"]) catch {
+    err => fail("init failed: \{err}")
+  }
+  fs.write_string(root + "/a.txt", "base\n")
+  fs.write_string(root + "/c.txt", "remove\n")
+  run_storage_command(fs, fs, root, "add", ["a.txt", "c.txt"]) catch {
+    err => fail("add failed: \{err}")
+  }
+  run_storage_command(fs, fs, root, "commit", ["-q", "-m", "base"]) catch {
+    err => fail("commit failed: \{err}")
+  }
+
+  fs.write_string(root + "/a.txt", "changed\n")
+  run_storage_command(fs, fs, root, "add", ["a.txt"]) catch {
+    err => fail("stage modified failed: \{err}")
+  }
+  fs.write_string(root + "/b.txt", "new\n")
+  run_storage_command(fs, fs, root, "add", ["b.txt"]) catch {
+    err => fail("stage added failed: \{err}")
+  }
+  fs.remove_file(root + "/c.txt") catch {
+    err => fail("remove file failed: \{err}")
+  }
+  run_storage_command(fs, fs, root, "add", ["c.txt"]) catch {
+    err => fail("stage deleted failed: \{err}")
+  }
+
+  let lines = storage_status_porcelain_lines(fs, root, false) catch {
+    err => {
+      fail("status lines failed: \{err}")
+      []
+    }
+  }
+  assert_true(storage_runtime_wbtest_has_line(lines, "M  a.txt"))
+  assert_true(storage_runtime_wbtest_has_line(lines, "A  b.txt"))
+  assert_true(storage_runtime_wbtest_has_line(lines, "D  c.txt"))
+
+  restore_identity_for_storage_runtime_wbtest(
+    prev_author_name, prev_author_email, prev_committer_name, prev_committer_email,
+  )
+  restore_env_var_for_storage_runtime_wbtest(
+    "BIT_STORAGE_RUNTIME_QUIET", prev_quiet,
+  )
+}

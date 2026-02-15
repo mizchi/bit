@@ -630,6 +630,132 @@ priv struct StorageStatusSnapshot {
 }
 
 ///|
+fn storage_parse_octal_mode(s : String) -> Int {
+  let mut result = 0
+  for c in s {
+    if c < '0' || c > '7' {
+      continue
+    }
+    result = result * 8 + (c.to_int() - '0'.to_int())
+  }
+  result
+}
+
+///|
+fn storage_is_tree_mode(mode : String) -> Bool {
+  mode == "040000" || mode == "40000"
+}
+
+///|
+fn storage_resolve_common_git_dir(
+  rfs : &@git.RepoFileSystem,
+  git_dir : String,
+) -> String {
+  let commondir_path = git_dir + "/commondir"
+  if not(rfs.is_file(commondir_path)) {
+    return git_dir
+  }
+  let raw = storage_decode_bytes(
+    (rfs.read_file(commondir_path) catch { _ => Bytes::default() }),
+  )
+  let rel = storage_trim_string(raw)
+  if rel.length() == 0 {
+    return git_dir
+  }
+  if rel.has_prefix("/") {
+    storage_normalize_path(rel)
+  } else {
+    storage_normalize_path(git_dir + "/" + rel)
+  }
+}
+
+///|
+fn storage_collect_staged_changes_db(
+  db : @gitlib.ObjectDb,
+  rfs : &@git.RepoFileSystem,
+  tree_id : @git.ObjectId,
+  prefix : String,
+  index_map : Map[String, @gitlib.IndexEntry],
+  staged_modified : Array[String],
+  staged_deleted : Array[String],
+) -> Unit raise Error {
+  let tree_obj = db.get(rfs, tree_id)
+  match tree_obj {
+    None => raise @git.GitError::InvalidObject("Missing tree object")
+    Some(obj) => {
+      if obj.obj_type != @git.ObjectType::Tree {
+        raise @git.GitError::InvalidObject("Object is not a tree")
+      }
+      let entries = @git.parse_tree(obj.data)
+      for entry in entries {
+        let path = if prefix.length() == 0 {
+          entry.name
+        } else {
+          prefix + "/" + entry.name
+        }
+        if storage_is_tree_mode(entry.mode) {
+          storage_collect_staged_changes_db(
+            db,
+            rfs,
+            entry.id,
+            path,
+            index_map,
+            staged_modified,
+            staged_deleted,
+          )
+        } else {
+          let mode = storage_parse_octal_mode(entry.mode)
+          match index_map.get(path) {
+            Some(index_entry) => {
+              if index_entry.id != entry.id || index_entry.mode != mode {
+                staged_modified.push(path)
+              }
+              index_map.remove(path)
+            }
+            None => staged_deleted.push(path)
+          }
+        }
+      }
+    }
+  }
+}
+
+///|
+fn storage_collect_staged_changes_from_head(
+  rfs : &@git.RepoFileSystem,
+  git_dir : String,
+  index_map : Map[String, @gitlib.IndexEntry],
+  staged_modified : Array[String],
+  staged_deleted : Array[String],
+) -> Unit raise Error {
+  match @gitlib.resolve_head_commit(rfs, git_dir) {
+    None => ()
+    Some(commit_id) => {
+      let common_git_dir = storage_resolve_common_git_dir(rfs, git_dir)
+      let db = @gitlib.ObjectDb::load_lazy(rfs, common_git_dir)
+      match db.get(rfs, commit_id) {
+        None => ()
+        Some(obj) => {
+          if obj.obj_type != @git.ObjectType::Commit {
+            raise @git.GitError::InvalidObject("Object is not a commit")
+          }
+          let info = @git.parse_commit(obj.data)
+          storage_collect_staged_changes_db(
+            db,
+            rfs,
+            info.tree,
+            "",
+            index_map,
+            staged_modified,
+            staged_deleted,
+          )
+        }
+      }
+    }
+  }
+}
+
+///|
 fn storage_collect_status_snapshot(
   rfs : &@git.RepoFileSystem,
   root : String,
@@ -671,13 +797,34 @@ fn storage_collect_status_snapshot(
       unstaged_deleted.push(entry.path)
     }
   }
+  let staged_index_map : Map[String, @gitlib.IndexEntry] = {}
+  for entry in entries {
+    staged_index_map[entry.path] = entry
+  }
+  let staged_modified : Array[String] = []
+  let staged_deleted : Array[String] = []
+  storage_collect_staged_changes_from_head(
+    rfs,
+    git_dir,
+    staged_index_map,
+    staged_modified,
+    staged_deleted,
+  )
+  let staged_added : Array[String] = []
+  for item in staged_index_map.to_array() {
+    let (path, _) = item
+    staged_added.push(path)
+  }
+  staged_added.sort()
+  staged_modified.sort()
+  staged_deleted.sort()
   unstaged_modified.sort()
   unstaged_deleted.sort()
   untracked.sort()
   let snapshot : StorageStatusSnapshot = {
-    staged_added: [],
-    staged_modified: [],
-    staged_deleted: [],
+    staged_added,
+    staged_modified,
+    staged_deleted,
     unstaged_modified,
     unstaged_deleted,
     untracked,
